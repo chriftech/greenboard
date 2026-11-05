@@ -26,7 +26,15 @@ export type Task = {
   done: boolean;
   createdAt: number;
   doneAt?: number;
+  /** Rich-text description as HTML produced by the task editor. */
+  description?: string;
+  /** Plain-text copy of the description, for previews and search. */
+  descriptionText?: string;
 };
+
+export type TaskPatch = Partial<
+  Pick<Task, "title" | "tag" | "due" | "description" | "descriptionText">
+>;
 
 const KEY = "greenboard.tasks.v1";
 const TAG_IDS = new Set<string>(TAGS.map((t) => t.id));
@@ -43,7 +51,9 @@ function isTask(v: unknown): v is Task {
     typeof t.done === "boolean" &&
     typeof t.createdAt === "number" &&
     typeof t.tag === "string" &&
-    TAG_IDS.has(t.tag)
+    TAG_IDS.has(t.tag) &&
+    (t.description === undefined || typeof t.description === "string") &&
+    (t.descriptionText === undefined || typeof t.descriptionText === "string")
   );
 }
 
@@ -123,6 +133,15 @@ export const taskActions = {
     const clean = title.trim();
     if (!clean) return;
     save(getTasks().map((t) => (t.id === id ? { ...t, title: clean } : t)));
+  },
+  update(id: string, patch: TaskPatch) {
+    const next = { ...patch };
+    if (next.title !== undefined) {
+      next.title = next.title.trim();
+      if (!next.title) delete next.title;
+    }
+    if (next.due === "") next.due = undefined;
+    save(getTasks().map((t) => (t.id === id ? { ...t, ...next } : t)));
   },
   remove(id: string) {
     save(getTasks().filter((t) => t.id !== id));

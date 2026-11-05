@@ -2,9 +2,19 @@
 
 import Link from "next/link";
 import { useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
-import { ArrowLeft, CalendarClock, ClipboardCheck, PartyPopper, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarClock,
+  ChevronRight,
+  ClipboardCheck,
+  NotebookPen,
+  PartyPopper,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { Logo } from "@/components/landing/logo";
 import { CheckBox, ConfettiBurst } from "@/components/landing/check-box";
+import { TaskDetails } from "./task-details";
 import {
   TAGS,
   getServerTasks,
@@ -28,8 +38,17 @@ const tagOf = (id: TagId) => TAGS.find((t) => t.id === id) ?? TAGS[0];
 export function BoardApp() {
   const tasks = useSyncExternalStore(subscribeTasks, getTasks, getServerTasks);
   const [filter, setFilter] = useState<Filter>("all");
+  // Keep the selected id after closing so the panel can animate out with its content.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const loaded = tasks !== null;
+  const selected = tasks?.find((t) => t.id === selectedId) ?? null;
+
+  function openDetails(id: string) {
+    setSelectedId(id);
+    setDetailsOpen(true);
+  }
   const all = tasks ?? [];
   const done = all.filter((t) => t.done);
   const todo = all.filter((t) => !t.done);
@@ -131,12 +150,14 @@ export function BoardApp() {
           ) : (
             <ul className="space-y-3">
               {visible.map((t) => (
-                <TaskRow key={t.id} task={t} />
+                <TaskRow key={t.id} task={t} onOpen={() => openDetails(t.id)} />
               ))}
             </ul>
           )}
         </section>
       </main>
+
+      <TaskDetails task={selected} open={detailsOpen} onOpenChange={setDetailsOpen} />
     </div>
   );
 }
@@ -317,13 +338,12 @@ function dueBadge(due: string) {
   return { label, cls: "bg-forest/5 text-forest/70" };
 }
 
-function TaskRow({ task }: { task: Task }) {
+function TaskRow({ task, onOpen }: { task: Task; onOpen: () => void }) {
   const [burst, setBurst] = useState(0);
   const [leaving, setLeaving] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(task.title);
   const tag = tagOf(task.tag);
   const badge = task.due && !task.done ? dueBadge(task.due) : null;
+  const preview = task.descriptionText?.replace(/\s+/g, " ").trim();
 
   function toggle() {
     if (!task.done) setBurst((b) => b + 1);
@@ -333,12 +353,6 @@ function TaskRow({ task }: { task: Task }) {
   function remove() {
     setLeaving(true);
     setTimeout(() => taskActions.remove(task.id), 220);
-  }
-
-  function commitEdit() {
-    setEditing(false);
-    if (draft.trim() && draft.trim() !== task.title) taskActions.rename(task.id, draft);
-    else setDraft(task.title);
   }
 
   return (
@@ -359,56 +373,55 @@ function TaskRow({ task }: { task: Task }) {
         {burst > 0 && task.done && <ConfettiBurst key={burst} />}
       </button>
 
-      <div className="min-w-0 flex-1">
-        {editing ? (
-          <input
-            autoFocus
-            value={draft}
-            maxLength={140}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commitEdit}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commitEdit();
-              if (e.key === "Escape") {
-                setDraft(task.title);
-                setEditing(false);
-              }
-            }}
-            aria-label="Edit task"
-            className="w-full rounded-lg bg-cream px-2 py-1 text-base font-medium focus:outline-2 focus:outline-leaf"
-          />
-        ) : (
-          <p
-            onDoubleClick={() => !task.done && setEditing(true)}
-            title={task.done ? undefined : "Double-click to edit"}
-            className="truncate"
-          >
-            <span className="gb-strike text-base font-medium" data-done={task.done || undefined}>
-              {task.title}
-            </span>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Open details for "${task.title}"`}
+        className="min-w-0 flex-1 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-leaf"
+      >
+        <p className="truncate">
+          <span className="gb-strike text-base font-medium" data-done={task.done || undefined}>
+            {task.title}
+          </span>
+        </p>
+        {preview && (
+          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-forest/55">
+            <NotebookPen className="size-3.5 shrink-0 text-leaf" aria-hidden />
+            <span className="truncate">{preview}</span>
           </p>
         )}
-        <div className="mt-1 flex items-center gap-2">
+        <span className="mt-1 flex items-center gap-2">
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${tag.chip}`}>{tag.label}</span>
           {badge && (
             <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${badge.cls}`}>
               {badge.label}
             </span>
           )}
-        </div>
-      </div>
+          {!preview && (
+            <span className="text-[11px] font-medium text-forest/35 opacity-0 transition-opacity group-hover:opacity-100">
+              + Add details
+            </span>
+          )}
+        </span>
+      </button>
+
+      <ChevronRight
+        aria-hidden
+        className="hidden size-4 shrink-0 text-forest/25 transition-transform group-hover:translate-x-0.5 group-hover:text-forest/50 sm:block"
+      />
 
       <button
         type="button"
         onClick={remove}
         aria-label={`Delete "${task.title}"`}
-        className="grid size-9 shrink-0 place-items-center rounded-xl text-forest/40 transition-all hover:bg-coral/10 hover:text-coral focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+        className="grid size-9 shrink-0 place-items-center rounded-xl text-forest/35 transition-all group-hover:text-forest/60 hover:bg-coral/10 hover:text-coral! focus-visible:text-coral"
       >
         <Trash2 className="size-4" />
       </button>
     </li>
   );
 }
+
 
 /* ───────────────────────── Empty states ───────────────────────── */
 

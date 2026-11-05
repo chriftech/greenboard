@@ -336,27 +336,8 @@ function Composer() {
       className="gb-rise mt-6 rounded-[28px] border border-forest/10 bg-white p-4 shadow-[0_20px_60px_-30px_rgb(7_53_42/0.4)] sm:p-5"
       style={{ animationDelay: "120ms" }}
     >
-      <label htmlFor="new-task" className="sr-only">
-        New task
-      </label>
-      <div className="flex items-center gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-zest">
-          <Plus className="size-5" strokeWidth={3} />
-        </span>
-        <input
-          ref={inputRef}
-          id="new-task"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="What needs doing?"
-          autoComplete="off"
-          autoFocus
-          maxLength={140}
-          className="min-w-0 flex-1 bg-transparent font-display text-xl font-semibold placeholder:text-forest/30 focus:outline-none"
-        />
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-forest/5 pt-4">
+      {/* Tag first, so it's chosen before typing the task. */}
+      <div className="border-b border-forest/5 pb-4">
         <div role="radiogroup" aria-label="Tag" className="flex flex-wrap gap-1.5">
           {TAGS.map((t) => (
             <button
@@ -376,12 +357,34 @@ function Composer() {
             </button>
           ))}
         </div>
+      </div>
 
+      <label htmlFor="new-task" className="sr-only">
+        New task
+      </label>
+      <div className="mt-4 flex items-center gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-zest">
+          <Plus className="size-5" strokeWidth={3} />
+        </span>
+        <input
+          ref={inputRef}
+          id="new-task"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="What needs doing?"
+          autoComplete="off"
+          autoFocus
+          maxLength={140}
+          className="min-w-0 flex-1 bg-transparent font-display text-xl font-semibold placeholder:text-forest/30 focus:outline-none"
+        />
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-forest/5 pt-4">
         <button
           type="button"
           onClick={() => (scheduling ? closeSchedule() : setScheduling(true))}
           aria-expanded={scheduling}
-          className={`ml-auto inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
             scheduling
               ? "border-forest bg-forest text-zest"
               : "border-forest/10 text-forest/60 hover:border-forest/25 hover:text-forest"

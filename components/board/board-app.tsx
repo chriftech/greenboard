@@ -15,6 +15,7 @@ import {
 import { Logo } from "@/components/landing/logo";
 import { CheckBox, ConfettiBurst } from "@/components/landing/check-box";
 import { TaskDetails } from "./task-details";
+import { ConfirmDialog } from "./confirm-dialog";
 import {
   TAGS,
   getServerTasks,
@@ -27,6 +28,7 @@ import {
 } from "@/lib/tasks";
 
 type Filter = "all" | "todo" | "done";
+type PendingDelete = { kind: "task"; id: string; title: string } | { kind: "done"; count: number };
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "todo", label: "To do" },
@@ -48,6 +50,32 @@ export function BoardApp() {
   function openDetails(id: string) {
     setSelectedId(id);
     setDetailsOpen(true);
+  }
+
+  // Every delete goes through one confirmation dialog. `pending` is kept after
+  // closing so the dialog's text doesn't change while it animates out.
+  const [pending, setPending] = useState<PendingDelete | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  function askDelete(next: PendingDelete) {
+    setPending(next);
+    setConfirmOpen(true);
+  }
+
+  function confirmDelete() {
+    if (!pending) return;
+    if (pending.kind === "done") {
+      taskActions.clearDone();
+      return;
+    }
+    const id = pending.id;
+    if (selectedId === id) setDetailsOpen(false);
+    setRemovingId(id); // play the row's exit animation first
+    setTimeout(() => {
+      taskActions.remove(id);
+      setRemovingId(null);
+    }, 250);
   }
   const all = tasks ?? [];
   const done = all.filter((t) => t.done);
@@ -129,7 +157,7 @@ export function BoardApp() {
           {done.length > 0 && (
             <button
               type="button"
-              onClick={() => taskActions.clearDone()}
+              onClick={() => askDelete({ kind: "done", count: done.length })}
               className="text-sm font-medium text-forest/55 underline-offset-4 transition-colors hover:text-coral hover:underline"
             >
               Clear completed ({done.length})
@@ -150,14 +178,47 @@ export function BoardApp() {
           ) : (
             <ul className="space-y-3">
               {visible.map((t) => (
-                <TaskRow key={t.id} task={t} onOpen={() => openDetails(t.id)} />
+                <TaskRow
+                  key={t.id}
+                  task={t}
+                  leaving={removingId === t.id}
+                  onOpen={() => openDetails(t.id)}
+                  onDelete={() => askDelete({ kind: "task", id: t.id, title: t.title })}
+                />
               ))}
             </ul>
           )}
         </section>
       </main>
 
-      <TaskDetails task={selected} open={detailsOpen} onOpenChange={setDetailsOpen} />
+      <TaskDetails
+        task={selected}
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        onRequestDelete={(t) => askDelete({ kind: "task", id: t.id, title: t.title })}
+      />
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        onConfirm={confirmDelete}
+        title={
+          pending?.kind === "done"
+            ? `Clear ${pending.count} completed ${pending.count === 1 ? "task" : "tasks"}?`
+            : "Delete this task?"
+        }
+        description={
+          pending?.kind === "done" ? (
+            `${pending.count === 1 ? "It'll" : "They'll"} be removed from your board for good. This can't be undone.`
+          ) : (
+            <>
+              <span className="font-semibold text-forest">&ldquo;{pending?.title}&rdquo;</span> and its
+              description will be removed for good. This can&apos;t be undone.
+            </>
+          )
+        }
+        confirmLabel={pending?.kind === "done" ? "Clear tasks" : "Delete task"}
+      />
     </div>
   );
 }
@@ -338,9 +399,18 @@ function dueBadge(due: string) {
   return { label, cls: "bg-forest/5 text-forest/70" };
 }
 
-function TaskRow({ task, onOpen }: { task: Task; onOpen: () => void }) {
+function TaskRow({
+  task,
+  leaving,
+  onOpen,
+  onDelete,
+}: {
+  task: Task;
+  leaving: boolean;
+  onOpen: () => void;
+  onDelete: () => void;
+}) {
   const [burst, setBurst] = useState(0);
-  const [leaving, setLeaving] = useState(false);
   const tag = tagOf(task.tag);
   const badge = task.due && !task.done ? dueBadge(task.due) : null;
   const preview = task.descriptionText?.replace(/\s+/g, " ").trim();
@@ -348,11 +418,6 @@ function TaskRow({ task, onOpen }: { task: Task; onOpen: () => void }) {
   function toggle() {
     if (!task.done) setBurst((b) => b + 1);
     taskActions.toggle(task.id);
-  }
-
-  function remove() {
-    setLeaving(true);
-    setTimeout(() => taskActions.remove(task.id), 220);
   }
 
   return (
@@ -412,7 +477,7 @@ function TaskRow({ task, onOpen }: { task: Task; onOpen: () => void }) {
 
       <button
         type="button"
-        onClick={remove}
+        onClick={onDelete}
         aria-label={`Delete "${task.title}"`}
         className="grid size-9 shrink-0 place-items-center rounded-xl text-forest/35 transition-all group-hover:text-forest/60 hover:bg-coral/10 hover:text-coral! focus-visible:text-coral"
       >

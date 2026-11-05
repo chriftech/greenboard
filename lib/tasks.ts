@@ -35,6 +35,8 @@ export type Task = {
   createdAt: number;
   /** Position on the board; lower comes first. Changed by drag and drop. */
   order: number;
+  /** When the task was moved to Trash (ms). Trashed tasks are hidden from the board. */
+  deletedAt?: number;
   doneAt?: number;
   /** Rich-text description as HTML produced by the task editor. */
   description?: string;
@@ -61,6 +63,19 @@ export function isValidSchedule(s: Partial<Schedule> | null | undefined): s is S
 }
 
 const KEY = "greenboard.tasks.v1";
+
+/** How long a task stays in Trash before it's deleted for good. */
+export const TRASH_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const TRASH_MS = TRASH_DAYS * DAY_MS;
+
+const isExpired = (t: Task, now: number) => t.deletedAt !== undefined && now - t.deletedAt >= TRASH_MS;
+
+/** Whole days until a trashed task is deleted for good (at least 0). */
+export function trashDaysLeft(t: Task, now = Date.now()) {
+  if (t.deletedAt === undefined) return TRASH_DAYS;
+  return Math.max(0, Math.ceil((t.deletedAt + TRASH_MS - now) / DAY_MS));
+}
 const TAG_IDS = new Set<string>(TAGS.map((t) => t.id));
 
 let cache: Task[] | null = null;
@@ -75,6 +90,7 @@ function isTask(v: unknown): v is Task {
     typeof t.done === "boolean" &&
     typeof t.createdAt === "number" &&
     (t.order === undefined || typeof t.order === "number") &&
+    (t.deletedAt === undefined || typeof t.deletedAt === "number") &&
     typeof t.tag === "string" &&
     TAG_IDS.has(t.tag) &&
     (t.description === undefined || typeof t.description === "string") &&
@@ -101,7 +117,18 @@ function load(): Task[] {
   try {
     const raw = window.localStorage.getItem(KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter(isTask).map(normalize) : [];
+    const tasks = Array.isArray(parsed) ? parsed.filter(isTask).map(normalize) : [];
+    // Permanently delete anything that has been in Trash for 30 days or more.
+    const now = Date.now();
+    const kept = tasks.filter((t) => !isExpired(t, now));
+    if (kept.length !== tasks.length) {
+      try {
+        window.localStorage.setItem(KEY, JSON.stringify(kept));
+      } catch {
+        // Ignore: they'll be purged on the next load instead.
+      }
+    }
+    return kept;
   } catch {
     return [];
   }
@@ -212,11 +239,40 @@ export const taskActions = {
     const next = new Map(ids.map((id, i) => [id, slots[i]]));
     save(tasks.map((t) => (next.has(t.id) ? { ...t, order: next.get(t.id)! } : t)));
   },
-  remove(id: string) {
+  /** Move a task to Trash. It can be restored for 30 days. */
+  trash(id: string) {
+    const now = Date.now();
+    save(getTasks().map((t) => (t.id === id ? { ...t, deletedAt: now } : t)));
+  },
+  /** Move every completed task (not already in Trash) to Trash. */
+  trashDone() {
+    const now = Date.now();
+    save(getTasks().map((t) => (t.done && t.deletedAt === undefined ? { ...t, deletedAt: now } : t)));
+  },
+  /** Bring a task back from Trash to the board. */
+  restore(id: string) {
+    save(
+      getTasks().map((t) => {
+        if (t.id !== id) return t;
+        const { deletedAt: _d, ...rest } = t;
+        void _d;
+        return rest;
+      }),
+    );
+  },
+  /** Delete a task for good. Only offered for tasks already in Trash. */
+  deleteForever(id: string) {
     save(getTasks().filter((t) => t.id !== id));
   },
-  clearDone() {
-    save(getTasks().filter((t) => !t.done));
+  /** Delete everything in Trash for good. */
+  emptyTrash() {
+    save(getTasks().filter((t) => t.deletedAt === undefined));
+  },
+  /** Delete trashed tasks whose 30 days are up (also done on every page load). */
+  purgeExpired() {
+    const now = Date.now();
+    const tasks = getTasks();
+    if (tasks.some((t) => isExpired(t, now))) save(tasks.filter((t) => !isExpired(t, now)));
   },
 };
 

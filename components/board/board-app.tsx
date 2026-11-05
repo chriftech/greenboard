@@ -17,6 +17,7 @@ import { CheckBox, ConfettiBurst } from "@/components/landing/check-box";
 import { TaskDetails } from "./task-details";
 import { ConfirmDialog } from "./confirm-dialog";
 import {
+  DEFAULT_TAG,
   TAGS,
   getServerTasks,
   getTasks,
@@ -35,7 +36,7 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "done", label: "Done" },
 ];
 
-const tagOf = (id: TagId) => TAGS.find((t) => t.id === id) ?? TAGS[0];
+const tagOf = (id: TagId) => TAGS.find((t) => t.id === id) ?? TAGS.find((t) => t.id === DEFAULT_TAG)!;
 
 export function BoardApp() {
   const tasks = useSyncExternalStore(subscribeTasks, getTasks, getServerTasks);
@@ -299,7 +300,7 @@ function Summary({ loaded, total, doneCount }: { loaded: boolean; total: number;
 
 function Composer({ minDue }: { minDue?: string }) {
   const [title, setTitle] = useState("");
-  const [tag, setTag] = useState<TagId>("work");
+  const [tag, setTag] = useState<TagId>(DEFAULT_TAG);
   const [due, setDue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 

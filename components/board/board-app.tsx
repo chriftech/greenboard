@@ -46,6 +46,7 @@ import { CheckBox, ConfettiBurst } from "@/components/landing/check-box";
 import { TaskDetails } from "./task-details";
 import { ConfirmDialog } from "./confirm-dialog";
 import { TrashPanel } from "./trash-panel";
+import { Sidebar } from "./sidebar";
 import {
   ScheduleFields,
   draftsToSchedule,
@@ -206,147 +207,152 @@ export function BoardApp() {
   }
 
   return (
-    <div className="relative min-h-full flex-1 overflow-x-clip bg-cream text-forest">
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[520px] overflow-hidden">
-        <div className="gb-grid-bg absolute inset-0" />
-        <div className="gb-blob absolute -left-32 -top-20 size-[420px] rounded-full bg-zest/40 blur-3xl" />
-        <div
-          className="gb-blob absolute -right-24 top-10 size-[360px] rounded-full bg-skyblue/20 blur-3xl"
-          style={{ animationDelay: "-7s" }}
-        />
-      </div>
+    <div className="flex min-h-full flex-1 bg-cream text-forest">
+      <Sidebar />
 
-      <header className="relative mx-auto flex max-w-3xl items-center justify-between px-4 pt-6">
-        <Link href="/" className="flex items-center gap-2">
-          <Logo />
-          <span className="font-display text-xl font-bold tracking-tight">greenboard</span>
-        </Link>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={openTrash}
-            aria-label={`Trash, ${trashed.length} ${trashed.length === 1 ? "task" : "tasks"}`}
-            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-forest/70 transition-colors hover:bg-white hover:text-forest"
-          >
-            <Trash2 className="size-4" />
-            Trash
-            {trashed.length > 0 && (
-              <span className="rounded-full bg-coral px-1.5 text-[11px] font-bold text-white tabular-nums">
-                {trashed.length}
-              </span>
-            )}
-          </button>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-forest/70 transition-colors hover:bg-white hover:text-forest"
-          >
-            <ArrowLeft className="size-4" />
-            Home
-          </Link>
-        </div>
-      </header>
-
-      <main className="relative mx-auto max-w-3xl px-4 pb-24 pt-8">
-        <Summary loaded={loaded} total={all.length} doneCount={done.length} />
-        <Composer />
-
-        {/* Filters */}
-        <div className="mt-10 flex flex-wrap items-center justify-between gap-3">
+      <div className="relative min-w-0 flex-1 overflow-x-clip">
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[520px] overflow-hidden">
+          <div className="gb-grid-bg absolute inset-0" />
+          <div className="gb-blob absolute -left-32 -top-20 size-[420px] rounded-full bg-zest/40 blur-3xl" />
           <div
-            role="tablist"
-            aria-label="Filter tasks"
-            className="relative grid grid-cols-3 rounded-2xl border border-forest/10 bg-white p-1"
-          >
-            <span
-              aria-hidden
-              className="absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-xl bg-forest transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
-              style={{ transform: `translateX(${FILTERS.findIndex((f) => f.id === filter) * 100}%)` }}
-            />
-            {FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                role="tab"
-                aria-selected={filter === f.id}
-                onClick={() => setFilter(f.id)}
-                className={`relative z-10 flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
-                  filter === f.id ? "text-zest" : "text-forest/60 hover:text-forest"
-                }`}
-              >
-                {f.label}
-                <span
-                  className={`rounded-full px-1.5 text-[11px] tabular-nums ${
-                    filter === f.id ? "bg-white/15" : "bg-forest/5"
-                  }`}
-                >
-                  {loaded ? counts[f.id] : "–"}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {done.length > 0 && (
+            className="gb-blob absolute -right-24 top-10 size-[360px] rounded-full bg-skyblue/20 blur-3xl"
+            style={{ animationDelay: "-7s" }}
+          />
+        </div>
+  
+        <header className="relative mx-auto flex max-w-3xl items-center justify-between px-4 pt-6 md:justify-end">
+          {/* The sidebar shows the logo from md up. */}
+          <Link href="/" className="flex items-center gap-2 md:hidden">
+            <Logo />
+            <span className="font-display text-xl font-bold tracking-tight">greenboard</span>
+          </Link>
+          <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => askDelete({ kind: "done", count: done.length })}
-              className="text-sm font-medium text-forest/55 underline-offset-4 transition-colors hover:text-coral hover:underline"
+              onClick={openTrash}
+              aria-label={`Trash, ${trashed.length} ${trashed.length === 1 ? "task" : "tasks"}`}
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-forest/70 transition-colors hover:bg-white hover:text-forest"
             >
-              Clear completed ({done.length})
+              <Trash2 className="size-4" />
+              Trash
+              {trashed.length > 0 && (
+                <span className="rounded-full bg-coral px-1.5 text-[11px] font-bold text-white tabular-nums">
+                  {trashed.length}
+                </span>
+              )}
             </button>
-          )}
-        </div>
-
-        {/* List */}
-        <section className="mt-5" aria-live="polite">
-          {!loaded ? (
-            <ul className="space-y-3" aria-label="Loading tasks">
-              {[0, 1, 2].map((i) => (
-                <li key={i} className="h-[68px] animate-pulse rounded-2xl bg-white/70" />
-              ))}
-            </ul>
-          ) : visibleCount === 0 ? (
-            <EmptyState filter={filter} total={all.length} />
-          ) : (
-            <DndContext
-              id="task-board"
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-              onDragEnd={handleDragEnd}
-              accessibility={{
-                screenReaderInstructions: {
-                  draggable:
-                    "To reorder, press space or enter to pick up the task, use the up and down arrow keys to move it, then space or enter to drop it. Press escape to cancel.",
-                },
-                announcements: {
-                  onDragStart: ({ active }) => `Picked up ${titleOf(active.id)}.`,
-                  onDragOver: ({ active, over }) =>
-                    over ? `${titleOf(active.id)} is over ${titleOf(over.id)}.` : `${titleOf(active.id)} is not over a task.`,
-                  onDragEnd: ({ active, over }) =>
-                    over ? `${titleOf(active.id)} moved to the position of ${titleOf(over.id)}.` : `${titleOf(active.id)} dropped.`,
-                  onDragCancel: ({ active }) => `Moving ${titleOf(active.id)} was cancelled.`,
-                },
-              }}
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-forest/70 transition-colors hover:bg-white hover:text-forest"
             >
-              <ul className="space-y-3">
-                {groups.map((group, i) => (
-                  <SortableContext key={i} items={group.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                    {group.map((t) => (
-                      <TaskRow
-                        key={t.id}
-                        task={t}
-                        leaving={removingId === t.id}
-                        onOpen={() => openDetails(t.id)}
-                        onDelete={() => askDelete({ kind: "task", id: t.id, title: t.title })}
-                      />
-                    ))}
-                  </SortableContext>
+              <ArrowLeft className="size-4" />
+              Home
+            </Link>
+          </div>
+        </header>
+  
+        <main className="relative mx-auto max-w-3xl px-4 pb-24 pt-8">
+          <Summary loaded={loaded} total={all.length} doneCount={done.length} />
+          <Composer />
+  
+          {/* Filters */}
+          <div className="mt-10 flex flex-wrap items-center justify-between gap-3">
+            <div
+              role="tablist"
+              aria-label="Filter tasks"
+              className="relative grid grid-cols-3 rounded-2xl border border-forest/10 bg-white p-1"
+            >
+              <span
+                aria-hidden
+                className="absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-xl bg-forest transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+                style={{ transform: `translateX(${FILTERS.findIndex((f) => f.id === filter) * 100}%)` }}
+              />
+              {FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === f.id}
+                  onClick={() => setFilter(f.id)}
+                  className={`relative z-10 flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+                    filter === f.id ? "text-zest" : "text-forest/60 hover:text-forest"
+                  }`}
+                >
+                  {f.label}
+                  <span
+                    className={`rounded-full px-1.5 text-[11px] tabular-nums ${
+                      filter === f.id ? "bg-white/15" : "bg-forest/5"
+                    }`}
+                  >
+                    {loaded ? counts[f.id] : "–"}
+                  </span>
+                </button>
+              ))}
+            </div>
+  
+            {done.length > 0 && (
+              <button
+                type="button"
+                onClick={() => askDelete({ kind: "done", count: done.length })}
+                className="text-sm font-medium text-forest/55 underline-offset-4 transition-colors hover:text-coral hover:underline"
+              >
+                Clear completed ({done.length})
+              </button>
+            )}
+          </div>
+  
+          {/* List */}
+          <section className="mt-5" aria-live="polite">
+            {!loaded ? (
+              <ul className="space-y-3" aria-label="Loading tasks">
+                {[0, 1, 2].map((i) => (
+                  <li key={i} className="h-[68px] animate-pulse rounded-2xl bg-white/70" />
                 ))}
               </ul>
-            </DndContext>
-          )}
-        </section>
-      </main>
+            ) : visibleCount === 0 ? (
+              <EmptyState filter={filter} total={all.length} />
+            ) : (
+              <DndContext
+                id="task-board"
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+                onDragEnd={handleDragEnd}
+                accessibility={{
+                  screenReaderInstructions: {
+                    draggable:
+                      "To reorder, press space or enter to pick up the task, use the up and down arrow keys to move it, then space or enter to drop it. Press escape to cancel.",
+                  },
+                  announcements: {
+                    onDragStart: ({ active }) => `Picked up ${titleOf(active.id)}.`,
+                    onDragOver: ({ active, over }) =>
+                      over ? `${titleOf(active.id)} is over ${titleOf(over.id)}.` : `${titleOf(active.id)} is not over a task.`,
+                    onDragEnd: ({ active, over }) =>
+                      over ? `${titleOf(active.id)} moved to the position of ${titleOf(over.id)}.` : `${titleOf(active.id)} dropped.`,
+                    onDragCancel: ({ active }) => `Moving ${titleOf(active.id)} was cancelled.`,
+                  },
+                }}
+              >
+                <ul className="space-y-3">
+                  {groups.map((group, i) => (
+                    <SortableContext key={i} items={group.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                      {group.map((t) => (
+                        <TaskRow
+                          key={t.id}
+                          task={t}
+                          leaving={removingId === t.id}
+                          onOpen={() => openDetails(t.id)}
+                          onDelete={() => askDelete({ kind: "task", id: t.id, title: t.title })}
+                        />
+                      ))}
+                    </SortableContext>
+                  ))}
+                </ul>
+              </DndContext>
+            )}
+          </section>
+        </main>
+      </div>
 
       <TaskDetails
         task={selected}

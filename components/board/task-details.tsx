@@ -18,10 +18,12 @@ export function TaskDetails({
   task,
   open,
   onOpenChange,
+  onRequestDelete,
 }: {
   task: Task | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onRequestDelete: (task: Task) => void;
 }) {
   return (
     <Drawer open={open && !!task} onOpenChange={onOpenChange} swipeDirection="right">
@@ -30,24 +32,18 @@ export function TaskDetails({
         style={{ "--drawer-content-width": "min(34rem, 100vw)" } as CSSProperties}
       >
         {/* Remount per task so the editor starts from that task's description. */}
-        {task && <DetailsBody key={task.id} task={task} onClose={() => onOpenChange(false)} />}
+        {task && <DetailsBody key={task.id} task={task} onDelete={() => onRequestDelete(task)} />}
       </DrawerContent>
     </Drawer>
   );
 }
 
-function DetailsBody({ task, onClose }: { task: Task; onClose: () => void }) {
+function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
   const [title, setTitle] = useState(task.title);
 
   function commitTitle() {
     if (title.trim() && title.trim() !== task.title) taskActions.update(task.id, { title });
     else setTitle(task.title);
-  }
-
-  function remove() {
-    onClose();
-    // Let the panel slide out before the task disappears.
-    setTimeout(() => taskActions.remove(task.id), 250);
   }
 
   const created = new Date(task.createdAt).toLocaleDateString(undefined, {
@@ -180,7 +176,7 @@ function DetailsBody({ task, onClose }: { task: Task; onClose: () => void }) {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={remove}
+            onClick={onDelete}
             className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-coral transition-colors hover:bg-coral/10"
           >
             <Trash2 className="size-4" />

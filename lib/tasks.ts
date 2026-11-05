@@ -33,6 +33,8 @@ export type Task = {
   end?: string;
   done: boolean;
   createdAt: number;
+  /** Position on the board; lower comes first. Changed by drag and drop. */
+  order: number;
   doneAt?: number;
   /** Rich-text description as HTML produced by the task editor. */
   description?: string;
@@ -72,6 +74,7 @@ function isTask(v: unknown): v is Task {
     typeof t.title === "string" &&
     typeof t.done === "boolean" &&
     typeof t.createdAt === "number" &&
+    (t.order === undefined || typeof t.order === "number") &&
     typeof t.tag === "string" &&
     TAG_IDS.has(t.tag) &&
     (t.description === undefined || typeof t.description === "string") &&
@@ -79,8 +82,13 @@ function isTask(v: unknown): v is Task {
   );
 }
 
-/** Drop a half-set or invalid schedule rather than keeping a broken one. */
+/**
+ * Fill in defaults for tasks saved by older versions, and drop a half-set or
+ * invalid schedule rather than keeping a broken one.
+ */
 function normalize(t: Task): Task {
+  // Tasks saved before reordering existed keep their newest-first position.
+  if (typeof t.order !== "number") t = { ...t, order: -t.createdAt };
   if (t.start === undefined && t.end === undefined) return t;
   if (isValidSchedule({ start: t.start, end: t.end })) return t;
   const { start: _s, end: _e, ...rest } = t;
@@ -152,6 +160,8 @@ export const taskActions = {
       ...(input.schedule ?? {}),
       done: false,
       createdAt: Date.now(),
+      // Ahead of every existing task, so new tasks appear at the top.
+      order: Math.min(-Date.now(), ...getTasks().map((t) => t.order - 1)),
     };
     save([task, ...getTasks()]);
   },
@@ -187,6 +197,20 @@ export const taskActions = {
         return schedule ? { ...rest, start: schedule.start, end: schedule.end } : rest;
       }),
     );
+  },
+  /**
+   * Save a new order for some tasks. The given tasks swap among the positions
+   * they already occupy, so tasks not in the list don't move.
+   */
+  reorder(ids: string[]) {
+    const tasks = getTasks();
+    const slots = ids
+      .map((id) => tasks.find((t) => t.id === id)?.order)
+      .filter((o): o is number => typeof o === "number")
+      .sort((a, b) => a - b);
+    if (slots.length !== ids.length) return;
+    const next = new Map(ids.map((id, i) => [id, slots[i]]));
+    save(tasks.map((t) => (next.has(t.id) ? { ...t, order: next.get(t.id)! } : t)));
   },
   remove(id: string) {
     save(getTasks().filter((t) => t.id !== id));

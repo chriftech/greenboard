@@ -1,18 +1,46 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
+import {
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+  type FormEvent,
+  type KeyboardEventHandler,
+} from "react";
 import {
   ArrowLeft,
   CalendarClock,
   ChevronRight,
   ClipboardCheck,
+  GripVertical,
   X,
   NotebookPen,
   PartyPopper,
   Plus,
   Trash2,
 } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type UniqueIdentifier,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { CSS } from "@dnd-kit/utilities";
 import { Logo } from "@/components/landing/logo";
 import { CheckBox, ConfettiBurst } from "@/components/landing/check-box";
 import { TaskDetails } from "./task-details";
@@ -39,8 +67,8 @@ type Filter = "all" | "todo" | "done";
 type PendingDelete = { kind: "task"; id: string; title: string } | { kind: "done"; count: number };
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "todo", label: "To do" },
-  { id: "done", label: "Done" },
+  { id: "todo", label: "Pending" },
+  { id: "done", label: "Completed" },
 ];
 
 const tagOf = (id: TagId) => TAGS.find((t) => t.id === id) ?? TAGS.find((t) => t.id === DEFAULT_TAG)!;
@@ -90,12 +118,30 @@ export function BoardApp() {
   const todo = all.filter((t) => !t.done);
   const counts: Record<Filter, number> = { all: all.length, todo: todo.length, done: done.length };
 
-  // Active first (newest first), then done (most recently ticked first).
-  const sorted = [
-    ...todo.sort((a, b) => b.createdAt - a.createdAt),
-    ...done.sort((a, b) => (b.doneAt ?? 0) - (a.doneAt ?? 0)),
-  ];
-  const visible = filter === "all" ? sorted : filter === "todo" ? todo : done;
+  // Pending first, then completed; each group in the order the user dragged it into.
+  const byOrder = (a: Task, b: Task) => a.order - b.order;
+  todo.sort(byOrder);
+  done.sort(byOrder);
+  const groups = filter === "all" ? [todo, done] : filter === "todo" ? [todo] : [done];
+  const visibleCount = groups.reduce((n, g) => n + g.length, 0);
+
+  // Drag starts after a small move (mouse) or a short press (touch), so clicks
+  // and scrolling still work; the grip handle supports keyboard reordering.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const titleOf = (id: UniqueIdentifier) => `"${all.find((t) => t.id === id)?.title ?? "task"}"`;
+
+  function handleDragEnd({ active, over }: DragEndEvent) {
+    if (!over || active.id === over.id) return;
+    // Reorder within pending or within completed; never across the two.
+    const group = [todo, done].find((g) => g.some((t) => t.id === active.id));
+    if (!group || !group.some((t) => t.id === over.id)) return;
+    const ids = group.map((t) => t.id);
+    taskActions.reorder(arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id))));
+  }
 
   return (
     <div className="relative min-h-full flex-1 overflow-x-clip bg-cream text-forest">
@@ -180,20 +226,46 @@ export function BoardApp() {
                 <li key={i} className="h-[68px] animate-pulse rounded-2xl bg-white/70" />
               ))}
             </ul>
-          ) : visible.length === 0 ? (
+          ) : visibleCount === 0 ? (
             <EmptyState filter={filter} total={all.length} />
           ) : (
-            <ul className="space-y-3">
-              {visible.map((t) => (
-                <TaskRow
-                  key={t.id}
-                  task={t}
-                  leaving={removingId === t.id}
-                  onOpen={() => openDetails(t.id)}
-                  onDelete={() => askDelete({ kind: "task", id: t.id, title: t.title })}
-                />
-              ))}
-            </ul>
+            <DndContext
+              id="task-board"
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+              onDragEnd={handleDragEnd}
+              accessibility={{
+                screenReaderInstructions: {
+                  draggable:
+                    "To reorder, press space or enter to pick up the task, use the up and down arrow keys to move it, then space or enter to drop it. Press escape to cancel.",
+                },
+                announcements: {
+                  onDragStart: ({ active }) => `Picked up ${titleOf(active.id)}.`,
+                  onDragOver: ({ active, over }) =>
+                    over ? `${titleOf(active.id)} is over ${titleOf(over.id)}.` : `${titleOf(active.id)} is not over a task.`,
+                  onDragEnd: ({ active, over }) =>
+                    over ? `${titleOf(active.id)} moved to the position of ${titleOf(over.id)}.` : `${titleOf(active.id)} dropped.`,
+                  onDragCancel: ({ active }) => `Moving ${titleOf(active.id)} was cancelled.`,
+                },
+              }}
+            >
+              <ul className="space-y-3">
+                {groups.map((group, i) => (
+                  <SortableContext key={i} items={group.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                    {group.map((t) => (
+                      <TaskRow
+                        key={t.id}
+                        task={t}
+                        leaving={removingId === t.id}
+                        onOpen={() => openDetails(t.id)}
+                        onDelete={() => askDelete({ kind: "task", id: t.id, title: t.title })}
+                      />
+                    ))}
+                  </SortableContext>
+                ))}
+              </ul>
+            </DndContext>
           )}
         </section>
       </main>
@@ -433,6 +505,10 @@ function TaskRow({
   onDelete: () => void;
 }) {
   const [burst, setBurst] = useState(0);
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id: task.id });
+  // Pointer/touch drags start anywhere on the card; keyboard drags start from the grip.
+  const { onKeyDown: onGripKeyDown, ...pointerListeners } = listeners ?? {};
   const tag = tagOf(task.tag);
   const schedule = task.start && task.end ? { start: task.start, end: task.end } : null;
   const status = schedule ? scheduleStatus(schedule, task.done) : null;
@@ -445,71 +521,96 @@ function TaskRow({
 
   return (
     <li
-      className={`gb-rise group flex items-center gap-3 rounded-2xl border px-4 py-3.5 transition-all duration-300 ${
-        task.done ? "border-leaf/25 bg-mint" : "border-forest/10 bg-white hover:shadow-md"
-      } ${leaving ? "scale-95 opacity-0" : ""}`}
-      style={{ animationDuration: "0.5s" } as CSSProperties}
+      ref={setNodeRef}
+      {...pointerListeners}
+      style={{ transform: CSS.Translate.toString(transform), transition }}
+      className={`relative touch-manipulation ${isDragging ? "z-20" : ""}`}
     >
-      <button
-        type="button"
-        onClick={toggle}
-        aria-label={task.done ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
-        aria-pressed={task.done}
-        className="relative rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-leaf"
+      {/* Inner card carries the entrance animation, which would override the li's drag transform. */}
+      <div
+        className={`gb-rise group flex items-center gap-2 rounded-2xl border py-3.5 pl-1.5 pr-4 transition-[box-shadow,transform,opacity,background-color,border-color] duration-300 ${
+          task.done ? "border-leaf/25 bg-mint" : "border-forest/10 bg-white hover:shadow-md"
+        } ${leaving ? "scale-95 opacity-0" : ""} ${
+          isDragging
+            ? "scale-[1.02] cursor-grabbing shadow-[0_20px_45px_-15px_rgb(7_53_42/0.45)] ring-2 ring-leaf/50"
+            : "cursor-grab"
+        }`}
+        style={{ animationDuration: "0.5s" } as CSSProperties}
       >
-        <CheckBox done={task.done} size={28} />
-        {burst > 0 && task.done && <ConfettiBurst key={burst} />}
-      </button>
-
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-label={`Open details for "${task.title}"`}
-        className="min-w-0 flex-1 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-leaf"
-      >
-        <p className="truncate">
-          <span className="gb-strike text-base font-medium" data-done={task.done || undefined}>
-            {task.title}
-          </span>
-        </p>
-        {preview && (
-          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-forest/55">
-            <NotebookPen className="size-3.5 shrink-0 text-leaf" aria-hidden />
-            <span className="truncate">{preview}</span>
+        <button
+          type="button"
+          ref={setActivatorNodeRef}
+          {...attributes}
+          onKeyDown={onGripKeyDown as KeyboardEventHandler<HTMLButtonElement> | undefined}
+          aria-label={`Reorder "${task.title}"`}
+          className={`grid h-9 w-5 shrink-0 cursor-grab place-items-center rounded-md text-forest/25 transition-colors hover:text-forest/60 focus-visible:text-forest focus-visible:outline-2 focus-visible:outline-leaf group-hover:text-forest/45 ${
+            isDragging ? "cursor-grabbing text-forest/60" : ""
+          }`}
+        >
+          <GripVertical className="size-4" />
+        </button>
+  
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={task.done ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
+          aria-pressed={task.done}
+          className="relative rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-leaf"
+        >
+          <CheckBox done={task.done} size={28} />
+          {burst > 0 && task.done && <ConfettiBurst key={burst} />}
+        </button>
+  
+        <button
+          type="button"
+          onClick={onOpen}
+          aria-label={`Open details for "${task.title}"`}
+          className="min-w-0 flex-1 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-leaf"
+        >
+          <p className="truncate">
+            <span className="gb-strike text-base font-medium" data-done={task.done || undefined}>
+              {task.title}
+            </span>
           </p>
-        )}
-        <span className="mt-1 flex flex-wrap items-center gap-2">
-          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${tag.chip}`}>{tag.label}</span>
-          {schedule && status && (
-            <span
-              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${status.cls}`}
-            >
-              <CalendarClock className="size-3" aria-hidden />
-              {status.label && <span>{status.label} ·</span>}
-              {formatSchedule(schedule)}
-            </span>
+          {preview && (
+            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-forest/55">
+              <NotebookPen className="size-3.5 shrink-0 text-leaf" aria-hidden />
+              <span className="truncate">{preview}</span>
+            </p>
           )}
-          {!preview && (
-            <span className="text-[11px] font-medium text-forest/35 opacity-0 transition-opacity group-hover:opacity-100">
-              + Add details
-            </span>
-          )}
-        </span>
-      </button>
-
-      <ChevronRight
-        aria-hidden
-        className="hidden size-4 shrink-0 text-forest/25 transition-transform group-hover:translate-x-0.5 group-hover:text-forest/50 sm:block"
-      />
-
-      <button
-        type="button"
-        onClick={onDelete}
-        aria-label={`Delete "${task.title}"`}
-        className="grid size-9 shrink-0 place-items-center rounded-xl text-forest/35 transition-all group-hover:text-forest/60 hover:bg-coral/10 hover:text-coral! focus-visible:text-coral"
-      >
-        <Trash2 className="size-4" />
-      </button>
+          <span className="mt-1 flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${tag.chip}`}>{tag.label}</span>
+            {schedule && status && (
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${status.cls}`}
+              >
+                <CalendarClock className="size-3" aria-hidden />
+                {status.label && <span>{status.label} ·</span>}
+                {formatSchedule(schedule)}
+              </span>
+            )}
+            {!preview && (
+              <span className="text-[11px] font-medium text-forest/35 opacity-0 transition-opacity group-hover:opacity-100">
+                + Add details
+              </span>
+            )}
+          </span>
+        </button>
+  
+        <ChevronRight
+          aria-hidden
+          className="hidden size-4 shrink-0 text-forest/25 transition-transform group-hover:translate-x-0.5 group-hover:text-forest/50 sm:block"
+        />
+  
+        <button
+          type="button"
+          onClick={onDelete}
+          aria-label={`Delete "${task.title}"`}
+          className="grid size-9 shrink-0 place-items-center rounded-xl text-forest/35 transition-all group-hover:text-forest/60 hover:bg-coral/10 hover:text-coral! focus-visible:text-coral"
+        >
+          <Trash2 className="size-4" />
+        </button>
+      </div>
     </li>
   );
 }

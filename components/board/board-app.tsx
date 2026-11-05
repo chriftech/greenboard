@@ -45,6 +45,7 @@ import { Logo } from "@/components/landing/logo";
 import { CheckBox, ConfettiBurst } from "@/components/landing/check-box";
 import { TaskDetails } from "./task-details";
 import { ConfirmDialog } from "./confirm-dialog";
+import { TrashPanel } from "./trash-panel";
 import {
   ScheduleFields,
   draftsToSchedule,
@@ -55,6 +56,7 @@ import {
 import {
   DEFAULT_TAG,
   TAGS,
+  TRASH_DAYS,
   getServerTasks,
   getTasks,
   subscribeTasks,
@@ -64,7 +66,52 @@ import {
 } from "@/lib/tasks";
 
 type Filter = "all" | "todo" | "done";
-type PendingDelete = { kind: "task"; id: string; title: string } | { kind: "done"; count: number };
+/** Destructive actions waiting for confirmation. */
+type PendingDelete =
+  | { kind: "task"; id: string; title: string } // move one task to Trash
+  | { kind: "done"; count: number } // move all completed tasks to Trash
+  | { kind: "forever"; id: string; title: string } // delete one trashed task for good
+  | { kind: "empty"; count: number }; // delete everything in Trash for good
+
+function confirmCopy(p: PendingDelete | null) {
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  switch (p?.kind) {
+    case "done":
+      return {
+        title: `Move ${plural(p.count, "completed task")} to Trash?`,
+        description: `You can restore ${p.count === 1 ? "it" : "them"} from Trash for ${TRASH_DAYS} days. After that ${p.count === 1 ? "it's" : "they're"} deleted for good.`,
+        confirmLabel: "Move to Trash",
+      };
+    case "forever":
+      return {
+        title: "Delete forever?",
+        description: (
+          <>
+            <span className="font-semibold text-forest">&ldquo;{p.title}&rdquo;</span> and its description will be
+            deleted for good. This can&apos;t be undone.
+          </>
+        ),
+        confirmLabel: "Delete forever",
+      };
+    case "empty":
+      return {
+        title: "Empty Trash?",
+        description: `${plural(p.count, "task")} will be deleted for good. This can't be undone.`,
+        confirmLabel: "Empty Trash",
+      };
+    default:
+      return {
+        title: "Move this task to Trash?",
+        description: (
+          <>
+            <span className="font-semibold text-forest">&ldquo;{p?.title}&rdquo;</span> will move to Trash. You can
+            restore it for {TRASH_DAYS} days, then it&apos;s deleted for good.
+          </>
+        ),
+        confirmLabel: "Move to Trash",
+      };
+  }
+}
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "todo", label: "Pending" },
@@ -93,6 +140,13 @@ export function BoardApp() {
   const [pending, setPending] = useState<PendingDelete | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [trashOpen, setTrashOpen] = useState(false);
+  const [trashNow, setTrashNow] = useState(0);
+
+  function openTrash() {
+    setTrashNow(Date.now()); // read the clock in the event, not during render
+    setTrashOpen(true);
+  }
 
   function askDelete(next: PendingDelete) {
     setPending(next);
@@ -101,19 +155,27 @@ export function BoardApp() {
 
   function confirmDelete() {
     if (!pending) return;
-    if (pending.kind === "done") {
-      taskActions.clearDone();
-      return;
+    switch (pending.kind) {
+      case "done":
+        return taskActions.trashDone();
+      case "forever":
+        return taskActions.deleteForever(pending.id);
+      case "empty":
+        return taskActions.emptyTrash();
+      case "task": {
+        const id = pending.id;
+        if (selectedId === id) setDetailsOpen(false);
+        setRemovingId(id); // play the row's exit animation first
+        setTimeout(() => {
+          taskActions.trash(id);
+          setRemovingId(null);
+        }, 250);
+      }
     }
-    const id = pending.id;
-    if (selectedId === id) setDetailsOpen(false);
-    setRemovingId(id); // play the row's exit animation first
-    setTimeout(() => {
-      taskActions.remove(id);
-      setRemovingId(null);
-    }, 250);
   }
-  const all = tasks ?? [];
+  // Trashed tasks are hidden from the board and only listed in the Trash panel.
+  const all = (tasks ?? []).filter((t) => t.deletedAt === undefined);
+  const trashed = (tasks ?? []).filter((t) => t.deletedAt !== undefined);
   const done = all.filter((t) => t.done);
   const todo = all.filter((t) => !t.done);
   const counts: Record<Filter, number> = { all: all.length, todo: todo.length, done: done.length };
@@ -159,13 +221,29 @@ export function BoardApp() {
           <Logo />
           <span className="font-display text-xl font-bold tracking-tight">greenboard</span>
         </Link>
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-forest/70 transition-colors hover:bg-white hover:text-forest"
-        >
-          <ArrowLeft className="size-4" />
-          Home
-        </Link>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={openTrash}
+            aria-label={`Trash, ${trashed.length} ${trashed.length === 1 ? "task" : "tasks"}`}
+            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-forest/70 transition-colors hover:bg-white hover:text-forest"
+          >
+            <Trash2 className="size-4" />
+            Trash
+            {trashed.length > 0 && (
+              <span className="rounded-full bg-coral px-1.5 text-[11px] font-bold text-white tabular-nums">
+                {trashed.length}
+              </span>
+            )}
+          </button>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-forest/70 transition-colors hover:bg-white hover:text-forest"
+          >
+            <ArrowLeft className="size-4" />
+            Home
+          </Link>
+        </div>
       </header>
 
       <main className="relative mx-auto max-w-3xl px-4 pb-24 pt-8">
@@ -277,26 +355,20 @@ export function BoardApp() {
         onRequestDelete={(t) => askDelete({ kind: "task", id: t.id, title: t.title })}
       />
 
+      <TrashPanel
+        open={trashOpen}
+        onOpenChange={setTrashOpen}
+        now={trashNow}
+        tasks={trashed}
+        onDeleteForever={(t) => askDelete({ kind: "forever", id: t.id, title: t.title })}
+        onEmptyTrash={() => askDelete({ kind: "empty", count: trashed.length })}
+      />
+
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         onConfirm={confirmDelete}
-        title={
-          pending?.kind === "done"
-            ? `Clear ${pending.count} completed ${pending.count === 1 ? "task" : "tasks"}?`
-            : "Delete this task?"
-        }
-        description={
-          pending?.kind === "done" ? (
-            `${pending.count === 1 ? "It'll" : "They'll"} be removed from your board for good. This can't be undone.`
-          ) : (
-            <>
-              <span className="font-semibold text-forest">&ldquo;{pending?.title}&rdquo;</span> and its
-              description will be removed for good. This can&apos;t be undone.
-            </>
-          )
-        }
-        confirmLabel={pending?.kind === "done" ? "Clear tasks" : "Delete task"}
+        {...confirmCopy(pending)}
       />
     </div>
   );

@@ -142,6 +142,24 @@
   html {
     @apply font-sans;
   }
+  /* Tailwind v4 resets buttons to the default cursor; make everything
+     clickable show a pointer, and disabled controls show not-allowed. */
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="radio"],
+  [role="checkbox"],
+  summary,
+  select,
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
 }
 
 /* ───────────── Greenboard landing animations ───────────── */

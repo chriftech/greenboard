@@ -7,6 +7,7 @@ import {
   CalendarClock,
   ChevronRight,
   ClipboardCheck,
+  X,
   NotebookPen,
   PartyPopper,
   Plus,
@@ -17,13 +18,19 @@ import { CheckBox, ConfettiBurst } from "@/components/landing/check-box";
 import { TaskDetails } from "./task-details";
 import { ConfirmDialog } from "./confirm-dialog";
 import {
+  ScheduleFields,
+  draftsToSchedule,
+  formatSchedule,
+  scheduleStatus,
+  type DateTimeDraft,
+} from "./schedule";
+import {
   DEFAULT_TAG,
   TAGS,
   getServerTasks,
   getTasks,
   subscribeTasks,
   taskActions,
-  todayKey,
   type TagId,
   type Task,
 } from "@/lib/tasks";
@@ -117,8 +124,7 @@ export function BoardApp() {
 
       <main className="relative mx-auto max-w-3xl px-4 pb-24 pt-8">
         <Summary loaded={loaded} total={all.length} doneCount={done.length} />
-        {/* Dates are only read once loaded in the browser, never during prerender. */}
-        <Composer minDue={loaded ? todayKey() : undefined} />
+        <Composer />
 
         {/* Filters */}
         <div className="mt-10 flex flex-wrap items-center justify-between gap-3">
@@ -298,18 +304,29 @@ function Summary({ loaded, total, doneCount }: { loaded: boolean; total: number;
 
 /* ───────────────────────── Composer ───────────────────────── */
 
-function Composer({ minDue }: { minDue?: string }) {
+function Composer() {
   const [title, setTitle] = useState("");
   const [tag, setTag] = useState<TagId>(DEFAULT_TAG);
-  const [due, setDue] = useState("");
+  const [scheduling, setScheduling] = useState(false);
+  const [start, setStart] = useState<DateTimeDraft>({});
+  const [end, setEnd] = useState<DateTimeDraft>({});
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const schedule = scheduling ? draftsToSchedule(start, end) : null;
+  const canSubmit = !!title.trim() && schedule !== "invalid";
+
+  function closeSchedule() {
+    setScheduling(false);
+    setStart({});
+    setEnd({});
+  }
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (!title.trim()) return;
-    taskActions.add({ title, tag, due });
+    if (!canSubmit) return;
+    taskActions.add({ title, tag, schedule: schedule ?? undefined });
     setTitle("");
-    setDue("");
+    closeSchedule();
     inputRef.current?.focus();
   }
 
@@ -360,45 +377,46 @@ function Composer({ minDue }: { minDue?: string }) {
           ))}
         </div>
 
-        <label className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-forest/10 px-3 py-1.5 text-xs font-semibold text-forest/60 focus-within:border-leaf">
-          <CalendarClock className="size-3.5" />
-          <span className="sr-only">Due date</span>
-          <input
-            type="date"
-            value={due}
-            min={minDue}
-            onChange={(e) => setDue(e.target.value)}
-            className="bg-transparent text-forest focus:outline-none"
-          />
-        </label>
+        <button
+          type="button"
+          onClick={() => (scheduling ? closeSchedule() : setScheduling(true))}
+          aria-expanded={scheduling}
+          className={`ml-auto inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+            scheduling
+              ? "border-forest bg-forest text-zest"
+              : "border-forest/10 text-forest/60 hover:border-forest/25 hover:text-forest"
+          }`}
+        >
+          {scheduling ? <X className="size-3.5" /> : <CalendarClock className="size-3.5" />}
+          {scheduling ? "Remove timeline" : "Add timeline"}
+        </button>
 
         <button
           type="submit"
-          disabled={!title.trim()}
+          disabled={!canSubmit}
           className="gb-shine inline-flex items-center gap-1.5 rounded-xl bg-forest px-4 py-2 text-sm font-semibold text-zest transition-all hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
         >
           Add task
         </button>
       </div>
+
+      {scheduling && (
+        <div className="gb-rise mt-4 rounded-2xl bg-cream p-3 sm:p-4" style={{ animationDuration: "0.35s" }}>
+          <ScheduleFields
+            start={start}
+            end={end}
+            onChange={(s, e) => {
+              setStart(s);
+              setEnd(e);
+            }}
+          />
+        </div>
+      )}
     </form>
   );
 }
 
 /* ───────────────────────── Task row ───────────────────────── */
-
-function dueBadge(due: string) {
-  const today = todayKey();
-  const tomorrowDate = new Date();
-  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-  const tomorrow = todayKey(tomorrowDate);
-
-  if (due < today) return { label: "Overdue", cls: "bg-coral text-white" };
-  if (due === today) return { label: "Today", cls: "bg-sunny text-forest" };
-  if (due === tomorrow) return { label: "Tomorrow", cls: "bg-mint text-forest" };
-  const [y, m, d] = due.split("-").map(Number);
-  const label = new Date(y, m - 1, d).toLocaleDateString(undefined, { day: "numeric", month: "short" });
-  return { label, cls: "bg-forest/5 text-forest/70" };
-}
 
 function TaskRow({
   task,
@@ -413,7 +431,8 @@ function TaskRow({
 }) {
   const [burst, setBurst] = useState(0);
   const tag = tagOf(task.tag);
-  const badge = task.due && !task.done ? dueBadge(task.due) : null;
+  const schedule = task.start && task.end ? { start: task.start, end: task.end } : null;
+  const status = schedule ? scheduleStatus(schedule, task.done) : null;
   const preview = task.descriptionText?.replace(/\s+/g, " ").trim();
 
   function toggle() {
@@ -456,11 +475,15 @@ function TaskRow({
             <span className="truncate">{preview}</span>
           </p>
         )}
-        <span className="mt-1 flex items-center gap-2">
+        <span className="mt-1 flex flex-wrap items-center gap-2">
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${tag.chip}`}>{tag.label}</span>
-          {badge && (
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${badge.cls}`}>
-              {badge.label}
+          {schedule && status && (
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${status.cls}`}
+            >
+              <CalendarClock className="size-3" aria-hidden />
+              {status.label && <span>{status.label} ·</span>}
+              {formatSchedule(schedule)}
             </span>
           )}
           {!preview && (

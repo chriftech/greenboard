@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Logo } from "./logo";
@@ -50,15 +51,15 @@ export function Nav() {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
-          <a href="#start" className="text-sm font-semibold text-forest/80 hover:text-forest">
-            Log in
-          </a>
-          <a
-            href="#start"
+          <Link href="/board" className="text-sm font-semibold text-forest/80 hover:text-forest">
+            My board
+          </Link>
+          <Link
+            href="/board"
             className="rounded-xl bg-forest px-4 py-2 text-sm font-semibold text-zest transition-transform hover:-translate-y-0.5 hover:shadow-lg"
           >
             Get started
-          </a>
+          </Link>
         </div>
 
         <button
@@ -84,13 +85,13 @@ export function Nav() {
               {l.label}
             </a>
           ))}
-          <a
-            href="#start"
+          <Link
+            href="/board"
             onClick={() => setOpen(false)}
             className="mt-2 block rounded-xl bg-forest px-3 py-3 text-center font-semibold text-zest"
           >
             Get started
-          </a>
+          </Link>
         </div>
       )}
     </header>

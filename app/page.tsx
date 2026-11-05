@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import Link from "next/link";
 import {
   ArrowRight,
   BellRing,
@@ -120,13 +121,13 @@ function Hero() {
             className="gb-rise mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start"
             style={{ animationDelay: "360ms" }}
           >
-            <a
-              href="#start"
+            <Link
+              href="/board"
               className="gb-shine group inline-flex items-center gap-2 rounded-2xl bg-forest px-6 py-4 text-base font-semibold text-zest shadow-[0_12px_30px_-10px_rgb(7_53_42/0.7)] transition-transform hover:-translate-y-1"
             >
               Start ticking — it&apos;s free
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
-            </a>
+            </Link>
             <a
               href="#how"
               className="inline-flex items-center gap-2 rounded-2xl border border-forest/15 bg-white px-6 py-4 text-base font-semibold text-forest transition-all hover:-translate-y-1 hover:border-leaf hover:shadow-md"
@@ -490,13 +491,13 @@ function Cta() {
               Start free in seconds. Your future, very-productive self says thanks.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <a
-                href="#start"
+              <Link
+                href="/board"
                 className="gb-shine group inline-flex items-center gap-2 rounded-2xl bg-zest px-7 py-4 text-base font-bold text-forest shadow-[0_12px_40px_-8px_rgb(200_242_81/0.6)] transition-transform hover:-translate-y-1 hover:scale-[1.02]"
               >
                 Create my board
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
-              </a>
+              </Link>
               <a
                 href="#try"
                 className="inline-flex items-center gap-2 rounded-2xl border border-white/20 px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-white/10"

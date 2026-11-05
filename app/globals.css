@@ -4,10 +4,25 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Greenboard brand palette */
+@theme {
+  --color-forest: #07352a;
+  --color-forest-2: #0e4a39;
+  --color-leaf: #17b35a;
+  --color-zest: #c8f251;
+  --color-mint: #e7f9e3;
+  --color-cream: #fbfdf4;
+  --color-coral: #ff6f59;
+  --color-sunny: #ffc845;
+  --color-skyblue: #4ab4ff;
+  --color-grape: #9a6bff;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-geist-sans);
+  --font-display: var(--font-bricolage);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -127,4 +142,165 @@
   html {
     @apply font-sans;
   }
+}
+
+/* ───────────── Greenboard landing animations ───────────── */
+
+body {
+  background: var(--color-cream);
+}
+
+@keyframes gb-float {
+  0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); }
+  50% { transform: translateY(-14px) rotate(var(--rot, 0deg)); }
+}
+@keyframes gb-blob {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(40px, -30px) scale(1.08); }
+  66% { transform: translate(-30px, 25px) scale(0.95); }
+}
+@keyframes gb-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes gb-pop {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes gb-rise {
+  from { transform: translateY(28px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes gb-confetti {
+  0% { transform: translate(-50%, -50%) rotate(0deg) scale(1); opacity: 1; }
+  100% {
+    transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) rotate(var(--r)) scale(0.5);
+    opacity: 0;
+  }
+}
+@keyframes gb-wiggle {
+  0%, 60%, 100% { transform: rotate(0); }
+  65% { transform: rotate(14deg); }
+  72% { transform: rotate(-12deg); }
+  79% { transform: rotate(8deg); }
+  86% { transform: rotate(-5deg); }
+}
+@keyframes gb-bar {
+  0%, 100% { transform: scaleY(0.25); }
+  50% { transform: scaleY(1); }
+}
+@keyframes gb-shine {
+  0% { transform: translateX(-120%) skewX(-20deg); }
+  60%, 100% { transform: translateX(260%) skewX(-20deg); }
+}
+@keyframes gb-spin { to { transform: rotate(360deg); } }
+@keyframes gb-underline {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes gb-loop-check {
+  0%, 18% { background: transparent; border-color: rgb(7 53 42 / 0.25); }
+  24%, 88% { background: var(--color-leaf); border-color: var(--color-leaf); }
+  94%, 100% { background: transparent; border-color: rgb(7 53 42 / 0.25); }
+}
+@keyframes gb-loop-icon {
+  0%, 18% { transform: scale(0); }
+  26%, 88% { transform: scale(1); }
+  94%, 100% { transform: scale(0); }
+}
+@keyframes gb-loop-strike {
+  0%, 20% { background-size: 0% 2px; opacity: 1; }
+  30%, 88% { background-size: 100% 2px; opacity: 0.55; }
+  94%, 100% { background-size: 0% 2px; opacity: 1; }
+}
+
+.gb-float { animation: gb-float 6s ease-in-out infinite; }
+.gb-blob { animation: gb-blob 18s ease-in-out infinite; }
+.gb-marquee { animation: gb-marquee 32s linear infinite; }
+.gb-pop { animation: gb-pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.4) both; }
+.gb-rise { animation: gb-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.gb-wiggle { animation: gb-wiggle 2.8s ease-in-out infinite; transform-origin: 50% 10%; }
+.gb-bar { animation: gb-bar 2.4s ease-in-out infinite; transform-origin: bottom; }
+.gb-spin-slow { animation: gb-spin 14s linear infinite; }
+
+.gb-confetti {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  pointer-events: none;
+  animation: gb-confetti 0.9s cubic-bezier(0.15, 0.7, 0.3, 1) forwards;
+}
+
+.gb-shine { position: relative; overflow: hidden; isolation: isolate; }
+.gb-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.55), transparent);
+  animation: gb-shine 3.2s ease-in-out infinite;
+  z-index: -1;
+}
+
+/* animated strike-through */
+.gb-strike {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 55%;
+  background-size: 0% 2px;
+  transition: background-size 0.45s cubic-bezier(0.6, 0, 0.2, 1), opacity 0.4s;
+}
+.gb-strike[data-done] { background-size: 100% 2px; opacity: 0.55; }
+
+/* svg check that draws itself */
+.gb-draw path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 0.35s 0.08s ease-out;
+}
+.gb-draw[data-done] path { stroke-dashoffset: 0; }
+
+.gb-underline path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: gb-underline 1s 0.7s cubic-bezier(0.6, 0, 0.2, 1) forwards;
+}
+
+.gb-loop-check { animation: gb-loop-check 6s ease-in-out infinite; }
+.gb-loop-check svg { animation: gb-loop-icon 6s ease-in-out infinite; animation-delay: inherit; }
+.gb-loop-strike {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 55%;
+  animation: gb-loop-strike 6s ease-in-out infinite;
+}
+
+/* scroll reveal */
+.gb-reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--d, 0ms);
+}
+.gb-reveal[data-shown] { opacity: 1; transform: none; }
+
+.gb-grid-bg {
+  background-image:
+    linear-gradient(rgb(7 53 42 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(7 53 42 / 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 75%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .gb-reveal { opacity: 1; transform: none; }
 }

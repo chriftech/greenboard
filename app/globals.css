@@ -142,6 +142,24 @@
   html {
     @apply font-sans;
   }
+  /* Tailwind v4 resets buttons to the default cursor; make everything
+     clickable show a pointer, and disabled controls show not-allowed. */
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="radio"],
+  [role="checkbox"],
+  summary,
+  select,
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
 }
 
 /* ───────────── Greenboard landing animations ───────────── */
@@ -303,4 +321,21 @@ body {
     transition-duration: 0.001ms !important;
   }
   .gb-reveal { opacity: 1; transform: none; }
+}
+
+/* ───────────── Task description rich text ───────────── */
+
+.gb-prose p { margin: 0.35em 0; }
+.gb-prose ul { list-style: disc; padding-left: 1.4em; margin: 0.35em 0; }
+.gb-prose ul ul { list-style: circle; }
+.gb-prose li > p { margin: 0.1em 0; }
+.gb-prose li::marker { color: var(--color-leaf); }
+.gb-prose strong { font-weight: 700; }
+.gb-prose u { text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+.gb-prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: rgb(7 53 42 / 0.35);
 }

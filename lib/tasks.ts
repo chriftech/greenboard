@@ -25,8 +25,12 @@ export type Task = {
   id: string;
   title: string;
   tag: TagId;
-  /** Due date as YYYY-MM-DD (local), if any. */
-  due?: string;
+  /**
+   * Optional schedule as local "YYYY-MM-DDTHH:mm" strings. A task has either
+   * both a start and an end (end after start) or neither.
+   */
+  start?: string;
+  end?: string;
   done: boolean;
   createdAt: number;
   doneAt?: number;
@@ -36,9 +40,23 @@ export type Task = {
   descriptionText?: string;
 };
 
-export type TaskPatch = Partial<
-  Pick<Task, "title" | "tag" | "due" | "description" | "descriptionText">
->;
+export type TaskPatch = Partial<Pick<Task, "title" | "tag" | "description" | "descriptionText">>;
+
+export type Schedule = { start: string; end: string };
+
+const DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+
+/** A schedule is valid when both ends are full date+time values and end > start. */
+export function isValidSchedule(s: Partial<Schedule> | null | undefined): s is Schedule {
+  return (
+    !!s &&
+    typeof s.start === "string" &&
+    typeof s.end === "string" &&
+    DATETIME_RE.test(s.start) &&
+    DATETIME_RE.test(s.end) &&
+    s.end > s.start
+  );
+}
 
 const KEY = "greenboard.tasks.v1";
 const TAG_IDS = new Set<string>(TAGS.map((t) => t.id));
@@ -61,11 +79,21 @@ function isTask(v: unknown): v is Task {
   );
 }
 
+/** Drop a half-set or invalid schedule rather than keeping a broken one. */
+function normalize(t: Task): Task {
+  if (t.start === undefined && t.end === undefined) return t;
+  if (isValidSchedule({ start: t.start, end: t.end })) return t;
+  const { start: _s, end: _e, ...rest } = t;
+  void _s;
+  void _e;
+  return rest;
+}
+
 function load(): Task[] {
   try {
     const raw = window.localStorage.getItem(KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter(isTask) : [];
+    return Array.isArray(parsed) ? parsed.filter(isTask).map(normalize) : [];
   } catch {
     return [];
   }
@@ -113,14 +141,15 @@ function newId() {
 }
 
 export const taskActions = {
-  add(input: { title: string; tag: TagId; due?: string }) {
+  add(input: { title: string; tag: TagId; schedule?: Schedule }) {
     const title = input.title.trim();
     if (!title) return;
+    if (input.schedule && !isValidSchedule(input.schedule)) return;
     const task: Task = {
       id: newId(),
       title,
       tag: input.tag,
-      due: input.due || undefined,
+      ...(input.schedule ?? {}),
       done: false,
       createdAt: Date.now(),
     };
@@ -144,8 +173,20 @@ export const taskActions = {
       next.title = next.title.trim();
       if (!next.title) delete next.title;
     }
-    if (next.due === "") next.due = undefined;
     save(getTasks().map((t) => (t.id === id ? { ...t, ...next } : t)));
+  },
+  /** Set both start and end together, or pass null to remove the schedule. */
+  setSchedule(id: string, schedule: Schedule | null) {
+    if (schedule && !isValidSchedule(schedule)) return;
+    save(
+      getTasks().map((t) => {
+        if (t.id !== id) return t;
+        const { start: _s, end: _e, ...rest } = t;
+        void _s;
+        void _e;
+        return schedule ? { ...rest, start: schedule.start, end: schedule.end } : rest;
+      }),
+    );
   },
   remove(id: string) {
     save(getTasks().filter((t) => t.id !== id));

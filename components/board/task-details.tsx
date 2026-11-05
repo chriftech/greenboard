@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/drawer";
 import { CheckBox } from "@/components/landing/check-box";
 import { RichTextEditor } from "./rich-text-editor";
+import { ScheduleFields, draftsToSchedule, toDraft, type DateTimeDraft } from "./schedule";
 import { TAGS, taskActions, type Task } from "@/lib/tasks";
 
 /** Slide-in panel for viewing and editing one task, including its description. */
@@ -59,7 +60,7 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
           Task details
         </DrawerTitle>
         <DrawerDescription className="sr-only">
-          Edit the task title, tag, due date and description.
+          Edit the task title, tag, timeline and description.
         </DrawerDescription>
         <DrawerClose
           aria-label="Close details"
@@ -127,30 +128,10 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
           </div>
         </div>
 
-        {/* Due date */}
+        {/* Timeline */}
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-forest/50">Due date</p>
-          <div className="flex items-center gap-2">
-            <label className="inline-flex items-center gap-2 rounded-xl border border-forest/10 bg-white px-3 py-2 text-sm font-medium focus-within:border-leaf">
-              <CalendarClock className="size-4 text-forest/50" />
-              <span className="sr-only">Due date</span>
-              <input
-                type="date"
-                value={task.due ?? ""}
-                onChange={(e) => taskActions.update(task.id, { due: e.target.value })}
-                className="bg-transparent focus:outline-none"
-              />
-            </label>
-            {task.due && (
-              <button
-                type="button"
-                onClick={() => taskActions.update(task.id, { due: "" })}
-                className="text-sm font-medium text-forest/50 hover:text-coral"
-              >
-                Clear
-              </button>
-            )}
-          </div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-forest/50">Timeline</p>
+          <ScheduleEditor task={task} />
         </div>
 
         {/* Description */}
@@ -186,6 +167,63 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
             Done
           </DrawerClose>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Start/end editor. Changes save as soon as both have a date and a time and
+ * the end is after the start; until then the previous schedule is kept.
+ */
+function ScheduleEditor({ task }: { task: Task }) {
+  const [open, setOpen] = useState(!!(task.start && task.end));
+  const [start, setStart] = useState<DateTimeDraft>(() => toDraft(task.start));
+  const [end, setEnd] = useState<DateTimeDraft>(() => toDraft(task.end));
+  const draft = draftsToSchedule(start, end);
+  const saved = draft !== "invalid" && draft !== null;
+
+  function change(s: DateTimeDraft, e: DateTimeDraft) {
+    setStart(s);
+    setEnd(e);
+    const next = draftsToSchedule(s, e);
+    if (next !== "invalid" && next !== null) taskActions.setSchedule(task.id, next);
+  }
+
+  function remove() {
+    setStart({});
+    setEnd({});
+    setOpen(false);
+    taskActions.setSchedule(task.id, null);
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 rounded-xl border border-dashed border-forest/20 bg-white px-3 py-2 text-sm font-medium text-forest/60 transition-colors hover:border-leaf hover:text-forest"
+      >
+        <CalendarClock className="size-4" />
+        Add timeline
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-forest/10 bg-white p-3">
+      <ScheduleFields start={start} end={end} onChange={change} />
+      <div className="mt-3 flex items-center justify-between pl-[5.5rem]">
+        <p className="text-xs text-forest/45">
+          {saved ? "Saved automatically" : task.start ? "Not saved until both are complete" : "\u00a0"}
+        </p>
+        <button
+          type="button"
+          onClick={remove}
+          className="text-xs font-semibold text-forest/50 transition-colors hover:text-coral"
+        >
+          Remove timeline
+        </button>
       </div>
     </div>
   );

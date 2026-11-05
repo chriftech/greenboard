@@ -292,7 +292,7 @@ function Composer({ minDue }: { minDue?: string }) {
         <button
           type="submit"
           disabled={!title.trim()}
-          className="gb-shine inline-flex items-center gap-1.5 rounded-xl bg-forest px-4 py-2 text-sm font-semibold text-zest transition-all hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-40"
+          className="gb-shine inline-flex items-center gap-1.5 rounded-xl bg-forest px-4 py-2 text-sm font-semibold text-zest transition-all hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
         >
           Add task
         </button>

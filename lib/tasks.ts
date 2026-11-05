@@ -8,6 +8,7 @@
  */
 
 export const TAGS = [
+  { id: "default", label: "Default", chip: "bg-forest/10 text-forest/75", dot: "bg-forest/40" },
   { id: "work", label: "Work", chip: "bg-grape/15 text-[#5b2fd1]", dot: "bg-grape" },
   { id: "personal", label: "Personal", chip: "bg-coral/15 text-[#c23a22]", dot: "bg-coral" },
   { id: "team", label: "Team", chip: "bg-skyblue/15 text-[#0b6aa8]", dot: "bg-skyblue" },
@@ -16,6 +17,9 @@ export const TAGS = [
 ] as const;
 
 export type TagId = (typeof TAGS)[number]["id"];
+
+/** Tag preselected for new tasks, and the fallback for unknown tags. */
+export const DEFAULT_TAG: TagId = "default";
 
 export type Task = {
   id: string;

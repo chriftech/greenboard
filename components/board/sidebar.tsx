@@ -51,6 +51,8 @@ export type SidebarProps = {
   tags: TagView[];
   /** Open the tag editor for a custom tag, or with null to create one. */
   onEditTag: (tag: CustomTag | null) => void;
+  /** Ask to delete a custom tag (the board confirms first). */
+  onDeleteTag: (tag: TagView) => void;
 };
 
 /* ───────────────────────── Persisted size ───────────────────────── */
@@ -260,6 +262,10 @@ export function MobileSidebar({
               close();
               props.onEditTag(t);
             }}
+            onDeleteTag={(t) => {
+              close();
+              props.onDeleteTag(t);
+            }}
             topRight={
               <DrawerClose
                 aria-label="Close menu"
@@ -295,6 +301,7 @@ function SidebarBody({
   counts,
   tags,
   onEditTag,
+  onDeleteTag,
   collapsed,
   topRight,
   searchRef,
@@ -383,24 +390,38 @@ function SidebarBody({
                 pressed={tag === t.id}
                 collapsed={collapsed}
                 onClick={() => onTag(tag === t.id ? null : t.id)}
-                // Leave room for the edit button on custom tags.
-                hideCountOnHover={t.custom && !collapsed}
+                // Leave room for the always-visible edit/delete buttons.
+                reserveActions={t.custom && !collapsed}
               />
               {t.custom && !collapsed && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const custom = getCustomTags().find((c) => c.id === t.id);
-                    if (custom) onEditTag(custom);
-                  }}
-                  aria-label={`Edit tag ${t.label}`}
-                  title="Edit tag"
-                  className={`absolute right-1.5 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-lg opacity-0 transition-opacity focus-visible:opacity-100 group-hover/tag:opacity-100 ${
-                    tag === t.id ? "text-peach hover:bg-white/15" : "text-ink/50 hover:bg-surface hover:text-ink"
-                  }`}
-                >
-                  <Pencil className="size-3.5" />
-                </button>
+                // Edit + delete, always visible on custom tags.
+                <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const custom = getCustomTags().find((c) => c.id === t.id);
+                      if (custom) onEditTag(custom);
+                    }}
+                    aria-label={`Edit tag ${t.label}`}
+                    title="Edit tag"
+                    className={`grid size-7 place-items-center rounded-lg transition-colors ${
+                      tag === t.id ? "text-peach hover:bg-white/15" : "text-ink/50 hover:bg-surface hover:text-ink"
+                    }`}
+                  >
+                    <Pencil className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDeleteTag(t)}
+                    aria-label={`Delete tag ${t.label}`}
+                    title="Delete tag"
+                    className={`grid size-7 place-items-center rounded-lg transition-colors ${
+                      tag === t.id ? "text-peach hover:bg-white/15 hover:text-coral" : "text-ink/50 hover:bg-coral/10 hover:text-coral"
+                    }`}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </span>
               )}
             </li>
           ))}
@@ -467,7 +488,7 @@ function SidebarItem({
   pressed,
   collapsed,
   onClick,
-  hideCountOnHover = false,
+  reserveActions = false,
 }: {
   icon: ReactNode;
   label: string;
@@ -478,8 +499,8 @@ function SidebarItem({
   pressed?: boolean;
   collapsed: boolean;
   onClick?: () => void;
-  /** Fade the count out on hover (custom tags show an edit button there). */
-  hideCountOnHover?: boolean;
+  /** Pad the right side so the count sits clear of the edit/delete buttons on custom tags. */
+  reserveActions?: boolean;
 }) {
   const showCount = typeof count === "number" && count > 0;
   return (
@@ -491,6 +512,8 @@ function SidebarItem({
       aria-label={collapsed ? (showCount ? `${label}, ${count}` : label) : undefined}
       title={collapsed ? label : undefined}
       className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+        reserveActions ? "pr-16" : ""
+      } ${
         collapsed ? "justify-center px-0" : ""
       } ${active ? "bg-deep text-peach" : "text-ink/70 hover:bg-mist hover:text-ink"}`}
     >
@@ -504,9 +527,7 @@ function SidebarItem({
           />
         ) : (
           <span
-            className={`rounded-full px-1.5 text-[11px] font-semibold tabular-nums transition-opacity ${
-              hideCountOnHover ? "group-hover/tag:opacity-0" : ""
-            } ${
+            className={`rounded-full px-1.5 text-[11px] font-semibold tabular-nums ${
               countTone === "coral"
                 ? "bg-coral text-white"
                 : active

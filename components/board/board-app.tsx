@@ -48,7 +48,7 @@ import { TaskDetails } from "./task-details";
 import { ConfirmDialog } from "./confirm-dialog";
 import { TagEditor } from "./tag-editor";
 import { TagChip, TagDot, TagRadio } from "./tag-chip";
-import { findTag, useTags, type CustomTag, type TagView } from "@/lib/tags";
+import { findTag, tagActions, useTags, type CustomTag, type TagView } from "@/lib/tags";
 import { TrashPanel } from "./trash-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileSidebar, Sidebar, type NavTarget, type SidebarProps } from "./sidebar";
@@ -80,7 +80,8 @@ type PendingDelete =
   | { kind: "task"; id: string; title: string } // move one task to Trash
   | { kind: "done"; count: number } // move all completed tasks to Trash
   | { kind: "forever"; id: string; title: string } // delete one trashed task for good
-  | { kind: "empty"; count: number }; // delete everything in Trash for good
+  | { kind: "empty"; count: number } // delete everything in Trash for good
+  | { kind: "tag"; id: string; label: string; count: number }; // delete a custom tag
 
 function confirmCopy(p: PendingDelete | null) {
   const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -101,6 +102,15 @@ function confirmCopy(p: PendingDelete | null) {
           </>
         ),
         confirmLabel: "Delete forever",
+      };
+    case "tag":
+      return {
+        title: `Delete the “${p.label}” tag?`,
+        description:
+          p.count === 0
+            ? "No tasks use it. This can't be undone."
+            : `${plural(p.count, "task")} with this tag will move to Default. This can't be undone.`,
+        confirmLabel: "Delete tag",
       };
     case "empty":
       return {
@@ -177,6 +187,9 @@ export function BoardApp() {
         return taskActions.deleteForever(pending.id);
       case "empty":
         return taskActions.emptyTrash();
+      case "tag":
+        if (tag === pending.id) setTag(null);
+        return tagActions.remove(pending.id);
       case "task": {
         const id = pending.id;
         if (selectedId === id) setDetailsOpen(false);
@@ -256,6 +269,14 @@ export function BoardApp() {
       setEditingTag(t);
       setTagEditorOpen(true);
     },
+    onDeleteTag: (t) =>
+      askDelete({
+        kind: "tag",
+        id: t.id,
+        label: t.label,
+        // Every task (Trash included) carrying the tag moves to Default.
+        count: (tasks ?? []).filter((x) => x.tag === t.id).length,
+      }),
     query,
     onQuery: setQuery,
     counts: {

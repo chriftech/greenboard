@@ -14,7 +14,7 @@ const bricolage = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Greenboard — Tick it off. Watch it go green.",
+  title: "Greenboard — Tick it off. Watch it get done.",
   description:
     "Greenboard is the joyful task board for ticking off what's done — solo or with your team.",
 };

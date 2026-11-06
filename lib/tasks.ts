@@ -8,11 +8,11 @@
  */
 
 export const TAGS = [
-  { id: "default", label: "Default", chip: "bg-forest/10 text-forest/75", dot: "bg-forest/40" },
+  { id: "default", label: "Default", chip: "bg-ink/10 text-ink/75", dot: "bg-ink/40" },
   { id: "work", label: "Work", chip: "bg-grape/15 text-[#5b2fd1]", dot: "bg-grape" },
   { id: "personal", label: "Personal", chip: "bg-coral/15 text-[#c23a22]", dot: "bg-coral" },
   { id: "team", label: "Team", chip: "bg-skyblue/15 text-[#0b6aa8]", dot: "bg-skyblue" },
-  { id: "health", label: "Health", chip: "bg-leaf/15 text-[#0b7a3a]", dot: "bg-leaf" },
+  { id: "health", label: "Health", chip: "bg-[#22c55e]/15 text-[#15803d]", dot: "bg-[#22c55e]" },
   { id: "home", label: "Home", chip: "bg-sunny/25 text-[#8a5a00]", dot: "bg-sunny" },
 ] as const;
 

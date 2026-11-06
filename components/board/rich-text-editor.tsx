@@ -45,7 +45,7 @@ export function RichTextEditor({
     content: initialHtml || "",
     editorProps: {
       attributes: {
-        class: "gb-prose min-h-40 px-4 py-3 text-[15px] leading-relaxed text-forest focus:outline-none",
+        class: "gb-prose min-h-40 px-4 py-3 text-[15px] leading-relaxed text-ink focus:outline-none",
         "aria-label": "Task description",
         "aria-multiline": "true",
         role: "textbox",
@@ -58,7 +58,7 @@ export function RichTextEditor({
   });
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-forest/10 bg-white transition-colors focus-within:border-leaf focus-within:shadow-[0_0_0_4px_rgb(23_179_90/0.12)]">
+    <div className="overflow-hidden rounded-2xl border border-ink/10 bg-white transition-colors focus-within:border-iris focus-within:shadow-[0_0_0_4px_rgb(79_107_237/0.12)]">
       <Toolbar editor={editor} />
       <EditorContent editor={editor} />
     </div>
@@ -87,12 +87,12 @@ function Toolbar({ editor }: { editor: Editor | null }) {
   ] as const;
 
   return (
-    <div role="toolbar" aria-label="Text formatting" className="flex items-center gap-1 border-b border-forest/10 bg-cream px-2 py-1.5">
+    <div role="toolbar" aria-label="Text formatting" className="flex items-center gap-1 border-b border-ink/10 bg-paper px-2 py-1.5">
       {buttons.map(({ key, label, shortcut, Icon, run }, i) => {
         const active = state?.[key] ?? false;
         return (
           <span key={key} className="flex items-center">
-            {i === 3 && <span aria-hidden className="mx-1 h-5 w-px bg-forest/10" />}
+            {i === 3 && <span aria-hidden className="mx-1 h-5 w-px bg-ink/10" />}
             <button
               type="button"
               disabled={!editor}
@@ -103,7 +103,7 @@ function Toolbar({ editor }: { editor: Editor | null }) {
               aria-pressed={active}
               title={`${label} (${shortcut})`}
               className={`grid size-8 place-items-center rounded-lg transition-colors ${
-                active ? "bg-forest text-zest" : "text-forest/60 hover:bg-mint hover:text-forest"
+                active ? "bg-ink text-peach" : "text-ink/60 hover:bg-mist hover:text-ink"
               }`}
             >
               <Icon className="size-4" strokeWidth={2.5} />

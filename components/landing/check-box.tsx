@@ -4,8 +4,8 @@ export function CheckBox({ done, size = 24 }: { done: boolean; size?: number }) 
     <span
       className={`grid shrink-0 place-items-center rounded-full border-2 transition-all duration-300 ${
         done
-          ? "scale-110 border-leaf bg-leaf shadow-[0_0_0_6px_rgb(23_179_90/0.15)]"
-          : "border-forest/25 bg-white"
+          ? "scale-110 border-iris bg-iris shadow-[0_0_0_6px_rgb(79_107_237/0.15)]"
+          : "border-ink/25 bg-white"
       }`}
       style={{ width: size, height: size }}
     >
@@ -27,7 +27,7 @@ export function CheckBox({ done, size = 24 }: { done: boolean; size?: number }) 
   );
 }
 
-const COLORS = ["#c8f251", "#17b35a", "#ff6f59", "#ffc845", "#4ab4ff", "#9a6bff"];
+const COLORS = ["#ffc9a9", "#4f6bed", "#ff6f59", "#ffc845", "#4ab4ff", "#9a6bff"];
 
 /** 14 deterministic confetti pieces bursting outwards. */
 export const CONFETTI = Array.from({ length: 14 }, (_, i) => {

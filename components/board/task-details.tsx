@@ -29,7 +29,7 @@ export function TaskDetails({
   return (
     <Drawer open={open && !!task} onOpenChange={onOpenChange} swipeDirection="right">
       <DrawerContent
-        className="bg-cream text-forest"
+        className="bg-paper text-ink"
         style={{ "--drawer-content-width": "min(34rem, 100vw)" } as CSSProperties}
       >
         {/* Remount per task so the editor starts from that task's description. */}
@@ -55,8 +55,8 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between border-b border-forest/10 px-5 py-4">
-        <DrawerTitle className="text-xs font-semibold uppercase tracking-widest text-forest/50">
+      <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
+        <DrawerTitle className="text-xs font-semibold uppercase tracking-widest text-ink/50">
           Task details
         </DrawerTitle>
         <DrawerDescription className="sr-only">
@@ -64,7 +64,7 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
         </DrawerDescription>
         <DrawerClose
           aria-label="Close details"
-          className="grid size-9 place-items-center rounded-xl text-forest/60 transition-colors hover:bg-white hover:text-forest"
+          className="grid size-9 place-items-center rounded-xl text-ink/60 transition-colors hover:bg-white hover:text-ink"
         >
           <X className="size-5" />
         </DrawerClose>
@@ -97,8 +97,8 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
                 }
                 if (e.key === "Escape") setTitle(task.title);
               }}
-              className={`field-sizing-content w-full resize-none rounded-xl bg-transparent px-2 py-1 font-display text-2xl font-bold leading-snug transition-colors hover:bg-white focus:bg-white focus:outline-2 focus:outline-leaf ${
-                task.done ? "text-forest/50 line-through" : ""
+              className={`field-sizing-content w-full resize-none rounded-xl bg-transparent px-2 py-1 font-display text-2xl font-bold leading-snug transition-colors hover:bg-white focus:bg-white focus:outline-2 focus:outline-iris ${
+                task.done ? "text-ink/50 line-through" : ""
               }`}
             />
           </label>
@@ -106,7 +106,7 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
 
         {/* Tag */}
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-forest/50">Tag</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink/50">Tag</p>
           <div role="radiogroup" aria-label="Tag" className="flex flex-wrap gap-1.5">
             {TAGS.map((t) => (
               <button
@@ -118,7 +118,7 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
                   task.tag === t.id
                     ? `${t.chip} border-current`
-                    : "border-forest/10 bg-white text-forest/60 hover:border-forest/25"
+                    : "border-ink/10 bg-white text-ink/60 hover:border-ink/25"
                 }`}
               >
                 <span className={`size-2 rounded-full ${t.dot}`} />
@@ -130,13 +130,13 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
 
         {/* Timeline */}
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-forest/50">Timeline</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink/50">Timeline</p>
           <ScheduleEditor task={task} />
         </div>
 
         {/* Description */}
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-forest/50">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink/50">
             Description
           </p>
           <RichTextEditor
@@ -148,12 +148,12 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
               })
             }
           />
-          <p className="mt-2 text-xs text-forest/40">Saved automatically</p>
+          <p className="mt-2 text-xs text-ink/40">Saved automatically</p>
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-forest/10 px-5 py-4">
-        <p className="text-xs text-forest/45">Created {created}</p>
+      <div className="flex items-center justify-between gap-3 border-t border-ink/10 px-5 py-4">
+        <p className="text-xs text-ink/45">Created {created}</p>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -163,7 +163,7 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
             <Trash2 className="size-4" />
             Delete
           </button>
-          <DrawerClose className="rounded-xl bg-forest px-4 py-2 text-sm font-semibold text-zest transition-transform hover:-translate-y-0.5">
+          <DrawerClose className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5">
             Done
           </DrawerClose>
         </div>
@@ -202,7 +202,7 @@ function ScheduleEditor({ task }: { task: Task }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-xl border border-dashed border-forest/20 bg-white px-3 py-2 text-sm font-medium text-forest/60 transition-colors hover:border-leaf hover:text-forest"
+        className="inline-flex items-center gap-2 rounded-xl border border-dashed border-ink/20 bg-white px-3 py-2 text-sm font-medium text-ink/60 transition-colors hover:border-iris hover:text-ink"
       >
         <CalendarClock className="size-4" />
         Add timeline
@@ -211,16 +211,16 @@ function ScheduleEditor({ task }: { task: Task }) {
   }
 
   return (
-    <div className="rounded-2xl border border-forest/10 bg-white p-3">
+    <div className="rounded-2xl border border-ink/10 bg-white p-3">
       <ScheduleFields start={start} end={end} onChange={change} />
       <div className="mt-3 flex items-center justify-between pl-[5.5rem]">
-        <p className="text-xs text-forest/45">
+        <p className="text-xs text-ink/45">
           {saved ? "Saved automatically" : task.start ? "Not saved until both are complete" : "\u00a0"}
         </p>
         <button
           type="button"
           onClick={remove}
-          className="text-xs font-semibold text-forest/50 transition-colors hover:text-coral"
+          className="text-xs font-semibold text-ink/50 transition-colors hover:text-coral"
         >
           Remove timeline
         </button>

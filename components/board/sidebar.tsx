@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import {
+  useEffect,
   useRef,
   useState,
   useSyncExternalStore,
+  type CSSProperties,
   type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
+  type RefObject,
 } from "react";
 import {
   CalendarRange,
@@ -20,9 +23,27 @@ import {
   Settings,
   Sun,
   Trash2,
+  X,
 } from "lucide-react";
+import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { Logo } from "@/components/landing/logo";
-import { TAGS } from "@/lib/tasks";
+import { TAGS, type TagId } from "@/lib/tasks";
+
+/* ───────────────────────── Types ───────────────────────── */
+
+/** Sidebar destinations. "completed" and "trash" are shortcuts handled by the board. */
+export type NavTarget = "board" | "today" | "upcoming" | "completed" | "trash";
+
+export type SidebarProps = {
+  /** Which workspace option is highlighted. */
+  active: Exclude<NavTarget, "trash">;
+  onNavigate: (target: NavTarget) => void;
+  tag: TagId | null;
+  onTag: (tag: TagId | null) => void;
+  query: string;
+  onQuery: (query: string) => void;
+  counts: Record<NavTarget, number> & { tags: Record<TagId, number> };
+};
 
 /* ───────────────────────── Persisted size ───────────────────────── */
 
@@ -71,26 +92,32 @@ function subscribe(l: () => void) {
   return () => listeners.delete(l);
 }
 
-/* ───────────────────────── Sidebar ───────────────────────── */
-
-const WORKSPACE = [
-  { label: "My board", icon: LayoutDashboard, active: true },
-  { label: "Today", icon: Sun },
-  { label: "Upcoming", icon: CalendarRange },
-  { label: "Completed", icon: CircleCheckBig },
-  { label: "Trash", icon: Trash2 },
-];
+/* ───────────────────────── Desktop sidebar ───────────────────────── */
 
 /**
- * Left sidebar for the board. Drag (or use the arrow keys on) its right edge
- * to resize it; the size and collapsed state are remembered in this browser.
- * Hidden below the md breakpoint.
+ * Resizable left sidebar, shown from the md breakpoint up. Drag (or use the
+ * arrow keys on) its right edge to resize; size and collapsed state are
+ * remembered in this browser. ⌘K / Ctrl+K focuses its search.
  */
-export function Sidebar() {
+export function Sidebar(props: SidebarProps) {
   const { width, collapsed } = useSyncExternalStore(subscribe, read, () => DEFAULT_STATE);
   const [resizing, setResizing] = useState(false);
   const drag = useRef<{ startX: number; startWidth: number } | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const shown = collapsed ? RAIL_WIDTH : width;
+
+  // ⌘K / Ctrl+K: expand if needed and focus search (desktop only; the sidebar is hidden on phones).
+  useEffect(() => {
+    function onKey(e: globalThis.KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "k") return;
+      if (!window.matchMedia("(min-width: 48rem)").matches) return;
+      e.preventDefault();
+      if (read().collapsed) write({ ...read(), collapsed: false });
+      requestAnimationFrame(() => searchRef.current?.focus());
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   function onPointerDown(e: PointerEvent<HTMLDivElement>) {
     if (collapsed || e.button !== 0) return;
@@ -131,8 +158,6 @@ export function Sidebar() {
     write({ width: clamp(next), collapsed: false });
   }
 
-  const toggle = () => write({ width, collapsed: !collapsed });
-
   return (
     <aside
       aria-label="Sidebar"
@@ -141,82 +166,26 @@ export function Sidebar() {
         resizing ? "" : "transition-[width] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
       }`}
     >
-      {/* Brand + collapse */}
-      <div className={`flex items-center gap-2 px-4 pb-3 pt-5 ${collapsed ? "flex-col" : "justify-between"}`}>
-        <Link href="/" className="flex min-w-0 items-center gap-2" aria-label="Greenboard home">
-          <Logo className="size-9 shrink-0" />
-          {!collapsed && <span className="truncate font-display text-xl font-bold tracking-tight">greenboard</span>}
-        </Link>
-        <button
-          type="button"
-          onClick={toggle}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-expanded={!collapsed}
-          className="grid size-8 shrink-0 place-items-center rounded-lg text-forest/50 transition-colors hover:bg-mint hover:text-forest"
-        >
-          {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-        </button>
-      </div>
-
-      {/* Search (static for now) */}
-      <div className="px-3 pb-2">
-        {collapsed ? (
-          <SidebarItem icon={<Search className="size-4" />} label="Search" collapsed />
-        ) : (
-          <label className="flex items-center gap-2 rounded-xl border border-forest/10 bg-cream px-3 py-2 text-sm text-forest/45 focus-within:border-leaf">
-            <Search className="size-4 shrink-0" />
-            <input
-              type="search"
-              placeholder="Search tasks"
-              aria-label="Search tasks"
-              className="min-w-0 flex-1 bg-transparent text-forest placeholder:text-forest/40 focus:outline-none"
-            />
-            <kbd className="hidden rounded-md border border-forest/10 bg-white px-1.5 text-[10px] font-semibold text-forest/40 lg:block">
-              ⌘K
-            </kbd>
-          </label>
-        )}
-      </div>
-
-      <nav className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-3">
-        <SectionLabel collapsed={collapsed}>Workspace</SectionLabel>
-        <ul className="space-y-0.5">
-          {WORKSPACE.map(({ label, icon: Icon, active }) => (
-            <li key={label}>
-              <SidebarItem icon={<Icon className="size-4" />} label={label} active={active} collapsed={collapsed} />
-            </li>
-          ))}
-        </ul>
-
-        <SectionLabel collapsed={collapsed}>Tags</SectionLabel>
-        <ul className="space-y-0.5">
-          {TAGS.map((t) => (
-            <li key={t.id}>
-              <SidebarItem
-                icon={<span className={`size-2.5 rounded-full ${t.dot}`} />}
-                label={t.label}
-                collapsed={collapsed}
-              />
-            </li>
-          ))}
-        </ul>
-      </nav>
-
-      <div className="space-y-0.5 border-t border-forest/10 px-3 py-3">
-        <SidebarItem icon={<Settings className="size-4" />} label="Settings" collapsed={collapsed} />
-        <SidebarItem icon={<LifeBuoy className="size-4" />} label="Help & feedback" collapsed={collapsed} />
-        <div className={`mt-2 flex items-center gap-3 rounded-xl px-2 py-2 ${collapsed ? "justify-center" : ""}`}>
-          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-zest text-xs font-bold text-forest">
-            G
-          </span>
-          {!collapsed && (
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold">Guest</span>
-              <span className="block truncate text-xs text-forest/50">Personal workspace</span>
-            </span>
-          )}
-        </div>
-      </div>
+      <SidebarBody
+        {...props}
+        collapsed={collapsed}
+        searchRef={searchRef}
+        topRight={
+          <button
+            type="button"
+            onClick={() => write({ width, collapsed: !collapsed })}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!collapsed}
+            className="grid size-8 shrink-0 place-items-center rounded-lg text-forest/50 transition-colors hover:bg-mint hover:text-forest"
+          >
+            {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+          </button>
+        }
+        onExpandForSearch={() => {
+          write({ width, collapsed: false });
+          requestAnimationFrame(() => searchRef.current?.focus());
+        }}
+      />
 
       {/* Resize handle on the right edge */}
       {!collapsed && (
@@ -248,6 +217,181 @@ export function Sidebar() {
   );
 }
 
+/* ───────────────────────── Mobile sidebar ───────────────────────── */
+
+/** The same sidebar as a slide-out panel for phones, opened from the header's menu button. */
+export function MobileSidebar({
+  open,
+  onOpenChange,
+  ...props
+}: SidebarProps & { open: boolean; onOpenChange: (open: boolean) => void }) {
+  // Close after choosing a destination or tag; typing in search keeps it open.
+  const close = () => onOpenChange(false);
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange} swipeDirection="left">
+      <DrawerContent
+        className="bg-cream text-forest md:hidden"
+        style={{ "--drawer-content-width": "min(20rem, 86vw)" } as CSSProperties}
+      >
+        <DrawerTitle className="sr-only">Menu</DrawerTitle>
+        <DrawerDescription className="sr-only">Board views, tags and search.</DrawerDescription>
+        <div className="flex h-full min-h-0 flex-col">
+          <SidebarBody
+            {...props}
+            collapsed={false}
+            onNavigate={(t) => {
+              props.onNavigate(t);
+              close();
+            }}
+            onTag={(t) => {
+              props.onTag(t);
+              close();
+            }}
+            topRight={
+              <DrawerClose
+                aria-label="Close menu"
+                className="grid size-8 shrink-0 place-items-center rounded-lg text-forest/50 transition-colors hover:bg-mint hover:text-forest"
+              >
+                <X className="size-4" />
+              </DrawerClose>
+            }
+          />
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+/* ───────────────────────── Shared content ───────────────────────── */
+
+const WORKSPACE: { target: NavTarget; label: string; icon: typeof Sun }[] = [
+  { target: "board", label: "My board", icon: LayoutDashboard },
+  { target: "today", label: "Today", icon: Sun },
+  { target: "upcoming", label: "Upcoming", icon: CalendarRange },
+  { target: "completed", label: "Completed", icon: CircleCheckBig },
+  { target: "trash", label: "Trash", icon: Trash2 },
+];
+
+function SidebarBody({
+  active,
+  onNavigate,
+  tag,
+  onTag,
+  query,
+  onQuery,
+  counts,
+  collapsed,
+  topRight,
+  searchRef,
+  onExpandForSearch,
+}: SidebarProps & {
+  collapsed: boolean;
+  topRight: ReactNode;
+  searchRef?: RefObject<HTMLInputElement | null>;
+  onExpandForSearch?: () => void;
+}) {
+  return (
+    <>
+      {/* Brand + collapse/close */}
+      <div className={`flex items-center gap-2 px-4 pb-3 pt-5 ${collapsed ? "flex-col" : "justify-between"}`}>
+        <Link href="/" className="flex min-w-0 items-center gap-2" aria-label="Greenboard home">
+          <Logo className="size-9 shrink-0" />
+          {!collapsed && <span className="truncate font-display text-xl font-bold tracking-tight">greenboard</span>}
+        </Link>
+        {topRight}
+      </div>
+
+      {/* Search: filters the board by title and description */}
+      <div className="px-3 pb-2">
+        {collapsed ? (
+          <SidebarItem icon={<Search className="size-4" />} label="Search" collapsed onClick={onExpandForSearch} />
+        ) : (
+          <label className="flex items-center gap-2 rounded-xl border border-forest/10 bg-cream px-3 py-2 text-sm text-forest/45 focus-within:border-leaf focus-within:bg-white">
+            <Search className="size-4 shrink-0" />
+            <input
+              ref={searchRef}
+              type="search"
+              value={query}
+              onChange={(e) => onQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && onQuery("")}
+              placeholder="Search tasks"
+              aria-label="Search tasks"
+              className="min-w-0 flex-1 bg-transparent text-forest placeholder:text-forest/40 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+            />
+            {query ? (
+              <button
+                type="button"
+                onClick={() => onQuery("")}
+                aria-label="Clear search"
+                className="grid size-5 place-items-center rounded-md text-forest/50 hover:bg-mint hover:text-forest"
+              >
+                <X className="size-3.5" />
+              </button>
+            ) : (
+              <kbd className="hidden rounded-md border border-forest/10 bg-white px-1.5 text-[10px] font-semibold text-forest/40 lg:block">
+                ⌘K
+              </kbd>
+            )}
+          </label>
+        )}
+      </div>
+
+      <nav aria-label="Board" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-3">
+        <SectionLabel collapsed={collapsed}>Workspace</SectionLabel>
+        <ul className="space-y-0.5">
+          {WORKSPACE.map(({ target, label, icon: Icon }) => (
+            <li key={target}>
+              <SidebarItem
+                icon={<Icon className="size-4" />}
+                label={label}
+                count={counts[target]}
+                countTone={target === "trash" ? "coral" : "muted"}
+                active={target === active}
+                collapsed={collapsed}
+                onClick={() => onNavigate(target)}
+              />
+            </li>
+          ))}
+        </ul>
+
+        <SectionLabel collapsed={collapsed}>Tags</SectionLabel>
+        <ul className="space-y-0.5">
+          {TAGS.map((t) => (
+            <li key={t.id}>
+              <SidebarItem
+                icon={<span className={`size-2.5 rounded-full ${t.dot}`} />}
+                label={t.label}
+                count={counts.tags[t.id]}
+                active={tag === t.id}
+                pressed={tag === t.id}
+                collapsed={collapsed}
+                onClick={() => onTag(tag === t.id ? null : t.id)}
+              />
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      {/* Not wired to anything yet */}
+      <div className="space-y-0.5 border-t border-forest/10 px-3 py-3">
+        <SidebarItem icon={<Settings className="size-4" />} label="Settings" collapsed={collapsed} />
+        <SidebarItem icon={<LifeBuoy className="size-4" />} label="Help & feedback" collapsed={collapsed} />
+        <div className={`mt-2 flex items-center gap-3 rounded-xl px-2 py-2 ${collapsed ? "justify-center" : ""}`}>
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-zest text-xs font-bold text-forest">
+            G
+          </span>
+          {!collapsed && (
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold">Guest</span>
+              <span className="block truncate text-xs text-forest/50">Personal workspace</span>
+            </span>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
 function SectionLabel({ collapsed, children }: { collapsed: boolean; children: ReactNode }) {
   return collapsed ? (
     <div aria-hidden className="mx-3 my-3 h-px bg-forest/10" />
@@ -256,30 +400,60 @@ function SectionLabel({ collapsed, children }: { collapsed: boolean; children: R
   );
 }
 
-/** A static sidebar option. Only "My board" is active; the rest are placeholders for now. */
 function SidebarItem({
   icon,
   label,
+  count,
+  countTone = "muted",
   active = false,
+  pressed,
   collapsed,
+  onClick,
 }: {
   icon: ReactNode;
   label: string;
+  count?: number;
+  countTone?: "muted" | "coral";
   active?: boolean;
+  /** For toggles (tags): exposes on/off state instead of "current page". */
+  pressed?: boolean;
   collapsed: boolean;
+  onClick?: () => void;
 }) {
+  const showCount = typeof count === "number" && count > 0;
   return (
     <button
       type="button"
-      aria-current={active ? "page" : undefined}
-      aria-label={collapsed ? label : undefined}
+      onClick={onClick}
+      aria-current={active && pressed === undefined ? "page" : undefined}
+      aria-pressed={pressed}
+      aria-label={collapsed ? (showCount ? `${label}, ${count}` : label) : undefined}
       title={collapsed ? label : undefined}
-      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+      className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
         collapsed ? "justify-center px-0" : ""
       } ${active ? "bg-forest text-zest" : "text-forest/70 hover:bg-mint hover:text-forest"}`}
     >
       <span className="grid size-4 shrink-0 place-items-center">{icon}</span>
-      {!collapsed && <span className="truncate">{label}</span>}
+      {!collapsed && <span className="min-w-0 flex-1 truncate text-left">{label}</span>}
+      {showCount &&
+        (collapsed ? (
+          <span
+            aria-hidden
+            className={`absolute right-2 top-1.5 size-1.5 rounded-full ${countTone === "coral" ? "bg-coral" : "bg-leaf"}`}
+          />
+        ) : (
+          <span
+            className={`rounded-full px-1.5 text-[11px] font-semibold tabular-nums ${
+              countTone === "coral"
+                ? "bg-coral text-white"
+                : active
+                  ? "bg-white/15 text-zest"
+                  : "bg-forest/5 text-forest/55"
+            }`}
+          >
+            {count}
+          </span>
+        ))}
     </button>
   );
 }

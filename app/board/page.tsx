@@ -3,7 +3,7 @@ import { BoardApp } from "@/components/board/board-app";
 
 export const metadata: Metadata = {
   title: "My board — Greenboard",
-  description: "Add tasks, tick them off and watch your board go green.",
+  description: "Add tasks, tick them off and watch your board come together.",
 };
 
 export default function BoardPage() {

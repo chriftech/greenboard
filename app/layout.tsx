@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
+import { ThemeSync } from "@/components/theme-sync";
+import { THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 // All fonts are self-hosted, so builds never need to reach Google Fonts.
@@ -14,7 +16,7 @@ const bricolage = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Greenboard — Tick it off. Watch it go green.",
+  title: "Greenboard — Tick it off. Watch it get done.",
   description:
     "Greenboard is the joyful task board for ticking off what's done — solo or with your team.",
 };
@@ -24,8 +26,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${GeistSans.variable} ${GeistMono.variable} ${bricolage.variable} h-full antialiased scroll-smooth`}
+      // The theme script below adds "dark" before React hydrates.
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <head>
+        {/* Apply the saved (or device) theme before the first paint, so there's no flash. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
+      <body className="min-h-full flex flex-col">
+        <ThemeSync />
+        {children}
+      </body>
     </html>
   );
 }

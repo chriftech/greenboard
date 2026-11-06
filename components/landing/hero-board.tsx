@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { CheckBox, ConfettiBurst } from "./check-box";
 
 const TASKS = [
-  { text: "Morning stand-up notes", tag: "Team", tagClass: "bg-skyblue/15 text-[#0b6aa8]" },
-  { text: "Review the Q4 roadmap", tag: "Work", tagClass: "bg-grape/15 text-[#5b2fd1]" },
-  { text: "Send invoice to client", tag: "Admin", tagClass: "bg-sunny/25 text-[#8a5a00]" },
-  { text: "30-minute run", tag: "Health", tagClass: "bg-coral/15 text-[#c23a22]" },
-  { text: "Water the plants 🌱", tag: "Home", tagClass: "bg-leaf/15 text-[#0b7a3a]" },
+  { text: "Morning stand-up notes", tag: "Team", tagClass: "bg-skyblue/15 text-[#0b6aa8] dark:text-[#8fd3ff]" },
+  { text: "Review the Q4 roadmap", tag: "Work", tagClass: "bg-grape/15 text-[#5b2fd1] dark:text-[#c9b6ff]" },
+  { text: "Send invoice to client", tag: "Admin", tagClass: "bg-sunny/25 text-[#8a5a00] dark:text-[#ffd77a]" },
+  { text: "30-minute run", tag: "Health", tagClass: "bg-coral/15 text-[#c23a22] dark:text-[#ffab9c]" },
+  { text: "Water the plants 🌱", tag: "Home", tagClass: "bg-iris/15 text-[#3550c9] dark:text-[#a9b8ff]" },
 ];
 
 /** Self-playing task board: ticks tasks one by one, celebrates, then resets. */
@@ -43,24 +43,24 @@ export function HeroBoard() {
         👥 Team synced
       </div>
 
-      <div className="relative rounded-[28px] border border-forest/10 bg-white p-6 shadow-[0_30px_80px_-20px_rgb(7_53_42/0.35)] sm:rotate-[1.5deg]">
+      <div className="relative rounded-[28px] border border-ink/10 bg-surface p-6 shadow-[0_30px_80px_-20px_rgb(46_51_73/0.35)] sm:rotate-[1.5deg]">
         <div className="mb-5 flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-forest/50">
+            <p className="text-xs font-semibold uppercase tracking-widest text-ink/50">
               Today
             </p>
-            <h3 className="font-display text-2xl font-bold text-forest">My board</h3>
+            <h3 className="font-display text-2xl font-bold text-ink">My board</h3>
           </div>
 
           <div className="relative grid size-14 place-items-center">
             <svg viewBox="0 0 56 56" className="absolute inset-0 -rotate-90">
-              <circle cx="28" cy="28" r={R} fill="none" stroke="#e7f9e3" strokeWidth="6" />
+              <circle cx="28" cy="28" r={R} fill="none" stroke="#eef2ff" strokeWidth="6" />
               <circle
                 cx="28"
                 cy="28"
                 r={R}
                 fill="none"
-                stroke="#17b35a"
+                stroke="#4f6bed"
                 strokeWidth="6"
                 strokeLinecap="round"
                 strokeDasharray={C}
@@ -68,7 +68,7 @@ export function HeroBoard() {
                 style={{ transition: "stroke-dashoffset 0.6s cubic-bezier(0.2,0.7,0.2,1)" }}
               />
             </svg>
-            <span className="text-xs font-bold text-forest tabular-nums">{pct}%</span>
+            <span className="text-xs font-bold text-ink tabular-nums">{pct}%</span>
           </div>
         </div>
 
@@ -79,13 +79,13 @@ export function HeroBoard() {
               <li
                 key={t.text}
                 className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 transition-colors duration-500 ${
-                  isDone ? "border-leaf/30 bg-mint" : "border-forest/10 bg-cream"
+                  isDone ? "border-success/30 bg-success-soft" : "border-ink/10 bg-paper"
                 }`}
               >
                 <CheckBox done={isDone} />
                 <span className="flex-1">
                   <span
-                    className="gb-strike text-[15px] font-medium text-forest"
+                    className="gb-strike text-[15px] font-medium text-ink"
                     data-done={isDone || undefined}
                   >
                     {t.text}
@@ -99,18 +99,18 @@ export function HeroBoard() {
           })}
         </ul>
 
-        <div className="mt-5 h-2 overflow-hidden rounded-full bg-mint">
+        <div className="mt-5 h-2 overflow-hidden rounded-full bg-mist">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-leaf to-zest transition-[width] duration-700 ease-out"
+            className="h-full rounded-full bg-gradient-to-r from-iris to-peach transition-[width] duration-700 ease-out"
             style={{ width: `${pct}%` }}
           />
         </div>
 
         {complete && (
           <div className="absolute inset-x-0 -bottom-5 flex justify-center">
-            <div className="gb-pop relative rounded-full bg-forest px-5 py-2 text-sm font-bold text-zest shadow-xl">
+            <div className="gb-pop relative rounded-full bg-deep px-5 py-2 text-sm font-bold text-peach shadow-xl">
               <ConfettiBurst />
-              All done! Board is green 🎉
+              All done! Board is clear 🎉
             </div>
           </div>
         )}

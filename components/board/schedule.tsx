@@ -66,27 +66,45 @@ export function formatSchedule({ start, end }: Schedule) {
     : `${fmtDay(s)}, ${fmtTime(s)} → ${fmtDay(e)}, ${fmtTime(e)}`;
 }
 
+function startOfDay(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/** True if the timeline overlaps today (local time). Call in the browser only. */
+export function isScheduledToday({ start, end }: Schedule, now = new Date()) {
+  const dayStart = startOfDay(now);
+  const dayEnd = new Date(dayStart.getFullYear(), dayStart.getMonth(), dayStart.getDate() + 1);
+  return parseLocal(start) < dayEnd && parseLocal(end) >= dayStart;
+}
+
+/** True if the timeline starts tomorrow or later (local time). Call in the browser only. */
+export function isUpcoming({ start }: Schedule, now = new Date()) {
+  const tomorrow = startOfDay(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return parseLocal(start) >= tomorrow;
+}
+
 /** Status of a scheduled task right now, for colouring its badge. Call in the browser only. */
 export function scheduleStatus({ start, end }: Schedule, done: boolean) {
-  if (done) return { label: null, cls: "bg-forest/5 text-forest/50" };
+  if (done) return { label: null, cls: "bg-ink/5 text-ink/50" };
   const now = new Date();
   if (parseLocal(end) < now) return { label: "Overdue", cls: "bg-coral text-white" };
-  if (parseLocal(start) <= now) return { label: "In progress", cls: "bg-leaf text-white" };
-  if (start.slice(0, 10) === dateKey(now)) return { label: "Today", cls: "bg-sunny text-forest" };
-  return { label: null, cls: "bg-forest/5 text-forest/70" };
+  if (parseLocal(start) <= now) return { label: "In progress", cls: "bg-iris text-white" };
+  if (start.slice(0, 10) === dateKey(now)) return { label: "Today", cls: "bg-sunny text-on-accent" };
+  return { label: null, cls: "bg-ink/5 text-ink/70" };
 }
 
 /* ───────────────────────── Fields ───────────────────────── */
 
-// Re-theme the shadcn Calendar (neutral tokens) to Greenboard colours.
+// Re-theme the shadcn Calendar (neutral tokens) to Greenboard colours, light or dark.
 const CALENDAR_THEME = {
-  "--background": "#ffffff",
-  "--foreground": "#07352a",
-  "--primary": "#07352a",
-  "--primary-foreground": "#c8f251",
-  "--muted": "#e7f9e3",
-  "--muted-foreground": "rgb(7 53 42 / 0.5)",
-  "--ring": "#17b35a",
+  "--background": "var(--color-surface)",
+  "--foreground": "var(--color-ink)",
+  "--primary": "var(--color-deep)",
+  "--primary-foreground": "var(--color-peach)",
+  "--muted": "var(--color-mist)",
+  "--muted-foreground": "color-mix(in srgb, var(--color-ink) 50%, transparent)",
+  "--ring": "var(--color-iris)",
 } as CSSProperties;
 
 function DateTimeField({
@@ -107,29 +125,29 @@ function DateTimeField({
   const [open, setOpen] = useState(false);
   const selected = value.date ? parseLocal(`${value.date}T00:00`) : undefined;
   const dateText = selected ? fmtDay(selected) : "Pick a date";
-  const ring = invalid ? "border-coral/60" : "border-forest/10";
+  const ring = invalid ? "border-coral/60" : "border-ink/10";
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="w-20 shrink-0 text-xs font-semibold uppercase tracking-wider text-forest/50">{label}</span>
+      <span className="w-20 shrink-0 text-xs font-semibold uppercase tracking-wider text-ink/50">{label}</span>
 
       <Popover.Root open={open} onOpenChange={setOpen}>
         <Popover.Trigger
           aria-label={`${name} date`}
-          className={`inline-flex min-w-36 items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm font-medium transition-colors hover:border-leaf focus-visible:border-leaf focus-visible:outline-none ${ring} ${
-            value.date ? "text-forest" : "text-forest/40"
+          className={`inline-flex min-w-36 items-center gap-2 rounded-xl border bg-surface px-3 py-2 text-sm font-medium transition-colors hover:border-iris focus-visible:border-iris focus-visible:outline-none ${ring} ${
+            value.date ? "text-ink" : "text-ink/40"
           }`}
         >
-          <CalendarDays className="size-4 text-forest/50" />
+          <CalendarDays className="size-4 text-ink/50" />
           <span className="flex-1 text-left">{dateText}</span>
-          <ChevronDown className="size-3.5 text-forest/40" />
+          <ChevronDown className="size-3.5 text-ink/40" />
         </Popover.Trigger>
         <Popover.Portal>
           {/* Above the task details drawer (z-50). */}
           <Popover.Positioner sideOffset={8} align="start" className="z-[70]">
             <Popover.Popup
               style={CALENDAR_THEME}
-              className="origin-(--transform-origin) rounded-2xl border border-forest/10 bg-white p-2 shadow-[0_20px_50px_-15px_rgb(7_53_42/0.4)] outline-none transition-[opacity,transform] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0"
+              className="origin-(--transform-origin) rounded-2xl border border-ink/10 bg-surface p-2 shadow-[0_20px_50px_-15px_rgb(46_51_73/0.4)] outline-none transition-[opacity,transform] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0"
             >
               <Calendar
                 mode="single"
@@ -146,16 +164,16 @@ function DateTimeField({
       </Popover.Root>
 
       <label
-        className={`inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm font-medium focus-within:border-leaf ${ring}`}
+        className={`inline-flex items-center gap-2 rounded-xl border bg-surface px-3 py-2 text-sm font-medium focus-within:border-iris ${ring}`}
       >
-        <Clock className="size-4 text-forest/50" />
+        <Clock className="size-4 text-ink/50" />
         <span className="sr-only">{name} time</span>
         <input
           type="time"
           required
           value={value.time ?? ""}
           onChange={(e) => onChange({ ...value, time: e.target.value || undefined })}
-          className={`bg-transparent focus:outline-none ${value.time ? "text-forest" : "text-forest/40"}`}
+          className={`bg-transparent focus:outline-none ${value.time ? "text-ink" : "text-ink/40"}`}
         />
       </label>
     </div>

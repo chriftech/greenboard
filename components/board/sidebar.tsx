@@ -20,6 +20,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Search,
+  Pencil,
+  Plus,
   Settings,
   Sun,
   Trash2,
@@ -27,7 +29,9 @@ import {
 } from "lucide-react";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { Logo } from "@/components/landing/logo";
-import { TAGS, type TagId } from "@/lib/tasks";
+import type { TagId } from "@/lib/tasks";
+import { MAX_CUSTOM_TAGS, getCustomTags, type CustomTag, type TagView } from "@/lib/tags";
+import { TagDot } from "./tag-chip";
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -43,6 +47,10 @@ export type SidebarProps = {
   query: string;
   onQuery: (query: string) => void;
   counts: Record<NavTarget, number> & { tags: Record<TagId, number> };
+  /** Built-in and custom tags, in display order. */
+  tags: TagView[];
+  /** Open the tag editor for a custom tag, or with null to create one. */
+  onEditTag: (tag: CustomTag | null) => void;
 };
 
 /* ───────────────────────── Persisted size ───────────────────────── */
@@ -248,6 +256,10 @@ export function MobileSidebar({
               props.onTag(t);
               close();
             }}
+            onEditTag={(t) => {
+              close();
+              props.onEditTag(t);
+            }}
             topRight={
               <DrawerClose
                 aria-label="Close menu"
@@ -281,6 +293,8 @@ function SidebarBody({
   query,
   onQuery,
   counts,
+  tags,
+  onEditTag,
   collapsed,
   topRight,
   searchRef,
@@ -359,20 +373,61 @@ function SidebarBody({
 
         <SectionLabel collapsed={collapsed}>Tags</SectionLabel>
         <ul className="space-y-0.5">
-          {TAGS.map((t) => (
-            <li key={t.id}>
+          {tags.map((t) => (
+            <li key={t.id} className="group/tag relative">
               <SidebarItem
-                icon={<span className={`size-2.5 rounded-full ${t.dot}`} />}
+                icon={<TagDot tag={t} className="size-2.5" />}
                 label={t.label}
                 count={counts.tags[t.id]}
                 active={tag === t.id}
                 pressed={tag === t.id}
                 collapsed={collapsed}
                 onClick={() => onTag(tag === t.id ? null : t.id)}
+                // Leave room for the edit button on custom tags.
+                hideCountOnHover={t.custom && !collapsed}
               />
+              {t.custom && !collapsed && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const custom = getCustomTags().find((c) => c.id === t.id);
+                    if (custom) onEditTag(custom);
+                  }}
+                  aria-label={`Edit tag ${t.label}`}
+                  title="Edit tag"
+                  className={`absolute right-1.5 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-lg opacity-0 transition-opacity focus-visible:opacity-100 group-hover/tag:opacity-100 ${
+                    tag === t.id ? "text-peach hover:bg-white/15" : "text-ink/50 hover:bg-surface hover:text-ink"
+                  }`}
+                >
+                  <Pencil className="size-3.5" />
+                </button>
+              )}
             </li>
           ))}
         </ul>
+        {(() => {
+          const customCount = tags.filter((t) => t.custom).length;
+          const full = customCount >= MAX_CUSTOM_TAGS;
+          return collapsed ? (
+            !full && (
+              <SidebarItem icon={<Plus className="size-4" />} label="New tag" collapsed onClick={() => onEditTag(null)} />
+            )
+          ) : (
+            <button
+              type="button"
+              onClick={() => onEditTag(null)}
+              disabled={full}
+              title={full ? `You can have up to ${MAX_CUSTOM_TAGS} custom tags` : undefined}
+              className="mt-1 flex w-full items-center gap-3 rounded-xl border border-dashed border-ink/15 px-3 py-2 text-sm font-medium text-ink/55 transition-colors hover:border-iris hover:text-ink disabled:border-ink/10 disabled:text-ink/30 disabled:hover:border-ink/10"
+            >
+              <Plus className="size-4 shrink-0" />
+              <span className="flex-1 text-left">{full ? "Tag limit reached" : "New tag"}</span>
+              <span className="text-[11px] font-semibold tabular-nums">
+                {customCount}/{MAX_CUSTOM_TAGS}
+              </span>
+            </button>
+          );
+        })()}
       </nav>
 
       {/* Not wired to anything yet */}
@@ -412,6 +467,7 @@ function SidebarItem({
   pressed,
   collapsed,
   onClick,
+  hideCountOnHover = false,
 }: {
   icon: ReactNode;
   label: string;
@@ -422,6 +478,8 @@ function SidebarItem({
   pressed?: boolean;
   collapsed: boolean;
   onClick?: () => void;
+  /** Fade the count out on hover (custom tags show an edit button there). */
+  hideCountOnHover?: boolean;
 }) {
   const showCount = typeof count === "number" && count > 0;
   return (
@@ -446,7 +504,9 @@ function SidebarItem({
           />
         ) : (
           <span
-            className={`rounded-full px-1.5 text-[11px] font-semibold tabular-nums ${
+            className={`rounded-full px-1.5 text-[11px] font-semibold tabular-nums transition-opacity ${
+              hideCountOnHover ? "group-hover/tag:opacity-0" : ""
+            } ${
               countTone === "coral"
                 ? "bg-coral text-white"
                 : active

@@ -7,6 +7,7 @@
  * render matches the server HTML and tasks appear right after hydration.
  */
 
+/** Built-in tags. Users can add up to 5 more (see lib/tags.ts). */
 export const TAGS = [
   { id: "default", label: "Default", chip: "bg-ink/10 text-ink/75", dot: "bg-ink/40" },
   { id: "work", label: "Work", chip: "bg-grape/15 text-[#5b2fd1] dark:text-[#c9b6ff]", dot: "bg-grape" },
@@ -16,7 +17,8 @@ export const TAGS = [
   { id: "home", label: "Home", chip: "bg-sunny/25 text-[#8a5a00] dark:text-[#ffd77a]", dot: "bg-sunny" },
 ] as const;
 
-export type TagId = (typeof TAGS)[number]["id"];
+/** A built-in tag id or a custom tag id ("custom-…"). */
+export type TagId = string;
 
 /** Tag preselected for new tasks, and the fallback for unknown tags. */
 export const DEFAULT_TAG: TagId = "default";
@@ -76,7 +78,6 @@ export function trashDaysLeft(t: Task, now = Date.now()) {
   if (t.deletedAt === undefined) return TRASH_DAYS;
   return Math.max(0, Math.ceil((t.deletedAt + TRASH_MS - now) / DAY_MS));
 }
-const TAG_IDS = new Set<string>(TAGS.map((t) => t.id));
 
 let cache: Task[] | null = null;
 const listeners = new Set<() => void>();
@@ -91,8 +92,10 @@ function isTask(v: unknown): v is Task {
     typeof t.createdAt === "number" &&
     (t.order === undefined || typeof t.order === "number") &&
     (t.deletedAt === undefined || typeof t.deletedAt === "number") &&
+    // Any non-empty tag id is kept; an unknown one (e.g. a deleted custom tag)
+    // is shown as Default rather than dropping the task.
     typeof t.tag === "string" &&
-    TAG_IDS.has(t.tag) &&
+    t.tag.length > 0 &&
     (t.description === undefined || typeof t.description === "string") &&
     (t.descriptionText === undefined || typeof t.descriptionText === "string")
   );
@@ -238,6 +241,11 @@ export const taskActions = {
     if (slots.length !== ids.length) return;
     const next = new Map(ids.map((id, i) => [id, slots[i]]));
     save(tasks.map((t) => (next.has(t.id) ? { ...t, order: next.get(t.id)! } : t)));
+  },
+  /** Move every task with one tag to another (used when a custom tag is deleted). */
+  retag(from: TagId, to: TagId) {
+    const tasks = getTasks();
+    if (tasks.some((t) => t.tag === from)) save(tasks.map((t) => (t.tag === from ? { ...t, tag: to } : t)));
   },
   /** Move a task to Trash. It can be restored for 30 days. */
   trash(id: string) {

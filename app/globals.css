@@ -6,16 +6,42 @@
 
 /* Greenboard brand palette */
 @theme {
-  --color-forest: #07352a;
-  --color-forest-2: #0e4a39;
-  --color-leaf: #17b35a;
-  --color-zest: #c8f251;
-  --color-mint: #e7f9e3;
-  --color-cream: #fbfdf4;
+  --color-ink: #2e3349;
+  --color-ink-2: #3c4260;
+  --color-iris: #4f6bed;
+  --color-peach: #ffc9a9;
+  --color-mist: #eef2ff;
+  --color-paper: #fafbff;
+  /* Cards, panels and inputs (white in light mode). */
+  --color-surface: #ffffff;
+  /* Dark panels in both themes: summary card, active items, primary buttons. */
+  --color-deep: #2e3349;
+  /* Text on peach / yellow, which stays dark in both themes. */
+  --color-on-accent: #2e3349;
+  /* Green is reserved for completed / successful tasks. */
+  --color-success: #16a34a;
+  --color-success-soft: #ecfdf3;
   --color-coral: #ff6f59;
   --color-sunny: #ffc845;
   --color-skyblue: #4ab4ff;
   --color-grape: #9a6bff;
+}
+
+/*
+ * Dark theme: the same tokens with dark values. Toggled by the "dark" class on
+ * <html> (see ThemeToggle and the script in app/layout.tsx). Unlayered, so it
+ * overrides the @theme defaults.
+ */
+.dark {
+  color-scheme: dark;
+  --color-ink: #e4e7f5;
+  --color-ink-2: #c9cde3;
+  --color-iris: #7d93f7;
+  --color-mist: #1f2545;
+  --color-paper: #0e1120;
+  --color-surface: #171b2e;
+  --color-deep: #262c4d;
+  --color-success-soft: #10291c;
 }
 
 @theme inline {
@@ -165,7 +191,8 @@
 /* ───────────── Greenboard landing animations ───────────── */
 
 body {
-  background: var(--color-cream);
+  background: var(--color-paper);
+  transition: background-color 0.3s ease;
 }
 
 @keyframes gb-float {
@@ -204,33 +231,9 @@ body {
   79% { transform: rotate(8deg); }
   86% { transform: rotate(-5deg); }
 }
-@keyframes gb-bar {
-  0%, 100% { transform: scaleY(0.25); }
-  50% { transform: scaleY(1); }
-}
 @keyframes gb-shine {
   0% { transform: translateX(-120%) skewX(-20deg); }
   60%, 100% { transform: translateX(260%) skewX(-20deg); }
-}
-@keyframes gb-spin { to { transform: rotate(360deg); } }
-@keyframes gb-underline {
-  from { stroke-dashoffset: 1; }
-  to { stroke-dashoffset: 0; }
-}
-@keyframes gb-loop-check {
-  0%, 18% { background: transparent; border-color: rgb(7 53 42 / 0.25); }
-  24%, 88% { background: var(--color-leaf); border-color: var(--color-leaf); }
-  94%, 100% { background: transparent; border-color: rgb(7 53 42 / 0.25); }
-}
-@keyframes gb-loop-icon {
-  0%, 18% { transform: scale(0); }
-  26%, 88% { transform: scale(1); }
-  94%, 100% { transform: scale(0); }
-}
-@keyframes gb-loop-strike {
-  0%, 20% { background-size: 0% 2px; opacity: 1; }
-  30%, 88% { background-size: 100% 2px; opacity: 0.55; }
-  94%, 100% { background-size: 0% 2px; opacity: 1; }
 }
 
 .gb-float { animation: gb-float 6s ease-in-out infinite; }
@@ -239,8 +242,6 @@ body {
 .gb-pop { animation: gb-pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.4) both; }
 .gb-rise { animation: gb-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 .gb-wiggle { animation: gb-wiggle 2.8s ease-in-out infinite; transform-origin: 50% 10%; }
-.gb-bar { animation: gb-bar 2.4s ease-in-out infinite; transform-origin: bottom; }
-.gb-spin-slow { animation: gb-spin 14s linear infinite; }
 
 .gb-confetti {
   position: absolute;
@@ -288,14 +289,6 @@ body {
   animation: gb-underline 1s 0.7s cubic-bezier(0.6, 0, 0.2, 1) forwards;
 }
 
-.gb-loop-check { animation: gb-loop-check 6s ease-in-out infinite; }
-.gb-loop-check svg { animation: gb-loop-icon 6s ease-in-out infinite; animation-delay: inherit; }
-.gb-loop-strike {
-  background-image: linear-gradient(currentColor, currentColor);
-  background-repeat: no-repeat;
-  background-position: 0 55%;
-  animation: gb-loop-strike 6s ease-in-out infinite;
-}
 
 /* scroll reveal */
 .gb-reveal {
@@ -308,8 +301,8 @@ body {
 
 .gb-grid-bg {
   background-image:
-    linear-gradient(rgb(7 53 42 / 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(7 53 42 / 0.05) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--color-ink) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-ink) 5%, transparent) 1px, transparent 1px);
   background-size: 44px 44px;
   mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 75%);
 }
@@ -329,7 +322,7 @@ body {
 .gb-prose ul { list-style: disc; padding-left: 1.4em; margin: 0.35em 0; }
 .gb-prose ul ul { list-style: circle; }
 .gb-prose li > p { margin: 0.1em 0; }
-.gb-prose li::marker { color: var(--color-leaf); }
+.gb-prose li::marker { color: var(--color-iris); }
 .gb-prose strong { font-weight: 700; }
 .gb-prose u { text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
 .gb-prose p.is-editor-empty:first-child::before {
@@ -337,5 +330,5 @@ body {
   float: left;
   height: 0;
   pointer-events: none;
-  color: rgb(7 53 42 / 0.35);
+  color: color-mix(in srgb, var(--color-ink) 35%, transparent);
 }

@@ -162,7 +162,7 @@ export function Sidebar(props: SidebarProps) {
     <aside
       aria-label="Sidebar"
       style={{ width: shown }}
-      className={`sticky top-0 z-30 hidden h-dvh shrink-0 flex-col border-r border-forest/10 bg-white/75 backdrop-blur-xl md:flex ${
+      className={`sticky top-0 z-30 hidden h-dvh shrink-0 flex-col border-r border-ink/10 bg-white/75 backdrop-blur-xl md:flex ${
         resizing ? "" : "transition-[width] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
       }`}
     >
@@ -176,7 +176,7 @@ export function Sidebar(props: SidebarProps) {
             onClick={() => write({ width, collapsed: !collapsed })}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-expanded={!collapsed}
-            className="grid size-8 shrink-0 place-items-center rounded-lg text-forest/50 transition-colors hover:bg-mint hover:text-forest"
+            className="grid size-8 shrink-0 place-items-center rounded-lg text-ink/50 transition-colors hover:bg-mist hover:text-ink"
           >
             {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
           </button>
@@ -208,7 +208,7 @@ export function Sidebar(props: SidebarProps) {
         >
           <span
             className={`absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 transition-colors ${
-              resizing ? "bg-leaf" : "bg-transparent group-hover:bg-leaf/60 group-focus-visible:bg-leaf"
+              resizing ? "bg-iris" : "bg-transparent group-hover:bg-iris/60 group-focus-visible:bg-iris"
             }`}
           />
         </div>
@@ -230,7 +230,7 @@ export function MobileSidebar({
   return (
     <Drawer open={open} onOpenChange={onOpenChange} swipeDirection="left">
       <DrawerContent
-        className="bg-cream text-forest md:hidden"
+        className="bg-paper text-ink md:hidden"
         style={{ "--drawer-content-width": "min(20rem, 86vw)" } as CSSProperties}
       >
         <DrawerTitle className="sr-only">Menu</DrawerTitle>
@@ -250,7 +250,7 @@ export function MobileSidebar({
             topRight={
               <DrawerClose
                 aria-label="Close menu"
-                className="grid size-8 shrink-0 place-items-center rounded-lg text-forest/50 transition-colors hover:bg-mint hover:text-forest"
+                className="grid size-8 shrink-0 place-items-center rounded-lg text-ink/50 transition-colors hover:bg-mist hover:text-ink"
               >
                 <X className="size-4" />
               </DrawerClose>
@@ -306,7 +306,7 @@ function SidebarBody({
         {collapsed ? (
           <SidebarItem icon={<Search className="size-4" />} label="Search" collapsed onClick={onExpandForSearch} />
         ) : (
-          <label className="flex items-center gap-2 rounded-xl border border-forest/10 bg-cream px-3 py-2 text-sm text-forest/45 focus-within:border-leaf focus-within:bg-white">
+          <label className="flex items-center gap-2 rounded-xl border border-ink/10 bg-paper px-3 py-2 text-sm text-ink/45 focus-within:border-iris focus-within:bg-white">
             <Search className="size-4 shrink-0" />
             <input
               ref={searchRef}
@@ -316,19 +316,19 @@ function SidebarBody({
               onKeyDown={(e) => e.key === "Escape" && onQuery("")}
               placeholder="Search tasks"
               aria-label="Search tasks"
-              className="min-w-0 flex-1 bg-transparent text-forest placeholder:text-forest/40 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+              className="min-w-0 flex-1 bg-transparent text-ink placeholder:text-ink/40 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
             />
             {query ? (
               <button
                 type="button"
                 onClick={() => onQuery("")}
                 aria-label="Clear search"
-                className="grid size-5 place-items-center rounded-md text-forest/50 hover:bg-mint hover:text-forest"
+                className="grid size-5 place-items-center rounded-md text-ink/50 hover:bg-mist hover:text-ink"
               >
                 <X className="size-3.5" />
               </button>
             ) : (
-              <kbd className="hidden rounded-md border border-forest/10 bg-white px-1.5 text-[10px] font-semibold text-forest/40 lg:block">
+              <kbd className="hidden rounded-md border border-ink/10 bg-white px-1.5 text-[10px] font-semibold text-ink/40 lg:block">
                 ⌘K
               </kbd>
             )}
@@ -373,17 +373,17 @@ function SidebarBody({
       </nav>
 
       {/* Not wired to anything yet */}
-      <div className="space-y-0.5 border-t border-forest/10 px-3 py-3">
+      <div className="space-y-0.5 border-t border-ink/10 px-3 py-3">
         <SidebarItem icon={<Settings className="size-4" />} label="Settings" collapsed={collapsed} />
         <SidebarItem icon={<LifeBuoy className="size-4" />} label="Help & feedback" collapsed={collapsed} />
         <div className={`mt-2 flex items-center gap-3 rounded-xl px-2 py-2 ${collapsed ? "justify-center" : ""}`}>
-          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-zest text-xs font-bold text-forest">
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-peach text-xs font-bold text-ink">
             G
           </span>
           {!collapsed && (
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold">Guest</span>
-              <span className="block truncate text-xs text-forest/50">Personal workspace</span>
+              <span className="block truncate text-xs text-ink/50">Personal workspace</span>
             </span>
           )}
         </div>
@@ -394,9 +394,9 @@ function SidebarBody({
 
 function SectionLabel({ collapsed, children }: { collapsed: boolean; children: ReactNode }) {
   return collapsed ? (
-    <div aria-hidden className="mx-3 my-3 h-px bg-forest/10" />
+    <div aria-hidden className="mx-3 my-3 h-px bg-ink/10" />
   ) : (
-    <p className="px-3 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-widest text-forest/40">{children}</p>
+    <p className="px-3 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-widest text-ink/40">{children}</p>
   );
 }
 
@@ -431,7 +431,7 @@ function SidebarItem({
       title={collapsed ? label : undefined}
       className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
         collapsed ? "justify-center px-0" : ""
-      } ${active ? "bg-forest text-zest" : "text-forest/70 hover:bg-mint hover:text-forest"}`}
+      } ${active ? "bg-ink text-peach" : "text-ink/70 hover:bg-mist hover:text-ink"}`}
     >
       <span className="grid size-4 shrink-0 place-items-center">{icon}</span>
       {!collapsed && <span className="min-w-0 flex-1 truncate text-left">{label}</span>}
@@ -439,7 +439,7 @@ function SidebarItem({
         (collapsed ? (
           <span
             aria-hidden
-            className={`absolute right-2 top-1.5 size-1.5 rounded-full ${countTone === "coral" ? "bg-coral" : "bg-leaf"}`}
+            className={`absolute right-2 top-1.5 size-1.5 rounded-full ${countTone === "coral" ? "bg-coral" : "bg-iris"}`}
           />
         ) : (
           <span
@@ -447,8 +447,8 @@ function SidebarItem({
               countTone === "coral"
                 ? "bg-coral text-white"
                 : active
-                  ? "bg-white/15 text-zest"
-                  : "bg-forest/5 text-forest/55"
+                  ? "bg-white/15 text-peach"
+                  : "bg-ink/5 text-ink/55"
             }`}
           >
             {count}

@@ -6,9 +6,7 @@ import { Menu, X } from "lucide-react";
 import { Logo } from "./logo";
 
 const LINKS = [
-  { href: "#features", label: "Features" },
   { href: "#how", label: "How it works" },
-  { href: "#try", label: "Try it" },
 ];
 
 export function Nav() {
@@ -27,13 +25,13 @@ export function Nav() {
       <nav
         className={`mx-auto flex max-w-6xl items-center justify-between rounded-2xl px-4 py-2.5 transition-all duration-300 ${
           scrolled || open
-            ? "border border-forest/10 bg-white/80 shadow-lg shadow-forest/5 backdrop-blur-xl"
+            ? "border border-ink/10 bg-white/80 shadow-lg shadow-ink/5 backdrop-blur-xl"
             : "border border-transparent"
         }`}
       >
         <a href="#top" className="flex items-center gap-2">
           <Logo />
-          <span className="font-display text-xl font-bold tracking-tight text-forest">
+          <span className="font-display text-xl font-bold tracking-tight text-ink">
             greenboard
           </span>
         </a>
@@ -43,7 +41,7 @@ export function Nav() {
             <a
               key={l.href}
               href={l.href}
-              className="relative text-sm font-medium text-forest/70 transition-colors hover:text-forest after:absolute after:-bottom-1 after:left-0 after:h-0.5 after:w-full after:origin-left after:scale-x-0 after:rounded-full after:bg-leaf after:transition-transform hover:after:scale-x-100"
+              className="relative text-sm font-medium text-ink/70 transition-colors hover:text-ink after:absolute after:-bottom-1 after:left-0 after:h-0.5 after:w-full after:origin-left after:scale-x-0 after:rounded-full after:bg-iris after:transition-transform hover:after:scale-x-100"
             >
               {l.label}
             </a>
@@ -51,12 +49,12 @@ export function Nav() {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Link href="/board" className="text-sm font-semibold text-forest/80 hover:text-forest">
+          <Link href="/board" className="text-sm font-semibold text-ink/80 hover:text-ink">
             My board
           </Link>
           <Link
             href="/board"
-            className="rounded-xl bg-forest px-4 py-2 text-sm font-semibold text-zest transition-transform hover:-translate-y-0.5 hover:shadow-lg"
+            className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5 hover:shadow-lg"
           >
             Get started
           </Link>
@@ -64,7 +62,7 @@ export function Nav() {
 
         <button
           type="button"
-          className="grid size-10 place-items-center rounded-xl text-forest md:hidden"
+          className="grid size-10 place-items-center rounded-xl text-ink md:hidden"
           onClick={() => setOpen((o) => !o)}
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}
@@ -74,13 +72,13 @@ export function Nav() {
       </nav>
 
       {open && (
-        <div className="gb-rise mx-auto mt-2 max-w-6xl rounded-2xl border border-forest/10 bg-white p-4 shadow-xl md:hidden">
+        <div className="gb-rise mx-auto mt-2 max-w-6xl rounded-2xl border border-ink/10 bg-white p-4 shadow-xl md:hidden">
           {LINKS.map((l) => (
             <a
               key={l.href}
               href={l.href}
               onClick={() => setOpen(false)}
-              className="block rounded-xl px-3 py-3 font-medium text-forest hover:bg-mint"
+              className="block rounded-xl px-3 py-3 font-medium text-ink hover:bg-mist"
             >
               {l.label}
             </a>
@@ -88,7 +86,7 @@ export function Nav() {
           <Link
             href="/board"
             onClick={() => setOpen(false)}
-            className="mt-2 block rounded-xl bg-forest px-3 py-3 text-center font-semibold text-zest"
+            className="mt-2 block rounded-xl bg-ink px-3 py-3 text-center font-semibold text-peach"
           >
             Get started
           </Link>

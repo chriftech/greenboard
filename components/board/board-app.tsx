@@ -93,7 +93,7 @@ function confirmCopy(p: PendingDelete | null) {
         title: "Delete forever?",
         description: (
           <>
-            <span className="font-semibold text-forest">&ldquo;{p.title}&rdquo;</span> and its description will be
+            <span className="font-semibold text-ink">&ldquo;{p.title}&rdquo;</span> and its description will be
             deleted for good. This can&apos;t be undone.
           </>
         ),
@@ -110,7 +110,7 @@ function confirmCopy(p: PendingDelete | null) {
         title: "Move this task to Trash?",
         description: (
           <>
-            <span className="font-semibold text-forest">&ldquo;{p?.title}&rdquo;</span> will move to Trash. You can
+            <span className="font-semibold text-ink">&ldquo;{p?.title}&rdquo;</span> will move to Trash. You can
             restore it for {TRASH_DAYS} days, then it&apos;s deleted for good.
           </>
         ),
@@ -281,7 +281,7 @@ export function BoardApp() {
   }
 
   return (
-    <div className="flex min-h-full flex-1 bg-cream text-forest">
+    <div className="flex min-h-full flex-1 bg-paper text-ink">
       <Sidebar {...sidebar} />
       <MobileSidebar {...sidebar} open={menuOpen} onOpenChange={setMenuOpen} />
 
@@ -292,13 +292,13 @@ export function BoardApp() {
         */}
         <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
           <div className="gb-grid-bg absolute inset-0" />
-          <div className="gb-blob absolute -top-48 left-[22%] size-[560px] rounded-full bg-zest/35 blur-3xl" />
+          <div className="gb-blob absolute -top-48 left-[22%] size-[560px] rounded-full bg-peach/35 blur-3xl" />
           <div
             className="gb-blob absolute -right-40 top-1/4 size-[460px] rounded-full bg-skyblue/20 blur-3xl"
             style={{ animationDelay: "-7s" }}
           />
           <div
-            className="gb-blob absolute -bottom-56 left-[38%] size-[520px] rounded-full bg-leaf/15 blur-3xl"
+            className="gb-blob absolute -bottom-56 left-[38%] size-[520px] rounded-full bg-iris/15 blur-3xl"
             style={{ animationDelay: "-13s" }}
           />
         </div>
@@ -314,14 +314,14 @@ export function BoardApp() {
               type="button"
               onClick={() => setMenuOpen(true)}
               aria-label="Open menu"
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-forest/70 transition-colors hover:bg-white hover:text-forest md:hidden"
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-white hover:text-ink md:hidden"
             >
               <Menu className="size-4" />
               Menu
             </button>
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-forest/70 transition-colors hover:bg-white hover:text-forest"
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-white hover:text-ink"
             >
               <ArrowLeft className="size-4" />
               Home
@@ -336,7 +336,7 @@ export function BoardApp() {
           {/* What the sidebar has narrowed the board to */}
           {narrowed && (
             <div className="mt-10 flex flex-wrap items-center gap-2" aria-live="polite">
-              <span className="text-xs font-semibold uppercase tracking-widest text-forest/45">Showing</span>
+              <span className="text-xs font-semibold uppercase tracking-widest text-ink/45">Showing</span>
               {view !== "board" && (
                 <FilterChip label={view === "today" ? "Today" : "Upcoming"} onClear={() => setView("board")} />
               )}
@@ -345,7 +345,7 @@ export function BoardApp() {
               <button
                 type="button"
                 onClick={clearNarrowing}
-                className="text-xs font-semibold text-forest/50 underline-offset-4 transition-colors hover:text-forest hover:underline"
+                className="text-xs font-semibold text-ink/50 underline-offset-4 transition-colors hover:text-ink hover:underline"
               >
                 Clear all
               </button>
@@ -357,11 +357,11 @@ export function BoardApp() {
             <div
               role="tablist"
               aria-label="Filter tasks"
-              className="relative grid grid-cols-3 rounded-2xl border border-forest/10 bg-white p-1"
+              className="relative grid grid-cols-3 rounded-2xl border border-ink/10 bg-white p-1"
             >
               <span
                 aria-hidden
-                className="absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-xl bg-forest transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+                className="absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-xl bg-ink transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
                 style={{ transform: `translateX(${FILTERS.findIndex((f) => f.id === filter) * 100}%)` }}
               />
               {FILTERS.map((f) => (
@@ -372,13 +372,13 @@ export function BoardApp() {
                   aria-selected={filter === f.id}
                   onClick={() => setFilter(f.id)}
                   className={`relative z-10 flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
-                    filter === f.id ? "text-zest" : "text-forest/60 hover:text-forest"
+                    filter === f.id ? "text-peach" : "text-ink/60 hover:text-ink"
                   }`}
                 >
                   {f.label}
                   <span
                     className={`rounded-full px-1.5 text-[11px] tabular-nums ${
-                      filter === f.id ? "bg-white/15" : "bg-forest/5"
+                      filter === f.id ? "bg-white/15" : "bg-ink/5"
                     }`}
                   >
                     {loaded ? counts[f.id] : "–"}
@@ -391,7 +391,7 @@ export function BoardApp() {
               <button
                 type="button"
                 onClick={() => askDelete({ kind: "done", count: done.length })}
-                className="text-sm font-medium text-forest/55 underline-offset-4 transition-colors hover:text-coral hover:underline"
+                className="text-sm font-medium text-ink/55 underline-offset-4 transition-colors hover:text-coral hover:underline"
               >
                 Clear completed ({done.length})
               </button>
@@ -500,24 +500,24 @@ function Summary({ loaded, total, doneCount }: { loaded: boolean; total: number;
     : total === 0
       ? "Nothing here yet. Add your first task below."
       : allDone
-        ? "Every task is ticked. Your board is fully green!"
+        ? "Every task is ticked. Your board is all clear!"
         : `${left} ${left === 1 ? "task" : "tasks"} left — you've got this.`;
 
   return (
-    <section className="gb-rise relative overflow-hidden rounded-[28px] bg-forest p-6 text-white shadow-[0_30px_80px_-30px_rgb(7_53_42/0.7)] sm:p-8">
+    <section className="gb-rise relative overflow-hidden rounded-[28px] bg-ink p-6 text-white shadow-[0_30px_80px_-30px_rgb(46_51_73/0.7)] sm:p-8">
       <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="gb-blob absolute -right-16 -top-24 size-72 rounded-full bg-leaf/40 blur-3xl" />
+        <div className="gb-blob absolute -right-16 -top-24 size-72 rounded-full bg-iris/40 blur-3xl" />
       </div>
       <div className="relative flex items-center justify-between gap-6">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-widest text-zest/80">
+          <p className="text-xs font-semibold uppercase tracking-widest text-peach/80">
             {dateLabel || " "}
           </p>
           <h1 className="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
             {greeting} <span className="inline-block origin-[70%_70%] gb-wiggle">👋</span>
           </h1>
           <p className="mt-2 flex items-center gap-2 text-white/75">
-            {allDone && <PartyPopper className="size-4 shrink-0 text-zest" />}
+            {allDone && <PartyPopper className="size-4 shrink-0 text-peach" />}
             {message}
           </p>
         </div>
@@ -531,7 +531,7 @@ function Summary({ loaded, total, doneCount }: { loaded: boolean; total: number;
               cy="50"
               r={R}
               fill="none"
-              stroke="#c8f251"
+              stroke="#ffc9a9"
               strokeWidth="10"
               strokeLinecap="round"
               strokeDasharray={C}
@@ -580,11 +580,11 @@ function Composer() {
   return (
     <form
       onSubmit={submit}
-      className="gb-rise mt-6 rounded-[28px] border border-forest/10 bg-white p-4 shadow-[0_20px_60px_-30px_rgb(7_53_42/0.4)] sm:p-5"
+      className="gb-rise mt-6 rounded-[28px] border border-ink/10 bg-white p-4 shadow-[0_20px_60px_-30px_rgb(46_51_73/0.4)] sm:p-5"
       style={{ animationDelay: "120ms" }}
     >
       {/* Tag first, so it's chosen before typing the task. */}
-      <div className="border-b border-forest/5 pb-4">
+      <div className="border-b border-ink/5 pb-4">
         <div role="radiogroup" aria-label="Tag" className="flex flex-wrap gap-1.5">
           {TAGS.map((t) => (
             <button
@@ -596,7 +596,7 @@ function Composer() {
               className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
                 tag === t.id
                   ? `${t.chip} scale-105 border-current`
-                  : "border-forest/10 text-forest/60 hover:border-forest/25"
+                  : "border-ink/10 text-ink/60 hover:border-ink/25"
               }`}
             >
               <span className={`size-2 rounded-full ${t.dot}`} />
@@ -610,7 +610,7 @@ function Composer() {
         New task
       </label>
       <div className="mt-4 flex items-center gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-zest">
+        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-peach">
           <Plus className="size-5" strokeWidth={3} />
         </span>
         <input
@@ -622,19 +622,19 @@ function Composer() {
           autoComplete="off"
           autoFocus
           maxLength={140}
-          className="min-w-0 flex-1 bg-transparent font-display text-xl font-semibold placeholder:text-forest/30 focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent font-display text-xl font-semibold placeholder:text-ink/30 focus:outline-none"
         />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-forest/5 pt-4">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-ink/5 pt-4">
         <button
           type="button"
           onClick={() => (scheduling ? closeSchedule() : setScheduling(true))}
           aria-expanded={scheduling}
           className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
             scheduling
-              ? "border-forest bg-forest text-zest"
-              : "border-forest/10 text-forest/60 hover:border-forest/25 hover:text-forest"
+              ? "border-ink bg-ink text-peach"
+              : "border-ink/10 text-ink/60 hover:border-ink/25 hover:text-ink"
           }`}
         >
           {scheduling ? <X className="size-3.5" /> : <CalendarClock className="size-3.5" />}
@@ -644,14 +644,14 @@ function Composer() {
         <button
           type="submit"
           disabled={!canSubmit}
-          className="gb-shine inline-flex items-center gap-1.5 rounded-xl bg-forest px-4 py-2 text-sm font-semibold text-zest transition-all hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
+          className="gb-shine inline-flex items-center gap-1.5 rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-peach transition-all hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
         >
           Add task
         </button>
       </div>
 
       {scheduling && (
-        <div className="gb-rise mt-4 rounded-2xl bg-cream p-3 sm:p-4" style={{ animationDuration: "0.35s" }}>
+        <div className="gb-rise mt-4 rounded-2xl bg-paper p-3 sm:p-4" style={{ animationDuration: "0.35s" }}>
           <ScheduleFields
             start={start}
             end={end}
@@ -707,10 +707,10 @@ function TaskRow({
       {/* Inner card carries the entrance animation, which would override the li's drag transform. */}
       <div
         className={`gb-rise group flex items-center gap-2 rounded-2xl border py-3.5 pl-1.5 pr-4 transition-[box-shadow,transform,opacity,background-color,border-color] duration-300 ${
-          task.done ? "border-leaf/25 bg-mint" : "border-forest/10 bg-white hover:shadow-md"
+          task.done ? "border-iris/25 bg-mist" : "border-ink/10 bg-white hover:shadow-md"
         } ${leaving ? "scale-95 opacity-0" : ""} ${
           isDragging
-            ? "scale-[1.02] cursor-grabbing shadow-[0_20px_45px_-15px_rgb(7_53_42/0.45)] ring-2 ring-leaf/50"
+            ? "scale-[1.02] cursor-grabbing shadow-[0_20px_45px_-15px_rgb(46_51_73/0.45)] ring-2 ring-iris/50"
             : sortable
               ? "cursor-grab"
               : ""
@@ -724,8 +724,8 @@ function TaskRow({
           {...attributes}
           onKeyDown={onGripKeyDown as KeyboardEventHandler<HTMLButtonElement> | undefined}
           aria-label={`Reorder "${task.title}"`}
-          className={`grid h-9 w-5 shrink-0 cursor-grab place-items-center rounded-md text-forest/25 transition-colors hover:text-forest/60 focus-visible:text-forest focus-visible:outline-2 focus-visible:outline-leaf group-hover:text-forest/45 ${
-            isDragging ? "cursor-grabbing text-forest/60" : ""
+          className={`grid h-9 w-5 shrink-0 cursor-grab place-items-center rounded-md text-ink/25 transition-colors hover:text-ink/60 focus-visible:text-ink focus-visible:outline-2 focus-visible:outline-iris group-hover:text-ink/45 ${
+            isDragging ? "cursor-grabbing text-ink/60" : ""
           }`}
         >
           <GripVertical className="size-4" />
@@ -739,7 +739,7 @@ function TaskRow({
           onClick={toggle}
           aria-label={task.done ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
           aria-pressed={task.done}
-          className="relative rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-leaf"
+          className="relative rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris"
         >
           <CheckBox done={task.done} size={28} />
           {burst > 0 && task.done && <ConfettiBurst key={burst} />}
@@ -749,7 +749,7 @@ function TaskRow({
           type="button"
           onClick={onOpen}
           aria-label={`Open details for "${task.title}"`}
-          className="min-w-0 flex-1 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-leaf"
+          className="min-w-0 flex-1 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-iris"
         >
           <p className="truncate">
             <span className="gb-strike text-base font-medium" data-done={task.done || undefined}>
@@ -757,8 +757,8 @@ function TaskRow({
             </span>
           </p>
           {preview && (
-            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-forest/55">
-              <NotebookPen className="size-3.5 shrink-0 text-leaf" aria-hidden />
+            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-ink/55">
+              <NotebookPen className="size-3.5 shrink-0 text-iris" aria-hidden />
               <span className="truncate">{preview}</span>
             </p>
           )}
@@ -774,7 +774,7 @@ function TaskRow({
               </span>
             )}
             {!preview && (
-              <span className="text-[11px] font-medium text-forest/35 opacity-0 transition-opacity group-hover:opacity-100">
+              <span className="text-[11px] font-medium text-ink/35 opacity-0 transition-opacity group-hover:opacity-100">
                 + Add details
               </span>
             )}
@@ -783,14 +783,14 @@ function TaskRow({
   
         <ChevronRight
           aria-hidden
-          className="hidden size-4 shrink-0 text-forest/25 transition-transform group-hover:translate-x-0.5 group-hover:text-forest/50 sm:block"
+          className="hidden size-4 shrink-0 text-ink/25 transition-transform group-hover:translate-x-0.5 group-hover:text-ink/50 sm:block"
         />
   
         <button
           type="button"
           onClick={onDelete}
           aria-label={`Delete "${task.title}"`}
-          className="grid size-9 shrink-0 place-items-center rounded-xl text-forest/35 transition-all group-hover:text-forest/60 hover:bg-coral/10 hover:text-coral! focus-visible:text-coral"
+          className="grid size-9 shrink-0 place-items-center rounded-xl text-ink/35 transition-all group-hover:text-ink/60 hover:bg-coral/10 hover:text-coral! focus-visible:text-coral"
         >
           <Trash2 className="size-4" />
         </button>
@@ -804,14 +804,14 @@ function TaskRow({
 
 function FilterChip({ label, dot, onClear }: { label: string; dot?: string; onClear: () => void }) {
   return (
-    <span className="gb-pop inline-flex items-center gap-1.5 rounded-full border border-forest/10 bg-white py-1 pl-3 pr-1 text-xs font-semibold">
+    <span className="gb-pop inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white py-1 pl-3 pr-1 text-xs font-semibold">
       {dot && <span className={`size-2 rounded-full ${dot}`} />}
       {label}
       <button
         type="button"
         onClick={onClear}
         aria-label={`Remove ${label} filter`}
-        className="grid size-5 place-items-center rounded-full text-forest/50 transition-colors hover:bg-mint hover:text-forest"
+        className="grid size-5 place-items-center rounded-full text-ink/50 transition-colors hover:bg-mist hover:text-ink"
       >
         <X className="size-3" />
       </button>
@@ -842,27 +842,27 @@ function EmptyState({
       : total === 0
       ? { emoji: "🌱", title: "Your board is empty", body: "Type a task above and hit Enter to plant your first one." }
       : filter === "todo"
-        ? { emoji: "🎉", title: "Nothing left to do", body: "Every task is ticked off. Enjoy the green." }
-        : { emoji: "✅", title: "Nothing ticked yet", body: "Go on — tick your first task and watch it go green." };
+        ? { emoji: "🎉", title: "Nothing left to do", body: "Every task is ticked off. Enjoy the calm." }
+        : { emoji: "✅", title: "Nothing ticked yet", body: "Go on, tick your first task off." };
 
   return (
-    <div className="gb-pop flex flex-col items-center rounded-[28px] border-2 border-dashed border-forest/10 px-6 py-14 text-center">
+    <div className="gb-pop flex flex-col items-center rounded-[28px] border-2 border-dashed border-ink/10 px-6 py-14 text-center">
       <span className="gb-float grid size-16 place-items-center rounded-2xl bg-white text-3xl shadow-md">
         {content.emoji}
       </span>
       <h2 className="mt-5 font-display text-xl font-bold">{content.title}</h2>
-      <p className="mt-1 max-w-xs text-forest/60">{content.body}</p>
+      <p className="mt-1 max-w-xs text-ink/60">{content.body}</p>
       {narrowed && total > 0 && (
         <button
           type="button"
           onClick={onClear}
-          className="mt-4 rounded-xl border border-forest/15 bg-white px-4 py-2 text-sm font-semibold transition-colors hover:bg-mint"
+          className="mt-4 rounded-xl border border-ink/15 bg-white px-4 py-2 text-sm font-semibold transition-colors hover:bg-mist"
         >
           Show all tasks
         </button>
       )}
       {total === 0 && (
-        <p className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-forest/40">
+        <p className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-ink/40">
           <ClipboardCheck className="size-3.5" />
           Tasks are saved in this browser
         </p>

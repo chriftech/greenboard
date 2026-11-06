@@ -211,12 +211,20 @@ export function BoardApp() {
       <Sidebar />
 
       <div className="relative min-w-0 flex-1 overflow-x-clip">
-        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[520px] overflow-hidden">
+        {/*
+          Full-screen backdrop, fixed so it stays put while the board scrolls.
+          It sits behind the sidebar (z-30) and the content (positioned later).
+        */}
+        <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
           <div className="gb-grid-bg absolute inset-0" />
-          <div className="gb-blob absolute -left-32 -top-20 size-[420px] rounded-full bg-zest/40 blur-3xl" />
+          <div className="gb-blob absolute -top-48 left-[22%] size-[560px] rounded-full bg-zest/35 blur-3xl" />
           <div
-            className="gb-blob absolute -right-24 top-10 size-[360px] rounded-full bg-skyblue/20 blur-3xl"
+            className="gb-blob absolute -right-40 top-1/4 size-[460px] rounded-full bg-skyblue/20 blur-3xl"
             style={{ animationDelay: "-7s" }}
+          />
+          <div
+            className="gb-blob absolute -bottom-56 left-[38%] size-[520px] rounded-full bg-leaf/15 blur-3xl"
+            style={{ animationDelay: "-13s" }}
           />
         </div>
   

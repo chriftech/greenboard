@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { RotateCcw, Trash2, X } from "lucide-react";
 import {
   Drawer,
@@ -15,15 +15,12 @@ import { TAGS, TRASH_DAYS, taskActions, trashDaysLeft, type Task } from "@/lib/t
 export function TrashPanel({
   open,
   onOpenChange,
-  now,
   tasks,
   onDeleteForever,
   onEmptyTrash,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Time the panel was opened (ms), used for "days left" so rendering stays pure. */
-  now: number;
   /** Tasks currently in Trash. */
   tasks: Task[];
   onDeleteForever: (task: Task) => void;
@@ -59,7 +56,7 @@ export function TrashPanel({
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-            {open && sorted.length === 0 ? (
+            {!open ? null : sorted.length === 0 ? (
               <div className="flex flex-col items-center rounded-[28px] border-2 border-dashed border-forest/10 px-6 py-14 text-center">
                 <span className="grid size-14 place-items-center rounded-2xl bg-white text-forest/40 shadow-sm">
                   <Trash2 className="size-6" />
@@ -70,11 +67,7 @@ export function TrashPanel({
                 </p>
               </div>
             ) : (
-              <ul className="space-y-3">
-                {open && sorted.map((t) => (
-                    <TrashRow key={t.id} task={t} now={now} onDeleteForever={() => onDeleteForever(t)} />
-                  ))}
-              </ul>
+              <TrashList tasks={sorted} onDeleteForever={onDeleteForever} />
             )}
           </div>
 
@@ -95,6 +88,21 @@ export function TrashPanel({
         </div>
       </DrawerContent>
     </Drawer>
+  );
+}
+
+/**
+ * Mounted only while the panel is open, so it reads the clock once per opening
+ * (for "days left") instead of on every render.
+ */
+function TrashList({ tasks, onDeleteForever }: { tasks: Task[]; onDeleteForever: (task: Task) => void }) {
+  const [now] = useState(() => Date.now());
+  return (
+    <ul className="space-y-3">
+      {tasks.map((t) => (
+        <TrashRow key={t.id} task={t} now={now} onDeleteForever={() => onDeleteForever(t)} />
+      ))}
+    </ul>
   );
 }
 

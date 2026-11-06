@@ -66,6 +66,24 @@ export function formatSchedule({ start, end }: Schedule) {
     : `${fmtDay(s)}, ${fmtTime(s)} → ${fmtDay(e)}, ${fmtTime(e)}`;
 }
 
+function startOfDay(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/** True if the timeline overlaps today (local time). Call in the browser only. */
+export function isScheduledToday({ start, end }: Schedule, now = new Date()) {
+  const dayStart = startOfDay(now);
+  const dayEnd = new Date(dayStart.getFullYear(), dayStart.getMonth(), dayStart.getDate() + 1);
+  return parseLocal(start) < dayEnd && parseLocal(end) >= dayStart;
+}
+
+/** True if the timeline starts tomorrow or later (local time). Call in the browser only. */
+export function isUpcoming({ start }: Schedule, now = new Date()) {
+  const tomorrow = startOfDay(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return parseLocal(start) >= tomorrow;
+}
+
 /** Status of a scheduled task right now, for colouring its badge. Call in the browser only. */
 export function scheduleStatus({ start, end }: Schedule, done: boolean) {
   if (done) return { label: null, cls: "bg-forest/5 text-forest/50" };

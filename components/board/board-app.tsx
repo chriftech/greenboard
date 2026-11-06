@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   ArrowLeft,
+  Menu,
   CalendarClock,
   ChevronRight,
   ClipboardCheck,
@@ -46,11 +47,13 @@ import { CheckBox, ConfettiBurst } from "@/components/landing/check-box";
 import { TaskDetails } from "./task-details";
 import { ConfirmDialog } from "./confirm-dialog";
 import { TrashPanel } from "./trash-panel";
-import { Sidebar } from "./sidebar";
+import { MobileSidebar, Sidebar, type NavTarget, type SidebarProps } from "./sidebar";
 import {
   ScheduleFields,
   draftsToSchedule,
   formatSchedule,
+  isScheduledToday,
+  isUpcoming,
   scheduleStatus,
   type DateTimeDraft,
 } from "./schedule";
@@ -67,6 +70,8 @@ import {
 } from "@/lib/tasks";
 
 type Filter = "all" | "todo" | "done";
+/** Which slice of the board is shown, chosen from the sidebar. */
+type View = "board" | "today" | "upcoming";
 /** Destructive actions waiting for confirmation. */
 type PendingDelete =
   | { kind: "task"; id: string; title: string } // move one task to Trash
@@ -124,6 +129,10 @@ const tagOf = (id: TagId) => TAGS.find((t) => t.id === id) ?? TAGS.find((t) => t
 export function BoardApp() {
   const tasks = useSyncExternalStore(subscribeTasks, getTasks, getServerTasks);
   const [filter, setFilter] = useState<Filter>("all");
+  const [view, setView] = useState<View>("board");
+  const [tag, setTag] = useState<TagId | null>(null);
+  const [query, setQuery] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   // Keep the selected id after closing so the panel can animate out with its content.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -142,10 +151,8 @@ export function BoardApp() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [trashOpen, setTrashOpen] = useState(false);
-  const [trashNow, setTrashNow] = useState(0);
 
   function openTrash() {
-    setTrashNow(Date.now()); // read the clock in the event, not during render
     setTrashOpen(true);
   }
 
@@ -177,14 +184,81 @@ export function BoardApp() {
   // Trashed tasks are hidden from the board and only listed in the Trash panel.
   const all = (tasks ?? []).filter((t) => t.deletedAt === undefined);
   const trashed = (tasks ?? []).filter((t) => t.deletedAt !== undefined);
-  const done = all.filter((t) => t.done);
-  const todo = all.filter((t) => !t.done);
-  const counts: Record<Filter, number> = { all: all.length, todo: todo.length, done: done.length };
 
-  // Pending first, then completed; each group in the order the user dragged it into.
+  // Narrow the board by the sidebar's view, tag and search.
+  const q = query.trim().toLowerCase();
+  const inView = (t: Task, v: View) => {
+    if (v === "board") return true;
+    if (!t.start || !t.end) return false;
+    const timeline = { start: t.start, end: t.end };
+    return v === "today" ? isScheduledToday(timeline) : isUpcoming(timeline);
+  };
+  const matches = (t: Task) =>
+    inView(t, view) &&
+    (!tag || t.tag === tag) &&
+    (!q || t.title.toLowerCase().includes(q) || (t.descriptionText ?? "").toLowerCase().includes(q));
+  const scoped = all.filter(matches);
+  const narrowed = view !== "board" || tag !== null || q !== "";
+
+  const done = scoped.filter((t) => t.done);
+  const todo = scoped.filter((t) => !t.done);
+  const counts: Record<Filter, number> = { all: scoped.length, todo: todo.length, done: done.length };
+
+  // My board: pending first, then completed, each in the order the user dragged
+  // it into. Today/Upcoming: soonest start first, and not draggable.
   const byOrder = (a: Task, b: Task) => a.order - b.order;
-  todo.sort(byOrder);
-  done.sort(byOrder);
+  const byStart = (a: Task, b: Task) => (a.start ?? "").localeCompare(b.start ?? "") || byOrder(a, b);
+  const sortable = view === "board";
+  todo.sort(sortable ? byOrder : byStart);
+  done.sort(sortable ? byOrder : byStart);
+
+  function navigate(target: NavTarget) {
+    switch (target) {
+      case "trash":
+        return openTrash();
+      case "completed":
+        setView("board");
+        return setFilter("done");
+      case "board":
+        // "My board" is the reset: everything, unfiltered.
+        setTag(null);
+        setQuery("");
+        setView("board");
+        return setFilter("all");
+      default:
+        setView(target);
+        return setFilter("all");
+    }
+  }
+
+  function clearNarrowing() {
+    setView("board");
+    setTag(null);
+    setQuery("");
+  }
+
+  // Sidebar state and counts (pending tasks, so the numbers mean "still to do").
+  const pendingAll = all.filter((t) => !t.done);
+  const sidebar: SidebarProps = {
+    active: view !== "board" ? view : filter === "done" ? "completed" : "board",
+    onNavigate: navigate,
+    tag,
+    onTag: setTag,
+    query,
+    onQuery: setQuery,
+    counts: {
+      board: pendingAll.length,
+      today: pendingAll.filter((t) => inView(t, "today")).length,
+      upcoming: pendingAll.filter((t) => inView(t, "upcoming")).length,
+      completed: all.length - pendingAll.length,
+      trash: trashed.length,
+      tags: Object.fromEntries(TAGS.map((t) => [t.id, pendingAll.filter((x) => x.tag === t.id).length])) as Record<
+        TagId,
+        number
+      >,
+    },
+  };
+
   const groups = filter === "all" ? [todo, done] : filter === "todo" ? [todo] : [done];
   const visibleCount = groups.reduce((n, g) => n + g.length, 0);
 
@@ -208,7 +282,8 @@ export function BoardApp() {
 
   return (
     <div className="flex min-h-full flex-1 bg-cream text-forest">
-      <Sidebar />
+      <Sidebar {...sidebar} />
+      <MobileSidebar {...sidebar} open={menuOpen} onOpenChange={setMenuOpen} />
 
       <div className="relative min-w-0 flex-1 overflow-x-clip">
         {/*
@@ -237,17 +312,12 @@ export function BoardApp() {
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={openTrash}
-              aria-label={`Trash, ${trashed.length} ${trashed.length === 1 ? "task" : "tasks"}`}
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-forest/70 transition-colors hover:bg-white hover:text-forest"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open menu"
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-forest/70 transition-colors hover:bg-white hover:text-forest md:hidden"
             >
-              <Trash2 className="size-4" />
-              Trash
-              {trashed.length > 0 && (
-                <span className="rounded-full bg-coral px-1.5 text-[11px] font-bold text-white tabular-nums">
-                  {trashed.length}
-                </span>
-              )}
+              <Menu className="size-4" />
+              Menu
             </button>
             <Link
               href="/"
@@ -260,11 +330,30 @@ export function BoardApp() {
         </header>
   
         <main className="relative mx-auto max-w-3xl px-4 pb-24 pt-8">
-          <Summary loaded={loaded} total={all.length} doneCount={done.length} />
+          <Summary loaded={loaded} total={all.length} doneCount={all.length - pendingAll.length} />
           <Composer />
   
+          {/* What the sidebar has narrowed the board to */}
+          {narrowed && (
+            <div className="mt-10 flex flex-wrap items-center gap-2" aria-live="polite">
+              <span className="text-xs font-semibold uppercase tracking-widest text-forest/45">Showing</span>
+              {view !== "board" && (
+                <FilterChip label={view === "today" ? "Today" : "Upcoming"} onClear={() => setView("board")} />
+              )}
+              {tag && <FilterChip label={tagOf(tag).label} dot={tagOf(tag).dot} onClear={() => setTag(null)} />}
+              {q && <FilterChip label={`“${query.trim()}”`} onClear={() => setQuery("")} />}
+              <button
+                type="button"
+                onClick={clearNarrowing}
+                className="text-xs font-semibold text-forest/50 underline-offset-4 transition-colors hover:text-forest hover:underline"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+
           {/* Filters */}
-          <div className="mt-10 flex flex-wrap items-center justify-between gap-3">
+          <div className={`${narrowed ? "mt-4" : "mt-10"} flex flex-wrap items-center justify-between gap-3`}>
             <div
               role="tablist"
               aria-label="Filter tasks"
@@ -318,7 +407,7 @@ export function BoardApp() {
                 ))}
               </ul>
             ) : visibleCount === 0 ? (
-              <EmptyState filter={filter} total={all.length} />
+              <EmptyState filter={filter} total={all.length} view={view} narrowed={narrowed} onClear={clearNarrowing} />
             ) : (
               <DndContext
                 id="task-board"
@@ -349,6 +438,7 @@ export function BoardApp() {
                           key={t.id}
                           task={t}
                           leaving={removingId === t.id}
+                          sortable={sortable}
                           onOpen={() => openDetails(t.id)}
                           onDelete={() => askDelete({ kind: "task", id: t.id, title: t.title })}
                         />
@@ -372,7 +462,6 @@ export function BoardApp() {
       <TrashPanel
         open={trashOpen}
         onOpenChange={setTrashOpen}
-        now={trashNow}
         tasks={trashed}
         onDeleteForever={(t) => askDelete({ kind: "forever", id: t.id, title: t.title })}
         onEmptyTrash={() => askDelete({ kind: "empty", count: trashed.length })}
@@ -582,17 +671,20 @@ function Composer() {
 function TaskRow({
   task,
   leaving,
+  sortable,
   onOpen,
   onDelete,
 }: {
   task: Task;
   leaving: boolean;
+  /** False in Today/Upcoming, which are sorted by start time. */
+  sortable: boolean;
   onOpen: () => void;
   onDelete: () => void;
 }) {
   const [burst, setBurst] = useState(0);
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id: task.id });
+    useSortable({ id: task.id, disabled: !sortable });
   // Pointer/touch drags start anywhere on the card; keyboard drags start from the grip.
   const { onKeyDown: onGripKeyDown, ...pointerListeners } = listeners ?? {};
   const tag = tagOf(task.tag);
@@ -619,10 +711,13 @@ function TaskRow({
         } ${leaving ? "scale-95 opacity-0" : ""} ${
           isDragging
             ? "scale-[1.02] cursor-grabbing shadow-[0_20px_45px_-15px_rgb(7_53_42/0.45)] ring-2 ring-leaf/50"
-            : "cursor-grab"
+            : sortable
+              ? "cursor-grab"
+              : ""
         }`}
         style={{ animationDuration: "0.5s" } as CSSProperties}
       >
+        {sortable ? (
         <button
           type="button"
           ref={setActivatorNodeRef}
@@ -635,6 +730,9 @@ function TaskRow({
         >
           <GripVertical className="size-4" />
         </button>
+        ) : (
+          <span aria-hidden className="w-1" />
+        )}
   
         <button
           type="button"
@@ -704,9 +802,44 @@ function TaskRow({
 
 /* ───────────────────────── Empty states ───────────────────────── */
 
-function EmptyState({ filter, total }: { filter: Filter; total: number }) {
+function FilterChip({ label, dot, onClear }: { label: string; dot?: string; onClear: () => void }) {
+  return (
+    <span className="gb-pop inline-flex items-center gap-1.5 rounded-full border border-forest/10 bg-white py-1 pl-3 pr-1 text-xs font-semibold">
+      {dot && <span className={`size-2 rounded-full ${dot}`} />}
+      {label}
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label={`Remove ${label} filter`}
+        className="grid size-5 place-items-center rounded-full text-forest/50 transition-colors hover:bg-mint hover:text-forest"
+      >
+        <X className="size-3" />
+      </button>
+    </span>
+  );
+}
+
+function EmptyState({
+  filter,
+  total,
+  view,
+  narrowed,
+  onClear,
+}: {
+  filter: Filter;
+  total: number;
+  view: View;
+  narrowed: boolean;
+  onClear: () => void;
+}) {
   const content =
-    total === 0
+    total > 0 && narrowed
+      ? view === "today"
+        ? { emoji: "☀️", title: "Nothing scheduled for today", body: "Give a task a timeline that covers today to see it here." }
+        : view === "upcoming"
+          ? { emoji: "🗓️", title: "Nothing upcoming", body: "Tasks with a timeline starting tomorrow or later show up here." }
+          : { emoji: "🔍", title: "No matching tasks", body: "Try a different search or tag." }
+      : total === 0
       ? { emoji: "🌱", title: "Your board is empty", body: "Type a task above and hit Enter to plant your first one." }
       : filter === "todo"
         ? { emoji: "🎉", title: "Nothing left to do", body: "Every task is ticked off. Enjoy the green." }
@@ -719,6 +852,15 @@ function EmptyState({ filter, total }: { filter: Filter; total: number }) {
       </span>
       <h2 className="mt-5 font-display text-xl font-bold">{content.title}</h2>
       <p className="mt-1 max-w-xs text-forest/60">{content.body}</p>
+      {narrowed && total > 0 && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="mt-4 rounded-xl border border-forest/15 bg-white px-4 py-2 text-sm font-semibold transition-colors hover:bg-mint"
+        >
+          Show all tasks
+        </button>
+      )}
       {total === 0 && (
         <p className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-forest/40">
           <ClipboardCheck className="size-3.5" />

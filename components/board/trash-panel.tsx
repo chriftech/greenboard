@@ -9,7 +9,9 @@ import {
   DrawerDescription,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { TAGS, TRASH_DAYS, taskActions, trashDaysLeft, type Task } from "@/lib/tasks";
+import { TRASH_DAYS, taskActions, trashDaysLeft, type Task } from "@/lib/tasks";
+import { findTag, useTags } from "@/lib/tags";
+import { TagChip } from "./tag-chip";
 
 /** Slide-in panel listing trashed tasks, with restore and delete-forever actions. */
 export function TrashPanel({
@@ -107,7 +109,7 @@ function TrashList({ tasks, onDeleteForever }: { tasks: Task[]; onDeleteForever:
 }
 
 function TrashRow({ task, now, onDeleteForever }: { task: Task; now: number; onDeleteForever: () => void }) {
-  const tag = TAGS.find((t) => t.id === task.tag) ?? TAGS[0];
+  const tag = findTag(useTags(), task.tag);
   const left = trashDaysLeft(task, now);
   const deleted = new Date(task.deletedAt ?? now).toLocaleDateString(undefined, {
     day: "numeric",
@@ -120,7 +122,7 @@ function TrashRow({ task, now, onDeleteForever }: { task: Task; now: number; onD
         <div className="min-w-0 flex-1">
           <p className={`truncate font-medium ${task.done ? "text-ink/50 line-through" : ""}`}>{task.title}</p>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
-            <span className={`rounded-full px-2 py-0.5 ${tag.chip}`}>{tag.label}</span>
+            <TagChip tag={tag} className="text-[11px]" />
             <span className="text-ink/45">Deleted {deleted}</span>
             <span
               className={`rounded-full px-2 py-0.5 ${

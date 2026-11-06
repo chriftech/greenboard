@@ -12,7 +12,9 @@ import {
 import { CheckBox } from "@/components/landing/check-box";
 import { RichTextEditor } from "./rich-text-editor";
 import { ScheduleFields, draftsToSchedule, toDraft, type DateTimeDraft } from "./schedule";
-import { TAGS, taskActions, type Task } from "@/lib/tasks";
+import { taskActions, type Task } from "@/lib/tasks";
+import { findTag, useTags } from "@/lib/tags";
+import { TagRadio } from "./tag-chip";
 
 /** Slide-in panel for viewing and editing one task, including its description. */
 export function TaskDetails({
@@ -40,6 +42,7 @@ export function TaskDetails({
 }
 
 function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
+  const tags = useTags();
   const [title, setTitle] = useState(task.title);
 
   function commitTitle() {
@@ -108,22 +111,14 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink/50">Tag</p>
           <div role="radiogroup" aria-label="Tag" className="flex flex-wrap gap-1.5">
-            {TAGS.map((t) => (
-              <button
+            {tags.map((t) => (
+              <TagRadio
                 key={t.id}
-                type="button"
-                role="radio"
-                aria-checked={task.tag === t.id}
-                onClick={() => taskActions.update(task.id, { tag: t.id })}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
-                  task.tag === t.id
-                    ? `${t.chip} border-current`
-                    : "border-ink/10 bg-surface text-ink/60 hover:border-ink/25"
-                }`}
-              >
-                <span className={`size-2 rounded-full ${t.dot}`} />
-                {t.label}
-              </button>
+                tag={t}
+                checked={findTag(tags, task.tag).id === t.id}
+                onSelect={() => taskActions.update(task.id, { tag: t.id })}
+                idleClassName="bg-surface"
+              />
             ))}
           </div>
         </div>

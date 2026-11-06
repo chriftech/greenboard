@@ -46,6 +46,9 @@ import { Logo } from "@/components/landing/logo";
 import { CheckBox, ConfettiBurst } from "@/components/landing/check-box";
 import { TaskDetails } from "./task-details";
 import { ConfirmDialog } from "./confirm-dialog";
+import { TagEditor } from "./tag-editor";
+import { TagChip, TagDot, TagRadio } from "./tag-chip";
+import { findTag, useTags, type CustomTag, type TagView } from "@/lib/tags";
 import { TrashPanel } from "./trash-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileSidebar, Sidebar, type NavTarget, type SidebarProps } from "./sidebar";
@@ -60,7 +63,6 @@ import {
 } from "./schedule";
 import {
   DEFAULT_TAG,
-  TAGS,
   TRASH_DAYS,
   getServerTasks,
   getTasks,
@@ -125,8 +127,6 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "done", label: "Completed" },
 ];
 
-const tagOf = (id: TagId) => TAGS.find((t) => t.id === id) ?? TAGS.find((t) => t.id === DEFAULT_TAG)!;
-
 export function BoardApp() {
   const tasks = useSyncExternalStore(subscribeTasks, getTasks, getServerTasks);
   const [filter, setFilter] = useState<Filter>("all");
@@ -134,6 +134,12 @@ export function BoardApp() {
   const [tag, setTag] = useState<TagId | null>(null);
   const [query, setQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const tags = useTags();
+  // Tag editor: null = creating a new tag. Kept after closing so the dialog can animate out.
+  const [editingTag, setEditingTag] = useState<CustomTag | null>(null);
+  const [tagEditorOpen, setTagEditorOpen] = useState(false);
+  // A filter on a tag that was since deleted shows nothing; treat it as no filter.
+  const activeTag = tag && tags.some((t) => t.id === tag) ? tag : null;
   // Keep the selected id after closing so the panel can animate out with its content.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -196,10 +202,10 @@ export function BoardApp() {
   };
   const matches = (t: Task) =>
     inView(t, view) &&
-    (!tag || t.tag === tag) &&
+    (!activeTag || t.tag === activeTag) &&
     (!q || t.title.toLowerCase().includes(q) || (t.descriptionText ?? "").toLowerCase().includes(q));
   const scoped = all.filter(matches);
-  const narrowed = view !== "board" || tag !== null || q !== "";
+  const narrowed = view !== "board" || activeTag !== null || q !== "";
 
   const done = scoped.filter((t) => t.done);
   const todo = scoped.filter((t) => !t.done);
@@ -243,8 +249,13 @@ export function BoardApp() {
   const sidebar: SidebarProps = {
     active: view !== "board" ? view : filter === "done" ? "completed" : "board",
     onNavigate: navigate,
-    tag,
+    tag: activeTag,
     onTag: setTag,
+    tags,
+    onEditTag: (t) => {
+      setEditingTag(t);
+      setTagEditorOpen(true);
+    },
     query,
     onQuery: setQuery,
     counts: {
@@ -253,10 +264,9 @@ export function BoardApp() {
       upcoming: pendingAll.filter((t) => inView(t, "upcoming")).length,
       completed: all.length - pendingAll.length,
       trash: trashed.length,
-      tags: Object.fromEntries(TAGS.map((t) => [t.id, pendingAll.filter((x) => x.tag === t.id).length])) as Record<
-        TagId,
-        number
-      >,
+      tags: Object.fromEntries(
+        tags.map((t) => [t.id, pendingAll.filter((x) => findTag(tags, x.tag).id === t.id).length]),
+      ),
     },
   };
 
@@ -342,7 +352,9 @@ export function BoardApp() {
               {view !== "board" && (
                 <FilterChip label={view === "today" ? "Today" : "Upcoming"} onClear={() => setView("board")} />
               )}
-              {tag && <FilterChip label={tagOf(tag).label} dot={tagOf(tag).dot} onClear={() => setTag(null)} />}
+              {activeTag && (
+                <FilterChip label={findTag(tags, activeTag).label} tag={findTag(tags, activeTag)} onClear={() => setTag(null)} />
+              )}
               {q && <FilterChip label={`“${query.trim()}”`} onClear={() => setQuery("")} />}
               <button
                 type="button"
@@ -439,6 +451,7 @@ export function BoardApp() {
                         <TaskRow
                           key={t.id}
                           task={t}
+                          tag={findTag(tags, t.tag)}
                           leaving={removingId === t.id}
                           sortable={sortable}
                           onOpen={() => openDetails(t.id)}
@@ -453,6 +466,13 @@ export function BoardApp() {
           </section>
         </main>
       </div>
+
+      <TagEditor
+        open={tagEditorOpen}
+        onOpenChange={setTagEditorOpen}
+        tag={editingTag}
+        onDeleted={(id) => tag === id && setTag(null)}
+      />
 
       <TaskDetails
         task={selected}
@@ -555,7 +575,10 @@ function Summary({ loaded, total, doneCount }: { loaded: boolean; total: number;
 
 function Composer() {
   const [title, setTitle] = useState("");
-  const [tag, setTag] = useState<TagId>(DEFAULT_TAG);
+  const tags = useTags();
+  const [pickedTag, setTag] = useState<TagId>(DEFAULT_TAG);
+  // Fall back to Default if the picked custom tag was deleted.
+  const tag = tags.some((t) => t.id === pickedTag) ? pickedTag : DEFAULT_TAG;
   const [scheduling, setScheduling] = useState(false);
   const [start, setStart] = useState<DateTimeDraft>({});
   const [end, setEnd] = useState<DateTimeDraft>({});
@@ -588,22 +611,8 @@ function Composer() {
       {/* Tag first, so it's chosen before typing the task. */}
       <div className="border-b border-ink/5 pb-4">
         <div role="radiogroup" aria-label="Tag" className="flex flex-wrap gap-1.5">
-          {TAGS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="radio"
-              aria-checked={tag === t.id}
-              onClick={() => setTag(t.id)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
-                tag === t.id
-                  ? `${t.chip} scale-105 border-current`
-                  : "border-ink/10 text-ink/60 hover:border-ink/25"
-              }`}
-            >
-              <span className={`size-2 rounded-full ${t.dot}`} />
-              {t.label}
-            </button>
+          {tags.map((t) => (
+            <TagRadio key={t.id} tag={t} checked={tag === t.id} onSelect={() => setTag(t.id)} checkedClassName="scale-105" />
           ))}
         </div>
       </div>
@@ -672,12 +681,15 @@ function Composer() {
 
 function TaskRow({
   task,
+  tag,
   leaving,
   sortable,
   onOpen,
   onDelete,
 }: {
   task: Task;
+  /** The task's tag, already resolved (unknown tags show as Default). */
+  tag: TagView;
   leaving: boolean;
   /** False in Today/Upcoming, which are sorted by start time. */
   sortable: boolean;
@@ -689,7 +701,6 @@ function TaskRow({
     useSortable({ id: task.id, disabled: !sortable });
   // Pointer/touch drags start anywhere on the card; keyboard drags start from the grip.
   const { onKeyDown: onGripKeyDown, ...pointerListeners } = listeners ?? {};
-  const tag = tagOf(task.tag);
   const schedule = task.start && task.end ? { start: task.start, end: task.end } : null;
   const status = schedule ? scheduleStatus(schedule, task.done) : null;
   const preview = task.descriptionText?.replace(/\s+/g, " ").trim();
@@ -765,7 +776,7 @@ function TaskRow({
             </p>
           )}
           <span className="mt-1 flex flex-wrap items-center gap-2">
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${tag.chip}`}>{tag.label}</span>
+            <TagChip tag={tag} />
             {schedule && status && (
               <span
                 className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${status.cls}`}
@@ -804,10 +815,10 @@ function TaskRow({
 
 /* ───────────────────────── Empty states ───────────────────────── */
 
-function FilterChip({ label, dot, onClear }: { label: string; dot?: string; onClear: () => void }) {
+function FilterChip({ label, tag, onClear }: { label: string; tag?: TagView; onClear: () => void }) {
   return (
     <span className="gb-pop inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-surface py-1 pl-3 pr-1 text-xs font-semibold">
-      {dot && <span className={`size-2 rounded-full ${dot}`} />}
+      {tag && <TagDot tag={tag} />}
       {label}
       <button
         type="button"

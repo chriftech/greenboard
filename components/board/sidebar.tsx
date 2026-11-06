@@ -47,7 +47,8 @@ export type SidebarProps = {
 
 /* ───────────────────────── Persisted size ───────────────────────── */
 
-const MIN_WIDTH = 220;
+// Smallest width that still fits the full logo row: padding + logo + "greenboard" + collapse button.
+const MIN_WIDTH = 240;
 const MAX_WIDTH = 420;
 const DEFAULT_WIDTH = 272;
 const RAIL_WIDTH = 72;
@@ -296,7 +297,9 @@ function SidebarBody({
       <div className={`flex items-center gap-2 px-4 pb-3 pt-5 ${collapsed ? "flex-col" : "justify-between"}`}>
         <Link href="/" className="flex min-w-0 items-center gap-2" aria-label="Greenboard home">
           <Logo className="size-9 shrink-0" />
-          {!collapsed && <span className="truncate font-display text-xl font-bold tracking-tight">greenboard</span>}
+          {!collapsed && (
+            <span className="shrink-0 whitespace-nowrap font-display text-xl font-bold tracking-tight">greenboard</span>
+          )}
         </Link>
         {topRight}
       </div>

@@ -79,7 +79,7 @@ export function HeroBoard() {
               <li
                 key={t.text}
                 className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 transition-colors duration-500 ${
-                  isDone ? "border-iris/30 bg-mist" : "border-ink/10 bg-paper"
+                  isDone ? "border-success/30 bg-success-soft" : "border-ink/10 bg-paper"
                 }`}
               >
                 <CheckBox done={isDone} />

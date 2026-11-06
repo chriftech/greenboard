@@ -49,7 +49,7 @@ export function TrashPanel({
             </div>
             <DrawerClose
               aria-label="Close trash"
-              className="grid size-9 shrink-0 place-items-center rounded-xl text-ink/60 transition-colors hover:bg-white hover:text-ink"
+              className="grid size-9 shrink-0 place-items-center rounded-xl text-ink/60 transition-colors hover:bg-surface hover:text-ink"
             >
               <X className="size-5" />
             </DrawerClose>
@@ -58,7 +58,7 @@ export function TrashPanel({
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
             {!open ? null : sorted.length === 0 ? (
               <div className="flex flex-col items-center rounded-[28px] border-2 border-dashed border-ink/10 px-6 py-14 text-center">
-                <span className="grid size-14 place-items-center rounded-2xl bg-white text-ink/40 shadow-sm">
+                <span className="grid size-14 place-items-center rounded-2xl bg-surface text-ink/40 shadow-sm">
                   <Trash2 className="size-6" />
                 </span>
                 <p className="mt-4 font-display text-lg font-bold">Trash is empty</p>
@@ -115,7 +115,7 @@ function TrashRow({ task, now, onDeleteForever }: { task: Task; now: number; onD
   });
 
   return (
-    <li className="rounded-2xl border border-ink/10 bg-white px-4 py-3.5">
+    <li className="rounded-2xl border border-ink/10 bg-surface px-4 py-3.5">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className={`truncate font-medium ${task.done ? "text-ink/50 line-through" : ""}`}>{task.title}</p>
@@ -124,7 +124,7 @@ function TrashRow({ task, now, onDeleteForever }: { task: Task; now: number; onD
             <span className="text-ink/45">Deleted {deleted}</span>
             <span
               className={`rounded-full px-2 py-0.5 ${
-                left <= 3 ? "bg-coral text-white" : left <= 7 ? "bg-sunny text-ink" : "bg-ink/5 text-ink/60"
+                left <= 3 ? "bg-coral text-white" : left <= 7 ? "bg-sunny text-on-accent" : "bg-ink/5 text-ink/60"
               }`}
             >
               {left === 0 ? "Deleted today" : `${left} ${left === 1 ? "day" : "days"} left`}

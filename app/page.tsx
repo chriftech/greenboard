@@ -45,7 +45,7 @@ function Hero() {
       {/* animated colour blobs */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-0 overflow-hidden">
         <div className="gb-grid-bg absolute inset-0" />
-        <div className="gb-blob absolute -left-24 top-10 size-[420px] rounded-full bg-peach/50 blur-3xl" />
+        <div className="gb-blob absolute -left-24 top-10 size-[420px] rounded-full bg-peach/50 blur-3xl dark:bg-peach/10" />
         <div
           className="gb-blob absolute -right-20 top-40 size-[380px] rounded-full bg-skyblue/25 blur-3xl"
           style={{ animationDelay: "-6s" }}
@@ -59,11 +59,11 @@ function Hero() {
       <div className="relative mx-auto grid max-w-6xl items-center gap-16 lg:grid-cols-[1.1fr_1fr]">
         <div className="text-center lg:text-left">
           <div
-            className="gb-rise inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white/70 px-3 py-1.5 text-sm font-medium text-ink/80 shadow-sm backdrop-blur"
+            className="gb-rise inline-flex items-center gap-2 rounded-full border border-ink/10 bg-surface/70 px-3 py-1.5 text-sm font-medium text-ink/80 shadow-sm backdrop-blur"
             style={{ animationDelay: "0ms" }}
           >
             <span className="grid size-5 place-items-center rounded-full bg-peach">
-              <Sparkles className="size-3 text-ink" />
+              <Sparkles className="size-3 text-on-accent" />
             </span>
             Your to-do list, but joyful
           </div>
@@ -114,14 +114,14 @@ function Hero() {
           >
             <Link
               href="/board"
-              className="gb-shine group inline-flex items-center gap-2 rounded-2xl bg-ink px-6 py-4 text-base font-semibold text-peach shadow-[0_12px_30px_-10px_rgb(46_51_73/0.7)] transition-transform hover:-translate-y-1"
+              className="gb-shine group inline-flex items-center gap-2 rounded-2xl bg-deep px-6 py-4 text-base font-semibold text-peach shadow-[0_12px_30px_-10px_rgb(46_51_73/0.7)] transition-transform hover:-translate-y-1"
             >
               Start ticking — it&apos;s free
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <a
               href="#how"
-              className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-white px-6 py-4 text-base font-semibold text-ink transition-all hover:-translate-y-1 hover:border-iris hover:shadow-md"
+              className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-surface px-6 py-4 text-base font-semibold text-ink transition-all hover:-translate-y-1 hover:border-iris hover:shadow-md"
             >
               See how it works
             </a>
@@ -153,7 +153,7 @@ function Hero() {
 function Marquee() {
   const items = [...MARQUEE, ...MARQUEE];
   return (
-    <div className="relative z-10 -rotate-2 bg-ink py-5 shadow-2xl">
+    <div className="relative z-10 -rotate-2 bg-deep py-5 shadow-2xl">
       <div className="overflow-hidden">
         <div className="gb-marquee flex w-max gap-10">
           {items.map((t, i) => (
@@ -203,7 +203,7 @@ function HowItWorks() {
       icon: Plus,
       title: "Add your tasks",
       body: "Dump everything on your board in seconds — type it, paste it, done.",
-      color: "bg-peach text-ink",
+      color: "bg-peach text-on-accent",
     },
     {
       icon: Check,
@@ -215,7 +215,7 @@ function HowItWorks() {
       icon: Sparkles,
       title: "Watch it come together",
       body: "Your board fills with colour as you go. A fully ticked board = a great day.",
-      color: "bg-ink text-peach",
+      color: "bg-deep text-peach",
     },
   ];
 
@@ -234,10 +234,10 @@ function HowItWorks() {
         />
         {steps.map((s, i) => (
           <Reveal key={s.title} delay={i * 150}>
-            <div className="relative flex h-full flex-col items-center rounded-[28px] bg-white p-8 text-center shadow-[0_20px_50px_-30px_rgb(46_51_73/0.45)] transition-transform duration-500 hover:-translate-y-2">
+            <div className="relative flex h-full flex-col items-center rounded-[28px] bg-surface p-8 text-center shadow-[0_20px_50px_-30px_rgb(46_51_73/0.45)] transition-transform duration-500 hover:-translate-y-2">
               <div className={`relative grid size-16 place-items-center rounded-2xl ${s.color} shadow-lg`}>
                 <s.icon className="size-7" strokeWidth={2.5} />
-                <span className="absolute -right-2 -top-2 grid size-7 place-items-center rounded-full bg-coral text-xs font-bold text-white ring-4 ring-white">
+                <span className="absolute -right-2 -top-2 grid size-7 place-items-center rounded-full bg-coral text-xs font-bold text-white ring-4 ring-surface">
                   {i + 1}
                 </span>
               </div>
@@ -263,7 +263,7 @@ function Cta() {
   return (
     <section id="start" className="scroll-mt-24 px-4 pb-24">
       <Reveal className="mx-auto max-w-6xl">
-        <div className="relative overflow-hidden rounded-[36px] bg-ink px-6 py-20 text-center sm:px-12 sm:py-28">
+        <div className="relative overflow-hidden rounded-[36px] bg-deep px-6 py-20 text-center sm:px-12 sm:py-28">
           <div aria-hidden className="pointer-events-none absolute inset-0">
             <div className="gb-blob absolute -left-20 -top-20 size-80 rounded-full bg-iris/40 blur-3xl" />
             <div
@@ -276,7 +276,7 @@ function Cta() {
                 className={`gb-float absolute hidden place-items-center rounded-full sm:grid ${b.cls}`}
                 style={{ animationDelay: b.d, "--rot": `${i % 2 ? 8 : -8}deg` } as CSSProperties}
               >
-                <Check className="size-1/2 text-ink" strokeWidth={3.5} />
+                <Check className="size-1/2 text-on-accent" strokeWidth={3.5} />
               </span>
             ))}
           </div>
@@ -291,7 +291,7 @@ function Cta() {
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 href="/board"
-                className="gb-shine group inline-flex items-center gap-2 rounded-2xl bg-peach px-7 py-4 text-base font-bold text-ink shadow-[0_12px_40px_-8px_rgb(255_201_169/0.6)] transition-transform hover:-translate-y-1 hover:scale-[1.02]"
+                className="gb-shine group inline-flex items-center gap-2 rounded-2xl bg-peach px-7 py-4 text-base font-bold text-on-accent shadow-[0_12px_40px_-8px_rgb(255_201_169/0.6)] transition-transform hover:-translate-y-1 hover:scale-[1.02]"
               >
                 Create my board
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />

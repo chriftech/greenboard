@@ -90,21 +90,21 @@ export function scheduleStatus({ start, end }: Schedule, done: boolean) {
   const now = new Date();
   if (parseLocal(end) < now) return { label: "Overdue", cls: "bg-coral text-white" };
   if (parseLocal(start) <= now) return { label: "In progress", cls: "bg-iris text-white" };
-  if (start.slice(0, 10) === dateKey(now)) return { label: "Today", cls: "bg-sunny text-ink" };
+  if (start.slice(0, 10) === dateKey(now)) return { label: "Today", cls: "bg-sunny text-on-accent" };
   return { label: null, cls: "bg-ink/5 text-ink/70" };
 }
 
 /* ───────────────────────── Fields ───────────────────────── */
 
-// Re-theme the shadcn Calendar (neutral tokens) to Greenboard colours.
+// Re-theme the shadcn Calendar (neutral tokens) to Greenboard colours, light or dark.
 const CALENDAR_THEME = {
-  "--background": "#ffffff",
-  "--foreground": "#2e3349",
-  "--primary": "#2e3349",
-  "--primary-foreground": "#ffc9a9",
-  "--muted": "#eef2ff",
-  "--muted-foreground": "rgb(46 51 73 / 0.5)",
-  "--ring": "#4f6bed",
+  "--background": "var(--color-surface)",
+  "--foreground": "var(--color-ink)",
+  "--primary": "var(--color-deep)",
+  "--primary-foreground": "var(--color-peach)",
+  "--muted": "var(--color-mist)",
+  "--muted-foreground": "color-mix(in srgb, var(--color-ink) 50%, transparent)",
+  "--ring": "var(--color-iris)",
 } as CSSProperties;
 
 function DateTimeField({
@@ -134,7 +134,7 @@ function DateTimeField({
       <Popover.Root open={open} onOpenChange={setOpen}>
         <Popover.Trigger
           aria-label={`${name} date`}
-          className={`inline-flex min-w-36 items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm font-medium transition-colors hover:border-iris focus-visible:border-iris focus-visible:outline-none ${ring} ${
+          className={`inline-flex min-w-36 items-center gap-2 rounded-xl border bg-surface px-3 py-2 text-sm font-medium transition-colors hover:border-iris focus-visible:border-iris focus-visible:outline-none ${ring} ${
             value.date ? "text-ink" : "text-ink/40"
           }`}
         >
@@ -147,7 +147,7 @@ function DateTimeField({
           <Popover.Positioner sideOffset={8} align="start" className="z-[70]">
             <Popover.Popup
               style={CALENDAR_THEME}
-              className="origin-(--transform-origin) rounded-2xl border border-ink/10 bg-white p-2 shadow-[0_20px_50px_-15px_rgb(46_51_73/0.4)] outline-none transition-[opacity,transform] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0"
+              className="origin-(--transform-origin) rounded-2xl border border-ink/10 bg-surface p-2 shadow-[0_20px_50px_-15px_rgb(46_51_73/0.4)] outline-none transition-[opacity,transform] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0"
             >
               <Calendar
                 mode="single"
@@ -164,7 +164,7 @@ function DateTimeField({
       </Popover.Root>
 
       <label
-        className={`inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm font-medium focus-within:border-iris ${ring}`}
+        className={`inline-flex items-center gap-2 rounded-xl border bg-surface px-3 py-2 text-sm font-medium focus-within:border-iris ${ring}`}
       >
         <Clock className="size-4 text-ink/50" />
         <span className="sr-only">{name} time</span>

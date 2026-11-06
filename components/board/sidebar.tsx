@@ -451,10 +451,10 @@ function SidebarBody({
         })()}
       </nav>
 
-      {/* Not wired to anything yet */}
+      {/* Settings and the profile aren't wired to anything yet; Help opens /help. */}
       <div className="space-y-0.5 border-t border-ink/10 px-3 py-3">
         <SidebarItem icon={<Settings className="size-4" />} label="Settings" collapsed={collapsed} />
-        <SidebarItem icon={<LifeBuoy className="size-4" />} label="Help & feedback" collapsed={collapsed} />
+        <SidebarItem icon={<LifeBuoy className="size-4" />} label="Help & feedback" href="/help" collapsed={collapsed} />
         <div className={`mt-2 flex items-center gap-3 rounded-xl px-2 py-2 ${collapsed ? "justify-center" : ""}`}>
           <span className="grid size-8 shrink-0 place-items-center rounded-full bg-peach text-xs font-bold text-on-accent">
             G
@@ -488,6 +488,7 @@ function SidebarItem({
   pressed,
   collapsed,
   onClick,
+  href,
   reserveActions = false,
 }: {
   icon: ReactNode;
@@ -499,24 +500,21 @@ function SidebarItem({
   pressed?: boolean;
   collapsed: boolean;
   onClick?: () => void;
+  /** Render as a link to another page instead of a button. */
+  href?: string;
   /** Pad the right side so the count sits clear of the edit/delete buttons on custom tags. */
   reserveActions?: boolean;
 }) {
   const showCount = typeof count === "number" && count > 0;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-current={active && pressed === undefined ? "page" : undefined}
-      aria-pressed={pressed}
-      aria-label={collapsed ? (showCount ? `${label}, ${count}` : label) : undefined}
-      title={collapsed ? label : undefined}
-      className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-        reserveActions ? "pr-16" : ""
-      } ${
-        collapsed ? "justify-center px-0" : ""
-      } ${active ? "bg-deep text-peach" : "text-ink/70 hover:bg-mist hover:text-ink"}`}
-    >
+  const className = `relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+    reserveActions ? "pr-16" : ""
+  } ${collapsed ? "justify-center px-0" : ""} ${active ? "bg-deep text-peach" : "text-ink/70 hover:bg-mist hover:text-ink"}`;
+  const a11y = {
+    "aria-label": collapsed ? (showCount ? `${label}, ${count}` : label) : undefined,
+    title: collapsed ? label : undefined,
+  };
+  const content = (
+    <>
       <span className="grid size-4 shrink-0 place-items-center">{icon}</span>
       {!collapsed && <span className="min-w-0 flex-1 truncate text-left">{label}</span>}
       {showCount &&
@@ -538,6 +536,23 @@ function SidebarItem({
             {count}
           </span>
         ))}
+    </>
+  );
+
+  return href ? (
+    <Link href={href} className={className} {...a11y}>
+      {content}
+    </Link>
+  ) : (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={active && pressed === undefined ? "page" : undefined}
+      aria-pressed={pressed}
+      className={className}
+      {...a11y}
+    >
+      {content}
     </button>
   );
 }

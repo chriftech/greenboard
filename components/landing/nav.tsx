@@ -9,6 +9,10 @@ const LINKS = [
   { href: "#how", label: "How it works" },
 ];
 
+/** Text link with an underline that grows in on hover. */
+const NAV_LINK =
+  "relative text-sm font-medium text-ink/70 transition-colors hover:text-ink after:absolute after:-bottom-1 after:left-0 after:h-0.5 after:w-full after:origin-left after:scale-x-0 after:rounded-full after:bg-iris after:transition-transform hover:after:scale-x-100";
+
 export function Nav() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
@@ -36,22 +40,17 @@ export function Nav() {
           </span>
         </a>
 
-        <div className="hidden items-center gap-8 md:flex">
+        {/* Logo left; every link and the call to action grouped on the right. */}
+        <div className="hidden items-center gap-6 md:flex">
           {LINKS.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="relative text-sm font-medium text-ink/70 transition-colors hover:text-ink after:absolute after:-bottom-1 after:left-0 after:h-0.5 after:w-full after:origin-left after:scale-x-0 after:rounded-full after:bg-iris after:transition-transform hover:after:scale-x-100"
-            >
+            <a key={l.href} href={l.href} className={NAV_LINK}>
               {l.label}
             </a>
           ))}
-        </div>
-
-        <div className="hidden items-center gap-3 md:flex">
-          <Link href="/board" className="text-sm font-semibold text-ink/80 hover:text-ink">
+          <Link href="/board" className={NAV_LINK}>
             My board
           </Link>
+          <span aria-hidden className="h-5 w-px bg-ink/10" />
           <Link
             href="/board"
             className="rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5 hover:shadow-lg"

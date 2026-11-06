@@ -162,7 +162,7 @@ export function Sidebar(props: SidebarProps) {
     <aside
       aria-label="Sidebar"
       style={{ width: shown }}
-      className={`sticky top-0 z-30 hidden h-dvh shrink-0 flex-col border-r border-ink/10 bg-white/75 backdrop-blur-xl md:flex ${
+      className={`sticky top-0 z-30 hidden h-dvh shrink-0 flex-col border-r border-ink/10 bg-surface/75 backdrop-blur-xl md:flex ${
         resizing ? "" : "transition-[width] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
       }`}
     >
@@ -306,7 +306,7 @@ function SidebarBody({
         {collapsed ? (
           <SidebarItem icon={<Search className="size-4" />} label="Search" collapsed onClick={onExpandForSearch} />
         ) : (
-          <label className="flex items-center gap-2 rounded-xl border border-ink/10 bg-paper px-3 py-2 text-sm text-ink/45 focus-within:border-iris focus-within:bg-white">
+          <label className="flex items-center gap-2 rounded-xl border border-ink/10 bg-paper px-3 py-2 text-sm text-ink/45 focus-within:border-iris focus-within:bg-surface">
             <Search className="size-4 shrink-0" />
             <input
               ref={searchRef}
@@ -328,7 +328,7 @@ function SidebarBody({
                 <X className="size-3.5" />
               </button>
             ) : (
-              <kbd className="hidden rounded-md border border-ink/10 bg-white px-1.5 text-[10px] font-semibold text-ink/40 lg:block">
+              <kbd className="hidden rounded-md border border-ink/10 bg-surface px-1.5 text-[10px] font-semibold text-ink/40 lg:block">
                 ⌘K
               </kbd>
             )}
@@ -377,7 +377,7 @@ function SidebarBody({
         <SidebarItem icon={<Settings className="size-4" />} label="Settings" collapsed={collapsed} />
         <SidebarItem icon={<LifeBuoy className="size-4" />} label="Help & feedback" collapsed={collapsed} />
         <div className={`mt-2 flex items-center gap-3 rounded-xl px-2 py-2 ${collapsed ? "justify-center" : ""}`}>
-          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-peach text-xs font-bold text-ink">
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-peach text-xs font-bold text-on-accent">
             G
           </span>
           {!collapsed && (
@@ -431,7 +431,7 @@ function SidebarItem({
       title={collapsed ? label : undefined}
       className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
         collapsed ? "justify-center px-0" : ""
-      } ${active ? "bg-ink text-peach" : "text-ink/70 hover:bg-mist hover:text-ink"}`}
+      } ${active ? "bg-deep text-peach" : "text-ink/70 hover:bg-mist hover:text-ink"}`}
     >
       <span className="grid size-4 shrink-0 place-items-center">{icon}</span>
       {!collapsed && <span className="min-w-0 flex-1 truncate text-left">{label}</span>}

@@ -64,7 +64,7 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
         </DrawerDescription>
         <DrawerClose
           aria-label="Close details"
-          className="grid size-9 place-items-center rounded-xl text-ink/60 transition-colors hover:bg-white hover:text-ink"
+          className="grid size-9 place-items-center rounded-xl text-ink/60 transition-colors hover:bg-surface hover:text-ink"
         >
           <X className="size-5" />
         </DrawerClose>
@@ -97,7 +97,7 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
                 }
                 if (e.key === "Escape") setTitle(task.title);
               }}
-              className={`field-sizing-content w-full resize-none rounded-xl bg-transparent px-2 py-1 font-display text-2xl font-bold leading-snug transition-colors hover:bg-white focus:bg-white focus:outline-2 focus:outline-iris ${
+              className={`field-sizing-content w-full resize-none rounded-xl bg-transparent px-2 py-1 font-display text-2xl font-bold leading-snug transition-colors hover:bg-surface focus:bg-surface focus:outline-2 focus:outline-iris ${
                 task.done ? "text-ink/50 line-through" : ""
               }`}
             />
@@ -118,7 +118,7 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
                   task.tag === t.id
                     ? `${t.chip} border-current`
-                    : "border-ink/10 bg-white text-ink/60 hover:border-ink/25"
+                    : "border-ink/10 bg-surface text-ink/60 hover:border-ink/25"
                 }`}
               >
                 <span className={`size-2 rounded-full ${t.dot}`} />
@@ -163,7 +163,7 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
             <Trash2 className="size-4" />
             Delete
           </button>
-          <DrawerClose className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5">
+          <DrawerClose className="rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5">
             Done
           </DrawerClose>
         </div>
@@ -202,7 +202,7 @@ function ScheduleEditor({ task }: { task: Task }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-xl border border-dashed border-ink/20 bg-white px-3 py-2 text-sm font-medium text-ink/60 transition-colors hover:border-iris hover:text-ink"
+        className="inline-flex items-center gap-2 rounded-xl border border-dashed border-ink/20 bg-surface px-3 py-2 text-sm font-medium text-ink/60 transition-colors hover:border-iris hover:text-ink"
       >
         <CalendarClock className="size-4" />
         Add timeline
@@ -211,7 +211,7 @@ function ScheduleEditor({ task }: { task: Task }) {
   }
 
   return (
-    <div className="rounded-2xl border border-ink/10 bg-white p-3">
+    <div className="rounded-2xl border border-ink/10 bg-surface p-3">
       <ScheduleFields start={start} end={end} onChange={change} />
       <div className="mt-3 flex items-center justify-between pl-[5.5rem]">
         <p className="text-xs text-ink/45">

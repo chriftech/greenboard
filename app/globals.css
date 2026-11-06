@@ -12,6 +12,12 @@
   --color-peach: #ffc9a9;
   --color-mist: #eef2ff;
   --color-paper: #fafbff;
+  /* Cards, panels and inputs (white in light mode). */
+  --color-surface: #ffffff;
+  /* Dark panels in both themes: summary card, active items, primary buttons. */
+  --color-deep: #2e3349;
+  /* Text on peach / yellow, which stays dark in both themes. */
+  --color-on-accent: #2e3349;
   /* Green is reserved for completed / successful tasks. */
   --color-success: #16a34a;
   --color-success-soft: #ecfdf3;
@@ -19,6 +25,23 @@
   --color-sunny: #ffc845;
   --color-skyblue: #4ab4ff;
   --color-grape: #9a6bff;
+}
+
+/*
+ * Dark theme: the same tokens with dark values. Toggled by the "dark" class on
+ * <html> (see ThemeToggle and the script in app/layout.tsx). Unlayered, so it
+ * overrides the @theme defaults.
+ */
+.dark {
+  color-scheme: dark;
+  --color-ink: #e4e7f5;
+  --color-ink-2: #c9cde3;
+  --color-iris: #7d93f7;
+  --color-mist: #1f2545;
+  --color-paper: #0e1120;
+  --color-surface: #171b2e;
+  --color-deep: #262c4d;
+  --color-success-soft: #10291c;
 }
 
 @theme inline {
@@ -169,6 +192,7 @@
 
 body {
   background: var(--color-paper);
+  transition: background-color 0.3s ease;
 }
 
 @keyframes gb-float {
@@ -277,8 +301,8 @@ body {
 
 .gb-grid-bg {
   background-image:
-    linear-gradient(rgb(46 51 73 / 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(46 51 73 / 0.05) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--color-ink) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-ink) 5%, transparent) 1px, transparent 1px);
   background-size: 44px 44px;
   mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 75%);
 }
@@ -306,5 +330,5 @@ body {
   float: left;
   height: 0;
   pointer-events: none;
-  color: rgb(46 51 73 / 0.35);
+  color: color-mix(in srgb, var(--color-ink) 35%, transparent);
 }

@@ -1,7 +1,7 @@
 export function Logo({ className = "size-9" }: { className?: string }) {
   return (
     <span
-      className={`grid place-items-center rounded-xl bg-ink shadow-[inset_0_-3px_0_rgb(0_0_0/0.25)] ${className}`}
+      className={`grid place-items-center rounded-xl bg-deep shadow-[inset_0_-3px_0_rgb(0_0_0/0.25)] ${className}`}
     >
       <svg viewBox="0 0 24 24" className="size-[60%]" fill="none" aria-hidden>
         <path

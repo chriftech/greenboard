@@ -47,6 +47,7 @@ import { CheckBox, ConfettiBurst } from "@/components/landing/check-box";
 import { TaskDetails } from "./task-details";
 import { ConfirmDialog } from "./confirm-dialog";
 import { TrashPanel } from "./trash-panel";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileSidebar, Sidebar, type NavTarget, type SidebarProps } from "./sidebar";
 import {
   ScheduleFields,
@@ -292,7 +293,7 @@ export function BoardApp() {
         */}
         <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
           <div className="gb-grid-bg absolute inset-0" />
-          <div className="gb-blob absolute -top-48 left-[22%] size-[560px] rounded-full bg-peach/35 blur-3xl" />
+          <div className="gb-blob absolute -top-48 left-[22%] size-[560px] rounded-full bg-peach/35 blur-3xl dark:bg-peach/10" />
           <div
             className="gb-blob absolute -right-40 top-1/4 size-[460px] rounded-full bg-skyblue/20 blur-3xl"
             style={{ animationDelay: "-7s" }}
@@ -314,14 +315,15 @@ export function BoardApp() {
               type="button"
               onClick={() => setMenuOpen(true)}
               aria-label="Open menu"
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-white hover:text-ink md:hidden"
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-surface hover:text-ink md:hidden"
             >
               <Menu className="size-4" />
               Menu
             </button>
+            <ThemeToggle />
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-white hover:text-ink"
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-surface hover:text-ink"
             >
               <ArrowLeft className="size-4" />
               Home
@@ -357,11 +359,11 @@ export function BoardApp() {
             <div
               role="tablist"
               aria-label="Filter tasks"
-              className="relative grid grid-cols-3 rounded-2xl border border-ink/10 bg-white p-1"
+              className="relative grid grid-cols-3 rounded-2xl border border-ink/10 bg-surface p-1"
             >
               <span
                 aria-hidden
-                className="absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-xl bg-ink transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+                className="absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-xl bg-deep transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
                 style={{ transform: `translateX(${FILTERS.findIndex((f) => f.id === filter) * 100}%)` }}
               />
               {FILTERS.map((f) => (
@@ -403,7 +405,7 @@ export function BoardApp() {
             {!loaded ? (
               <ul className="space-y-3" aria-label="Loading tasks">
                 {[0, 1, 2].map((i) => (
-                  <li key={i} className="h-[68px] animate-pulse rounded-2xl bg-white/70" />
+                  <li key={i} className="h-[68px] animate-pulse rounded-2xl bg-surface/70" />
                 ))}
               </ul>
             ) : visibleCount === 0 ? (
@@ -504,7 +506,7 @@ function Summary({ loaded, total, doneCount }: { loaded: boolean; total: number;
         : `${left} ${left === 1 ? "task" : "tasks"} left — you've got this.`;
 
   return (
-    <section className="gb-rise relative overflow-hidden rounded-[28px] bg-ink p-6 text-white shadow-[0_30px_80px_-30px_rgb(46_51_73/0.7)] sm:p-8">
+    <section className="gb-rise relative overflow-hidden rounded-[28px] bg-deep p-6 text-white shadow-[0_30px_80px_-30px_rgb(46_51_73/0.7)] sm:p-8">
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <div className="gb-blob absolute -right-16 -top-24 size-72 rounded-full bg-iris/40 blur-3xl" />
       </div>
@@ -580,7 +582,7 @@ function Composer() {
   return (
     <form
       onSubmit={submit}
-      className="gb-rise mt-6 rounded-[28px] border border-ink/10 bg-white p-4 shadow-[0_20px_60px_-30px_rgb(46_51_73/0.4)] sm:p-5"
+      className="gb-rise mt-6 rounded-[28px] border border-ink/10 bg-surface p-4 shadow-[0_20px_60px_-30px_rgb(46_51_73/0.4)] sm:p-5"
       style={{ animationDelay: "120ms" }}
     >
       {/* Tag first, so it's chosen before typing the task. */}
@@ -610,7 +612,7 @@ function Composer() {
         New task
       </label>
       <div className="mt-4 flex items-center gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-peach">
+        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-peach text-on-accent">
           <Plus className="size-5" strokeWidth={3} />
         </span>
         <input
@@ -633,7 +635,7 @@ function Composer() {
           aria-expanded={scheduling}
           className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
             scheduling
-              ? "border-ink bg-ink text-peach"
+              ? "border-deep bg-deep text-peach"
               : "border-ink/10 text-ink/60 hover:border-ink/25 hover:text-ink"
           }`}
         >
@@ -644,7 +646,7 @@ function Composer() {
         <button
           type="submit"
           disabled={!canSubmit}
-          className="gb-shine inline-flex items-center gap-1.5 rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-peach transition-all hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
+          className="gb-shine inline-flex items-center gap-1.5 rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-peach transition-all hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
         >
           Add task
         </button>
@@ -707,7 +709,7 @@ function TaskRow({
       {/* Inner card carries the entrance animation, which would override the li's drag transform. */}
       <div
         className={`gb-rise group flex items-center gap-2 rounded-2xl border py-3.5 pl-1.5 pr-4 transition-[box-shadow,transform,opacity,background-color,border-color] duration-300 ${
-          task.done ? "border-success/25 bg-success-soft" : "border-ink/10 bg-white hover:shadow-md"
+          task.done ? "border-success/25 bg-success-soft" : "border-ink/10 bg-surface hover:shadow-md"
         } ${leaving ? "scale-95 opacity-0" : ""} ${
           isDragging
             ? "scale-[1.02] cursor-grabbing shadow-[0_20px_45px_-15px_rgb(46_51_73/0.45)] ring-2 ring-iris/50"
@@ -804,7 +806,7 @@ function TaskRow({
 
 function FilterChip({ label, dot, onClear }: { label: string; dot?: string; onClear: () => void }) {
   return (
-    <span className="gb-pop inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white py-1 pl-3 pr-1 text-xs font-semibold">
+    <span className="gb-pop inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-surface py-1 pl-3 pr-1 text-xs font-semibold">
       {dot && <span className={`size-2 rounded-full ${dot}`} />}
       {label}
       <button
@@ -847,7 +849,7 @@ function EmptyState({
 
   return (
     <div className="gb-pop flex flex-col items-center rounded-[28px] border-2 border-dashed border-ink/10 px-6 py-14 text-center">
-      <span className="gb-float grid size-16 place-items-center rounded-2xl bg-white text-3xl shadow-md">
+      <span className="gb-float grid size-16 place-items-center rounded-2xl bg-surface text-3xl shadow-md">
         {content.emoji}
       </span>
       <h2 className="mt-5 font-display text-xl font-bold">{content.title}</h2>
@@ -856,7 +858,7 @@ function EmptyState({
         <button
           type="button"
           onClick={onClear}
-          className="mt-4 rounded-xl border border-ink/15 bg-white px-4 py-2 text-sm font-semibold transition-colors hover:bg-mist"
+          className="mt-4 rounded-xl border border-ink/15 bg-surface px-4 py-2 text-sm font-semibold transition-colors hover:bg-mist"
         >
           Show all tasks
         </button>

@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { CheckBox, ConfettiBurst } from "./check-box";
 
 const TASKS = [
-  { text: "Morning stand-up notes", tag: "Team", tagClass: "bg-skyblue/15 text-[#0b6aa8]" },
-  { text: "Review the Q4 roadmap", tag: "Work", tagClass: "bg-grape/15 text-[#5b2fd1]" },
-  { text: "Send invoice to client", tag: "Admin", tagClass: "bg-sunny/25 text-[#8a5a00]" },
-  { text: "30-minute run", tag: "Health", tagClass: "bg-coral/15 text-[#c23a22]" },
-  { text: "Water the plants 🌱", tag: "Home", tagClass: "bg-iris/15 text-[#3550c9]" },
+  { text: "Morning stand-up notes", tag: "Team", tagClass: "bg-skyblue/15 text-[#0b6aa8] dark:text-[#8fd3ff]" },
+  { text: "Review the Q4 roadmap", tag: "Work", tagClass: "bg-grape/15 text-[#5b2fd1] dark:text-[#c9b6ff]" },
+  { text: "Send invoice to client", tag: "Admin", tagClass: "bg-sunny/25 text-[#8a5a00] dark:text-[#ffd77a]" },
+  { text: "30-minute run", tag: "Health", tagClass: "bg-coral/15 text-[#c23a22] dark:text-[#ffab9c]" },
+  { text: "Water the plants 🌱", tag: "Home", tagClass: "bg-iris/15 text-[#3550c9] dark:text-[#a9b8ff]" },
 ];
 
 /** Self-playing task board: ticks tasks one by one, celebrates, then resets. */
@@ -43,7 +43,7 @@ export function HeroBoard() {
         👥 Team synced
       </div>
 
-      <div className="relative rounded-[28px] border border-ink/10 bg-white p-6 shadow-[0_30px_80px_-20px_rgb(46_51_73/0.35)] sm:rotate-[1.5deg]">
+      <div className="relative rounded-[28px] border border-ink/10 bg-surface p-6 shadow-[0_30px_80px_-20px_rgb(46_51_73/0.35)] sm:rotate-[1.5deg]">
         <div className="mb-5 flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-ink/50">
@@ -108,7 +108,7 @@ export function HeroBoard() {
 
         {complete && (
           <div className="absolute inset-x-0 -bottom-5 flex justify-center">
-            <div className="gb-pop relative rounded-full bg-ink px-5 py-2 text-sm font-bold text-peach shadow-xl">
+            <div className="gb-pop relative rounded-full bg-deep px-5 py-2 text-sm font-bold text-peach shadow-xl">
               <ConfettiBurst />
               All done! Board is clear 🎉
             </div>

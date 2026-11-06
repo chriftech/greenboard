@@ -58,7 +58,7 @@ export function RichTextEditor({
   });
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-ink/10 bg-white transition-colors focus-within:border-iris focus-within:shadow-[0_0_0_4px_rgb(79_107_237/0.12)]">
+    <div className="overflow-hidden rounded-2xl border border-ink/10 bg-surface transition-colors focus-within:border-iris focus-within:shadow-[0_0_0_4px_rgb(79_107_237/0.12)]">
       <Toolbar editor={editor} />
       <EditorContent editor={editor} />
     </div>
@@ -103,7 +103,7 @@ function Toolbar({ editor }: { editor: Editor | null }) {
               aria-pressed={active}
               title={`${label} (${shortcut})`}
               className={`grid size-8 place-items-center rounded-lg transition-colors ${
-                active ? "bg-ink text-peach" : "text-ink/60 hover:bg-mist hover:text-ink"
+                active ? "bg-deep text-peach" : "text-ink/60 hover:bg-mist hover:text-ink"
               }`}
             >
               <Icon className="size-4" strokeWidth={2.5} />

@@ -5,7 +5,7 @@ export function CheckBox({ done, size = 24 }: { done: boolean; size?: number }) 
       className={`grid shrink-0 place-items-center rounded-full border-2 transition-all duration-300 ${
         done
           ? "scale-110 border-success bg-success shadow-[0_0_0_6px_rgb(22_163_74/0.15)]"
-          : "border-ink/25 bg-white"
+          : "border-ink/25 bg-surface"
       }`}
       style={{ width: size, height: size }}
     >

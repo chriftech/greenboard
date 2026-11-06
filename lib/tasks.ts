@@ -9,11 +9,11 @@
 
 export const TAGS = [
   { id: "default", label: "Default", chip: "bg-ink/10 text-ink/75", dot: "bg-ink/40" },
-  { id: "work", label: "Work", chip: "bg-grape/15 text-[#5b2fd1]", dot: "bg-grape" },
-  { id: "personal", label: "Personal", chip: "bg-coral/15 text-[#c23a22]", dot: "bg-coral" },
-  { id: "team", label: "Team", chip: "bg-skyblue/15 text-[#0b6aa8]", dot: "bg-skyblue" },
-  { id: "health", label: "Health", chip: "bg-[#14b8a6]/15 text-[#0f766e]", dot: "bg-[#14b8a6]" },
-  { id: "home", label: "Home", chip: "bg-sunny/25 text-[#8a5a00]", dot: "bg-sunny" },
+  { id: "work", label: "Work", chip: "bg-grape/15 text-[#5b2fd1] dark:text-[#c9b6ff]", dot: "bg-grape" },
+  { id: "personal", label: "Personal", chip: "bg-coral/15 text-[#c23a22] dark:text-[#ffab9c]", dot: "bg-coral" },
+  { id: "team", label: "Team", chip: "bg-skyblue/15 text-[#0b6aa8] dark:text-[#8fd3ff]", dot: "bg-skyblue" },
+  { id: "health", label: "Health", chip: "bg-[#14b8a6]/15 text-[#0f766e] dark:text-[#5eead4]", dot: "bg-[#14b8a6]" },
+  { id: "home", label: "Home", chip: "bg-sunny/25 text-[#8a5a00] dark:text-[#ffd77a]", dot: "bg-sunny" },
 ] as const;
 
 export type TagId = (typeof TAGS)[number]["id"];

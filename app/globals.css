@@ -12,6 +12,9 @@
   --color-peach: #ffc9a9;
   --color-mist: #eef2ff;
   --color-paper: #fafbff;
+  /* Green is reserved for completed / successful tasks. */
+  --color-success: #16a34a;
+  --color-success-soft: #ecfdf3;
   --color-coral: #ff6f59;
   --color-sunny: #ffc845;
   --color-skyblue: #4ab4ff;

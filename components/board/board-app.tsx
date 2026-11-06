@@ -707,7 +707,7 @@ function TaskRow({
       {/* Inner card carries the entrance animation, which would override the li's drag transform. */}
       <div
         className={`gb-rise group flex items-center gap-2 rounded-2xl border py-3.5 pl-1.5 pr-4 transition-[box-shadow,transform,opacity,background-color,border-color] duration-300 ${
-          task.done ? "border-iris/25 bg-mist" : "border-ink/10 bg-white hover:shadow-md"
+          task.done ? "border-success/25 bg-success-soft" : "border-ink/10 bg-white hover:shadow-md"
         } ${leaving ? "scale-95 opacity-0" : ""} ${
           isDragging
             ? "scale-[1.02] cursor-grabbing shadow-[0_20px_45px_-15px_rgb(46_51_73/0.45)] ring-2 ring-iris/50"

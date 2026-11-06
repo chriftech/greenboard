@@ -161,10 +161,10 @@ function Marquee() {
               key={i}
               className="flex items-center gap-3 font-display text-2xl font-bold whitespace-nowrap text-white"
             >
-              <span className="grid size-7 place-items-center rounded-full bg-peach">
-                <Check className="size-4 text-ink" strokeWidth={3.5} />
+              <span className="grid size-7 place-items-center rounded-full bg-success">
+                <Check className="size-4 text-white" strokeWidth={3.5} />
               </span>
-              <span className="line-through decoration-peach decoration-[3px]">{t}</span>
+              <span className="line-through decoration-success decoration-[3px]">{t}</span>
             </span>
           ))}
         </div>
@@ -209,7 +209,7 @@ function HowItWorks() {
       icon: Check,
       title: "Tick them off",
       body: "One tap marks a task done. Feel the little hit of progress every time.",
-      color: "bg-iris text-white",
+      color: "bg-success text-white",
     },
     {
       icon: Sparkles,

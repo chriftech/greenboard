@@ -15,6 +15,7 @@ import { ScheduleFields, draftsToSchedule, toDraft, type DateTimeDraft } from ".
 import { taskActions, type Task } from "@/lib/tasks";
 import { findTag, useTags } from "@/lib/tags";
 import { TagRadio } from "./tag-chip";
+import { AssigneePicker, PriorityPicker } from "./task-meta";
 
 /** Slide-in panel for viewing and editing one task, including its description. */
 export function TaskDetails({
@@ -120,6 +121,26 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
                 idleClassName="bg-surface"
               />
             ))}
+          </div>
+        </div>
+
+        {/* Priority and assignee */}
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink/50">Priority</p>
+            <PriorityPicker
+              value={task.priority}
+              onChange={(priority) => taskActions.update(task.id, { priority })}
+              variant="field"
+            />
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink/50">Assignee</p>
+            <AssigneePicker
+              value={task.assignee}
+              onChange={(assignee) => taskActions.update(task.id, { assignee })}
+              variant="field"
+            />
           </div>
         </div>
 

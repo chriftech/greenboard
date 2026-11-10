@@ -52,6 +52,7 @@ import { TaskDetails } from "./task-details";
 import { ConfirmDialog } from "./confirm-dialog";
 import { TagEditor } from "./tag-editor";
 import { TagChip, TagDot, TagRadio } from "./tag-chip";
+import { AssigneeBadge, AssigneePicker, PriorityChip, PriorityPicker } from "./task-meta";
 import { findTag, tagActions, useTags, type CustomTag, type TagView } from "@/lib/tags";
 import { TrashPanel } from "./trash-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -72,6 +73,7 @@ import {
   getTasks,
   subscribeTasks,
   taskActions,
+  type PriorityId,
   type TagId,
   type Task,
 } from "@/lib/tasks";
@@ -714,6 +716,8 @@ function Composer() {
   const [scheduling, setScheduling] = useState(false);
   const [start, setStart] = useState<DateTimeDraft>({});
   const [end, setEnd] = useState<DateTimeDraft>({});
+  const [priority, setPriority] = useState<PriorityId | undefined>();
+  const [assignee, setAssignee] = useState<string | undefined>();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const schedule = scheduling ? draftsToSchedule(start, end) : null;
@@ -728,8 +732,10 @@ function Composer() {
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
-    taskActions.add({ title, tag, schedule: schedule ?? undefined });
+    taskActions.add({ title, tag, schedule: schedule ?? undefined, priority, assignee });
     setTitle("");
+    setPriority(undefined);
+    setAssignee(undefined);
     closeSchedule();
     inputRef.current?.focus();
   }
@@ -770,6 +776,7 @@ function Composer() {
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-ink/5 pt-4">
+        <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => (scheduling ? closeSchedule() : setScheduling(true))}
@@ -783,6 +790,9 @@ function Composer() {
           {scheduling ? <X className="size-3.5" /> : <CalendarClock className="size-3.5" />}
           {scheduling ? "Remove timeline" : "Add timeline"}
         </button>
+          <PriorityPicker value={priority} onChange={setPriority} variant="pill" />
+          <AssigneePicker value={assignee} onChange={setAssignee} variant="pill" />
+        </div>
 
         <button
           type="submit"
@@ -919,6 +929,7 @@ function TaskRow({
           )}
           <span className="mt-1 flex flex-wrap items-center gap-2">
             <TagChip tag={tag} />
+            <PriorityChip priority={task.priority} />
             {moving && (
               <span className="inline-flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-[11px] font-semibold text-white">
                 <ArrowDown className="gb-nudge-down size-3" aria-hidden />
@@ -939,6 +950,7 @@ function TaskRow({
                 + Add details
               </span>
             )}
+            <AssigneeBadge assignee={task.assignee} />
           </span>
         </button>
   

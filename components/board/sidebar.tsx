@@ -106,7 +106,7 @@ function subscribe(l: () => void) {
 /* ───────────────────────── Desktop sidebar ───────────────────────── */
 
 /**
- * Resizable left sidebar, shown from the md breakpoint up. Drag (or use the
+ * Resizable left sidebar, shown from the lg breakpoint (1024px) up; smaller screens use MobileSidebar. Drag (or use the
  * arrow keys on) its right edge to resize; size and collapsed state are
  * remembered in this browser. ⌘K / Ctrl+K focuses its search.
  */
@@ -121,7 +121,7 @@ export function Sidebar(props: SidebarProps) {
   useEffect(() => {
     function onKey(e: globalThis.KeyboardEvent) {
       if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "k") return;
-      if (!window.matchMedia("(min-width: 48rem)").matches) return;
+      if (!window.matchMedia("(min-width: 64rem)").matches) return;
       e.preventDefault();
       if (read().collapsed) write({ ...read(), collapsed: false });
       requestAnimationFrame(() => searchRef.current?.focus());
@@ -173,7 +173,7 @@ export function Sidebar(props: SidebarProps) {
     <aside
       aria-label="Sidebar"
       style={{ width: shown }}
-      className={`sticky top-0 z-30 hidden h-dvh shrink-0 flex-col border-r border-ink/10 bg-surface/75 backdrop-blur-xl md:flex ${
+      className={`sticky top-0 z-30 hidden h-dvh shrink-0 flex-col border-r border-ink/10 bg-surface/75 backdrop-blur-xl lg:flex ${
         resizing ? "" : "transition-[width] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
       }`}
     >
@@ -241,7 +241,7 @@ export function MobileSidebar({
   return (
     <Drawer open={open} onOpenChange={onOpenChange} swipeDirection="left">
       <DrawerContent
-        className="bg-paper text-ink md:hidden"
+        className="bg-paper text-ink lg:hidden"
         style={{ "--drawer-content-width": "min(20rem, 86vw)" } as CSSProperties}
       >
         <DrawerTitle className="sr-only">Menu</DrawerTitle>

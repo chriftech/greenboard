@@ -428,9 +428,9 @@ export function BoardApp() {
           />
         </div>
   
-        <header className="relative mx-auto flex max-w-3xl items-center justify-between px-4 pt-6 md:justify-end">
+        <header className="relative mx-auto flex max-w-3xl items-center justify-between px-4 pt-6 lg:justify-end">
           {/* The sidebar shows the logo from md up. */}
-          <Link href="/" className="flex items-center gap-2 md:hidden">
+          <Link href="/" className="flex shrink-0 items-center gap-2 lg:hidden">
             <Logo />
             <span className="font-display text-xl font-bold tracking-tight">greenboard</span>
           </Link>
@@ -439,18 +439,19 @@ export function BoardApp() {
               type="button"
               onClick={() => setMenuOpen(true)}
               aria-label="Open menu"
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-surface hover:text-ink md:hidden"
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-surface hover:text-ink sm:px-3 lg:hidden"
             >
               <Menu className="size-4" />
-              Menu
+              <span className="hidden sm:inline">Menu</span>
             </button>
             <ThemeToggle />
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-surface hover:text-ink"
+              aria-label="Home"
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-surface hover:text-ink sm:px-3"
             >
               <ArrowLeft className="size-4" />
-              Home
+              <span className="hidden sm:inline">Home</span>
             </Link>
           </div>
         </header>
@@ -485,7 +486,7 @@ export function BoardApp() {
             <div
               role="tablist"
               aria-label="Filter tasks"
-              className="relative grid grid-cols-3 rounded-2xl border border-ink/10 bg-surface p-1"
+              className="relative grid w-full grid-cols-3 rounded-2xl border border-ink/10 bg-surface p-1 sm:w-auto"
             >
               <span
                 aria-hidden
@@ -499,7 +500,7 @@ export function BoardApp() {
                   role="tab"
                   aria-selected={filter === f.id}
                   onClick={() => setFilter(f.id)}
-                  className={`relative z-10 flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+                  className={`relative z-10 flex items-center justify-center gap-1 whitespace-nowrap rounded-xl px-2 py-2 text-[13px] font-semibold transition-colors sm:gap-1.5 sm:px-4 sm:text-sm ${
                     filter === f.id ? "text-peach" : "text-ink/60 hover:text-ink"
                   }`}
                 >
@@ -658,16 +659,16 @@ function Summary({ loaded, total, doneCount }: { loaded: boolean; total: number;
         : `${left} ${left === 1 ? "task" : "tasks"} left — you've got this.`;
 
   return (
-    <section className="gb-rise relative overflow-hidden rounded-[28px] bg-deep p-6 text-white shadow-[0_30px_80px_-30px_rgb(46_51_73/0.7)] sm:p-8">
+    <section className="gb-rise relative overflow-hidden rounded-[28px] bg-deep p-5 text-white shadow-[0_30px_80px_-30px_rgb(46_51_73/0.7)] sm:p-8">
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <div className="gb-blob absolute -right-16 -top-24 size-72 rounded-full bg-iris/40 blur-3xl" />
       </div>
-      <div className="relative flex items-center justify-between gap-6">
+      <div className="relative flex items-center justify-between gap-4 sm:gap-6">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-widest text-peach/80">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-peach/80 sm:text-xs">
             {dateLabel || " "}
           </p>
-          <h1 className="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
+          <h1 className="mt-2 font-display text-2xl font-extrabold tracking-tight sm:text-4xl">
             {greeting} <span className="inline-block origin-[70%_70%] gb-wiggle">👋</span>
           </h1>
           <p className="mt-2 flex items-center gap-2 text-white/75">
@@ -676,7 +677,7 @@ function Summary({ loaded, total, doneCount }: { loaded: boolean; total: number;
           </p>
         </div>
 
-        <div className="relative grid size-24 shrink-0 place-items-center sm:size-28">
+        <div className="relative grid size-20 shrink-0 place-items-center sm:size-28">
           {allDone && <ConfettiBurst key={`done-${total}`} />}
           <svg viewBox="0 0 100 100" className="absolute inset-0 size-full -rotate-90">
             <circle cx="50" cy="50" r={R} fill="none" stroke="rgb(255 255 255/0.12)" strokeWidth="10" />
@@ -694,7 +695,7 @@ function Summary({ loaded, total, doneCount }: { loaded: boolean; total: number;
             />
           </svg>
           <div className="text-center">
-            <p className="font-display text-2xl font-extrabold tabular-nums">{pct}%</p>
+            <p className="font-display text-xl font-extrabold tabular-nums sm:text-2xl">{pct}%</p>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-white/60">done</p>
           </div>
         </div>
@@ -926,16 +927,25 @@ function TaskRow({
               </span>
             )}
             {schedule && status && (
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${status.cls}`}
-              >
-                <CalendarClock className="size-3" aria-hidden />
-                {status.label && <span>{status.label} ·</span>}
-                {formatSchedule(schedule)}
-              </span>
+              <>
+                {/* Status and date are separate chips so they wrap cleanly on narrow screens. */}
+                {status.label && (
+                  <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${status.cls}`}>
+                    {status.label}
+                  </span>
+                )}
+                <span
+                  className={`inline-flex items-start gap-1 rounded-lg px-2 py-0.5 text-[11px] font-semibold leading-snug ${
+                    status.label ? "bg-ink/5 text-ink/70" : status.cls
+                  }`}
+                >
+                  <CalendarClock className="mt-px size-3 shrink-0" aria-hidden />
+                  {formatSchedule(schedule)}
+                </span>
+              </>
             )}
             {!preview && (
-              <span className="text-[11px] font-medium text-ink/35 opacity-0 transition-opacity group-hover:opacity-100">
+              <span className="hidden text-[11px] font-medium text-ink/35 opacity-0 transition-opacity group-hover:opacity-100 sm:inline [@media(hover:none)]:hidden">
                 + Add details
               </span>
             )}

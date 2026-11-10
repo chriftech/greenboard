@@ -10,17 +10,18 @@
   --color-ink-2: #3c4260;
   --color-iris: #4f6bed;
   --color-peach: #ffc9a9;
-  --color-mist: #eef2ff;
-  --color-paper: #fafbff;
-  /* Cards, panels and inputs (white in light mode). */
-  --color-surface: #ffffff;
+  --color-mist: #dfe4f4;
+  /* Light mode avoids bright white: a soft blue-grey page with off-white cards on top. */
+  --color-paper: #e8ebf2;
+  /* Cards, panels and inputs: off-white, not pure white, to cut glare. */
+  --color-surface: #f4f5f9;
   /* Dark panels in both themes: summary card, active items, primary buttons. */
   --color-deep: #2e3349;
   /* Text on peach / yellow, which stays dark in both themes. */
   --color-on-accent: #2e3349;
   /* Green is reserved for completed / successful tasks. */
   --color-success: #16a34a;
-  --color-success-soft: #ecfdf3;
+  --color-success-soft: #e2f3e7;
   --color-coral: #ff6f59;
   --color-sunny: #ffc845;
   --color-skyblue: #4ab4ff;

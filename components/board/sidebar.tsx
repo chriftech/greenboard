@@ -15,6 +15,7 @@ import {
 import {
   CalendarRange,
   CircleCheckBig,
+  Compass,
   LayoutDashboard,
   LifeBuoy,
   PanelLeftClose,
@@ -53,6 +54,8 @@ export type SidebarProps = {
   onEditTag: (tag: CustomTag | null) => void;
   /** Ask to delete a custom tag (the board confirms first). */
   onDeleteTag: (tag: TagView) => void;
+  /** Replay the guided tour. */
+  onStartTour: () => void;
 };
 
 /* ───────────────────────── Persisted size ───────────────────────── */
@@ -172,6 +175,7 @@ export function Sidebar(props: SidebarProps) {
   return (
     <aside
       aria-label="Sidebar"
+      data-tour="sidebar"
       style={{ width: shown }}
       className={`sticky top-0 z-30 hidden h-dvh shrink-0 flex-col border-r border-ink/10 bg-surface/75 backdrop-blur-xl lg:flex ${
         resizing ? "" : "transition-[width] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
@@ -302,6 +306,7 @@ function SidebarBody({
   tags,
   onEditTag,
   onDeleteTag,
+  onStartTour,
   collapsed,
   topRight,
   searchRef,
@@ -454,7 +459,11 @@ function SidebarBody({
       {/* Settings and the profile aren't wired to anything yet; Help opens /help. */}
       <div className="space-y-0.5 border-t border-ink/10 px-3 py-3">
         <SidebarItem icon={<Settings className="size-4" />} label="Settings" collapsed={collapsed} />
-        <SidebarItem icon={<LifeBuoy className="size-4" />} label="Help & feedback" href="/help" collapsed={collapsed} />
+        {/* The tour's last stop points here. */}
+        <div data-tour="help" className="space-y-0.5">
+          <SidebarItem icon={<LifeBuoy className="size-4" />} label="Help & feedback" href="/help" collapsed={collapsed} />
+          <SidebarItem icon={<Compass className="size-4" />} label="Take the tour" onClick={onStartTour} collapsed={collapsed} />
+        </div>
         <div className={`mt-2 flex items-center gap-3 rounded-xl px-2 py-2 ${collapsed ? "justify-center" : ""}`}>
           <span className="grid size-8 shrink-0 place-items-center rounded-full bg-peach text-xs font-bold text-on-accent">
             G

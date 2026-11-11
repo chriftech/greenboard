@@ -378,3 +378,25 @@ body {
   width: 13px;
   height: 13px;
 }
+
+/* Guided tour: the spotlight dims everything around it with one huge shadow, and glides between steps. */
+.gb-tour-spot {
+  box-shadow: 0 0 0 9999px rgb(20 22 34 / 0.62);
+  transition: top 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), left 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
+}
+.gb-tour-card {
+  animation: gb-tour-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transition: top 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), left 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.gb-tour-text { animation: gb-tour-text 0.3s ease both; }
+@keyframes gb-tour-in {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+}
+@keyframes gb-tour-text {
+  from { opacity: 0; transform: translateY(4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gb-tour-spot, .gb-tour-card { transition: none; }
+  .gb-tour-card, .gb-tour-text { animation: none; }
+}

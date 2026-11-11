@@ -23,6 +23,17 @@ export type TagId = string;
 /** Tag preselected for new tasks, and the fallback for unknown tags. */
 export const DEFAULT_TAG: TagId = "default";
 
+/** Task priority, highest first. No priority is stored as undefined. */
+export const PRIORITIES = [
+  { id: "urgent", label: "Urgent", color: "#ff6f59" },
+  { id: "high", label: "High", color: "#f97316" },
+  { id: "medium", label: "Medium", color: "#f59e0b" },
+  { id: "low", label: "Low", color: "#4ab4ff" },
+] as const;
+
+export type PriorityId = (typeof PRIORITIES)[number]["id"];
+const PRIORITY_IDS = new Set<string>(PRIORITIES.map((p) => p.id));
+
 export type Task = {
   id: string;
   title: string;
@@ -44,9 +55,15 @@ export type Task = {
   description?: string;
   /** Plain-text copy of the description, for previews and search. */
   descriptionText?: string;
+  /** Priority, if set. */
+  priority?: PriorityId;
+  /** Person the task is assigned to: an id from lib/people.ts ("me" or "person-…"). */
+  assignee?: string;
 };
 
-export type TaskPatch = Partial<Pick<Task, "title" | "tag" | "description" | "descriptionText">>;
+export type TaskPatch = Partial<
+  Pick<Task, "title" | "tag" | "description" | "descriptionText" | "priority" | "assignee">
+>;
 
 export type Schedule = { start: string; end: string };
 
@@ -97,7 +114,9 @@ function isTask(v: unknown): v is Task {
     typeof t.tag === "string" &&
     t.tag.length > 0 &&
     (t.description === undefined || typeof t.description === "string") &&
-    (t.descriptionText === undefined || typeof t.descriptionText === "string")
+    (t.descriptionText === undefined || typeof t.descriptionText === "string") &&
+    (t.priority === undefined || (typeof t.priority === "string" && PRIORITY_IDS.has(t.priority))) &&
+    (t.assignee === undefined || typeof t.assignee === "string")
   );
 }
 
@@ -179,7 +198,7 @@ function newId() {
 }
 
 export const taskActions = {
-  add(input: { title: string; tag: TagId; schedule?: Schedule }) {
+  add(input: { title: string; tag: TagId; schedule?: Schedule; priority?: PriorityId; assignee?: string }) {
     const title = input.title.trim();
     if (!title) return;
     if (input.schedule && !isValidSchedule(input.schedule)) return;
@@ -188,6 +207,8 @@ export const taskActions = {
       title,
       tag: input.tag,
       ...(input.schedule ?? {}),
+      ...(input.priority ? { priority: input.priority } : {}),
+      ...(input.assignee ? { assignee: input.assignee } : {}),
       done: false,
       createdAt: Date.now(),
       // Ahead of every existing task, so new tasks appear at the top.
@@ -246,6 +267,19 @@ export const taskActions = {
   retag(from: TagId, to: TagId) {
     const tasks = getTasks();
     if (tasks.some((t) => t.tag === from)) save(tasks.map((t) => (t.tag === from ? { ...t, tag: to } : t)));
+  },
+  /** Unassign every task from a person (used when they're removed from the people list). */
+  unassign(personId: string) {
+    const tasks = getTasks();
+    if (!tasks.some((t) => t.assignee === personId)) return;
+    save(
+      tasks.map((t) => {
+        if (t.assignee !== personId) return t;
+        const { assignee: _a, ...rest } = t;
+        void _a;
+        return rest;
+      }),
+    );
   },
   /** Move a task to Trash. It can be restored for 30 days. */
   trash(id: string) {

@@ -333,3 +333,48 @@ body {
   pointer-events: none;
   color: color-mix(in srgb, var(--color-ink) 35%, transparent);
 }
+
+/* ───────────── Ticked task moving to Completed ───────────── */
+
+/* Thin bar along the bottom of the card, filling while the task pauses. */
+@keyframes gb-move-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.gb-move-progress { animation: gb-move-progress linear forwards; }
+
+/* The arrow on the "Moving to Completed" badge nudges downward. */
+@keyframes gb-nudge-down {
+  0%, 100% { transform: translateY(-1px); }
+  50% { transform: translateY(2px); }
+}
+.gb-nudge-down { animation: gb-nudge-down 0.8s ease-in-out infinite; }
+
+/* Brief green glow (an overlay inside the card) when a task arrives in the Completed group. */
+@keyframes gb-landed {
+  0% { box-shadow: inset 0 0 0 2px rgb(22 163 74 / 0.8); background-color: rgb(22 163 74 / 0.14); }
+  100% { box-shadow: inset 0 0 0 2px rgb(22 163 74 / 0); background-color: rgb(22 163 74 / 0); }
+}
+.gb-landed { animation: gb-landed 1s ease-out forwards; }
+
+/* Small ✓ bubble that flies from a ticked task to the Completed tab (animated from JS). */
+.gb-fly-bubble {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: var(--color-success);
+  color: #fff;
+  box-shadow: 0 6px 16px -4px rgb(22 163 74 / 0.6);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.gb-fly-bubble svg {
+  width: 13px;
+  height: 13px;
+}

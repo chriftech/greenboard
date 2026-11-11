@@ -2,17 +2,21 @@
 
 import Link from "next/link";
 import {
+  useEffect,
   useRef,
   useState,
   useSyncExternalStore,
   type CSSProperties,
   type FormEvent,
   type KeyboardEventHandler,
+  type MouseEvent,
 } from "react";
 import {
+  ArrowDown,
   ArrowLeft,
   Menu,
   CalendarClock,
+  Check,
   ChevronRight,
   ClipboardCheck,
   GripVertical,
@@ -48,6 +52,7 @@ import { TaskDetails } from "./task-details";
 import { ConfirmDialog } from "./confirm-dialog";
 import { TagEditor } from "./tag-editor";
 import { TagChip, TagDot, TagRadio } from "./tag-chip";
+import { AssigneeBadge, AssigneePicker, PriorityChip, PriorityPicker } from "./task-meta";
 import { findTag, tagActions, useTags, type CustomTag, type TagView } from "@/lib/tags";
 import { TrashPanel } from "./trash-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -68,6 +73,7 @@ import {
   getTasks,
   subscribeTasks,
   taskActions,
+  type PriorityId,
   type TagId,
   type Task,
 } from "@/lib/tasks";
@@ -131,6 +137,11 @@ function confirmCopy(p: PendingDelete | null) {
       };
   }
 }
+/** How long a ticked task pauses in place before moving to the Completed group. */
+const MOVE_DELAY_MS = 50;
+/** The progress bar fills faster than the pause, so it's full just before the task moves. */
+const MOVE_PROGRESS_MS = 350;
+
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "todo", label: "Pending" },
@@ -167,6 +178,88 @@ export function BoardApp() {
   const [pending, setPending] = useState<PendingDelete | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+
+  // Ticked tasks pause where they are for a moment ("Moving to Completed"),
+  // then move into the Completed group and get a brief highlight there.
+  const [moving, setMoving] = useState<ReadonlySet<string>>(() => new Set());
+  const [landed, setLanded] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+  const moveTimers = useRef(new Map<string, number>());
+
+  useEffect(() => {
+    const timers = moveTimers.current;
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, []);
+
+  function stopMoving(id: string) {
+    window.clearTimeout(moveTimers.current.get(id));
+    moveTimers.current.delete(id);
+    setMoving((s) => {
+      const next = new Set(s);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  // The Completed tab's count: where the "done" bubble flies to.
+  const completedCountRef = useRef<HTMLSpanElement>(null);
+
+  /** A small ✓ bubble arcs from the ticked checkbox into the Completed tab, which bumps. */
+  function flyToCompleted(from: DOMRect) {
+    const target = completedCountRef.current;
+    if (!target || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const to = target.getBoundingClientRect();
+    const half = 11; // bubble is 22px
+    const x0 = from.left + from.width / 2 - half;
+    const y0 = from.top + from.height / 2 - half;
+    const x1 = to.left + to.width / 2 - half;
+    const y1 = to.top + to.height / 2 - half;
+    const peakY = Math.min(y0, y1) - 60;
+
+    const bubble = document.createElement("div");
+    bubble.className = "gb-fly-bubble";
+    bubble.setAttribute("aria-hidden", "true");
+    bubble.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+    document.body.appendChild(bubble);
+
+    const flight = bubble.animate(
+      [
+        { transform: `translate(${x0}px, ${y0}px) scale(0.3)`, opacity: 0 },
+        { transform: `translate(${x0}px, ${y0 - 14}px) scale(1)`, opacity: 1, offset: 0.15 },
+        { transform: `translate(${(x0 + x1) / 2}px, ${peakY}px) scale(1)`, opacity: 1, offset: 0.55 },
+        { transform: `translate(${x1}px, ${y1}px) scale(0.5)`, opacity: 0.85 },
+      ],
+      { duration: 750, easing: "cubic-bezier(0.45, 0, 0.35, 1)" },
+    );
+    const land = () => {
+      bubble.remove();
+      target.animate(
+        [{ transform: "scale(1)" }, { transform: "scale(1.5)" }, { transform: "scale(1)" }],
+        { duration: 380, easing: "ease-out" },
+      );
+    };
+    flight.onfinish = land;
+    flight.oncancel = () => bubble.remove();
+  }
+
+  function toggleTask(task: Task, origin?: DOMRect) {
+    const nowDone = !task.done;
+    taskActions.toggle(task.id);
+    if (nowDone && origin) flyToCompleted(origin);
+    if (!nowDone) return stopMoving(task.id); // unticked during the pause: stay put
+    if (filter === "done") return; // already looking at Completed: nothing moves
+    setMoving((s) => new Set(s).add(task.id));
+    moveTimers.current.set(
+      task.id,
+      window.setTimeout(() => {
+        stopMoving(task.id);
+        setLanded(task.id);
+        setAnnouncement(`"${task.title}" moved to Completed.`);
+        window.setTimeout(() => setLanded((l) => (l === task.id ? null : l)), 1100);
+      }, MOVE_DELAY_MS),
+    );
+  }
   const [trashOpen, setTrashOpen] = useState(false);
 
   function openTrash() {
@@ -220,9 +313,11 @@ export function BoardApp() {
   const scoped = all.filter(matches);
   const narrowed = view !== "board" || activeTag !== null || q !== "";
 
-  const done = scoped.filter((t) => t.done);
-  const todo = scoped.filter((t) => !t.done);
-  const counts: Record<Filter, number> = { all: scoped.length, todo: todo.length, done: done.length };
+  // Tasks that are mid-move stay in the pending group until their pause ends.
+  const done = scoped.filter((t) => t.done && !moving.has(t.id));
+  const todo = scoped.filter((t) => !t.done || moving.has(t.id));
+  const doneCount = scoped.filter((t) => t.done).length;
+  const counts: Record<Filter, number> = { all: scoped.length, todo: scoped.length - doneCount, done: doneCount };
 
   // My board: pending first, then completed, each in the order the user dragged
   // it into. Today/Upcoming: soonest start first, and not draggable.
@@ -413,7 +508,8 @@ export function BoardApp() {
                 >
                   {f.label}
                   <span
-                    className={`rounded-full px-1.5 text-[11px] tabular-nums ${
+                    ref={f.id === "done" ? completedCountRef : undefined}
+                    className={`inline-block rounded-full px-1.5 text-[11px] tabular-nums ${
                       filter === f.id ? "bg-white/15" : "bg-ink/5"
                     }`}
                   >
@@ -469,13 +565,27 @@ export function BoardApp() {
                 <ul className="space-y-3">
                   {groups.map((group, i) => (
                     <SortableContext key={i} items={group.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                      {/* In "All", label where completed tasks go (also the target while one is moving). */}
+                      {filter === "all" && group === done && (done.length > 0 || moving.size > 0) && (
+                        <li aria-hidden className="flex items-center gap-3 pt-3">
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-success">
+                            <Check className="size-3.5" strokeWidth={3} />
+                            Completed
+                          </span>
+                          <span className="h-px flex-1 bg-success/20" />
+                          <span className="text-xs font-semibold tabular-nums text-ink/40">{doneCount}</span>
+                        </li>
+                      )}
                       {group.map((t) => (
                         <TaskRow
                           key={t.id}
                           task={t}
                           tag={findTag(tags, t.tag)}
                           leaving={removingId === t.id}
-                          sortable={sortable}
+                          moving={moving.has(t.id)}
+                          landed={landed === t.id}
+                          onToggle={(origin) => toggleTask(t, origin)}
+                          sortable={sortable && !moving.has(t.id)}
                           onOpen={() => openDetails(t.id)}
                           onDelete={() => askDelete({ kind: "task", id: t.id, title: t.title })}
                         />
@@ -485,6 +595,9 @@ export function BoardApp() {
                 </ul>
               </DndContext>
             )}
+            <p className="sr-only" aria-live="polite">
+              {announcement}
+            </p>
           </section>
         </main>
       </div>
@@ -604,6 +717,8 @@ function Composer() {
   const [scheduling, setScheduling] = useState(false);
   const [start, setStart] = useState<DateTimeDraft>({});
   const [end, setEnd] = useState<DateTimeDraft>({});
+  const [priority, setPriority] = useState<PriorityId | undefined>();
+  const [assignee, setAssignee] = useState<string | undefined>();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const schedule = scheduling ? draftsToSchedule(start, end) : null;
@@ -618,8 +733,10 @@ function Composer() {
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
-    taskActions.add({ title, tag, schedule: schedule ?? undefined });
+    taskActions.add({ title, tag, schedule: schedule ?? undefined, priority, assignee });
     setTitle("");
+    setPriority(undefined);
+    setAssignee(undefined);
     closeSchedule();
     inputRef.current?.focus();
   }
@@ -660,6 +777,7 @@ function Composer() {
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-ink/5 pt-4">
+        <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => (scheduling ? closeSchedule() : setScheduling(true))}
@@ -673,6 +791,9 @@ function Composer() {
           {scheduling ? <X className="size-3.5" /> : <CalendarClock className="size-3.5" />}
           {scheduling ? "Remove timeline" : "Add timeline"}
         </button>
+          <PriorityPicker value={priority} onChange={setPriority} variant="pill" />
+          <AssigneePicker value={assignee} onChange={setAssignee} variant="pill" />
+        </div>
 
         <button
           type="submit"
@@ -705,6 +826,9 @@ function TaskRow({
   task,
   tag,
   leaving,
+  moving,
+  landed,
+  onToggle,
   sortable,
   onOpen,
   onDelete,
@@ -713,6 +837,12 @@ function TaskRow({
   /** The task's tag, already resolved (unknown tags show as Default). */
   tag: TagView;
   leaving: boolean;
+  /** Just ticked: pausing in place before moving to the Completed group. */
+  moving: boolean;
+  /** Just arrived in the Completed group: briefly highlighted. */
+  landed: boolean;
+  /** Called with the checkbox's position, so a bubble can fly from it. */
+  onToggle: (origin: DOMRect) => void;
   /** False in Today/Upcoming, which are sorted by start time. */
   sortable: boolean;
   onOpen: () => void;
@@ -727,9 +857,9 @@ function TaskRow({
   const status = schedule ? scheduleStatus(schedule, task.done) : null;
   const preview = task.descriptionText?.replace(/\s+/g, " ").trim();
 
-  function toggle() {
+  function toggle(e: MouseEvent<HTMLButtonElement>) {
     if (!task.done) setBurst((b) => b + 1);
-    taskActions.toggle(task.id);
+    onToggle(e.currentTarget.getBoundingClientRect());
   }
 
   return (
@@ -737,11 +867,12 @@ function TaskRow({
       ref={setNodeRef}
       {...pointerListeners}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={`relative touch-manipulation ${isDragging ? "z-20" : ""}`}
+      // Raised while dragging, and while just ticked so its confetti draws over the rows around it.
+      className={`relative touch-manipulation ${isDragging ? "z-20" : moving ? "z-10" : ""}`}
     >
       {/* Inner card carries the entrance animation, which would override the li's drag transform. */}
       <div
-        className={`gb-rise group flex items-center gap-2 rounded-2xl border py-3.5 pl-1.5 pr-4 transition-[box-shadow,transform,opacity,background-color,border-color] duration-300 ${
+        className={`gb-rise group relative flex items-center gap-2 rounded-2xl border py-3.5 pl-1.5 pr-4 transition-[box-shadow,transform,opacity,background-color,border-color] duration-300 ${
           task.done ? "border-success/25 bg-success-soft" : "border-ink/10 bg-surface hover:shadow-md"
         } ${leaving ? "scale-95 opacity-0" : ""} ${
           isDragging
@@ -799,6 +930,13 @@ function TaskRow({
           )}
           <span className="mt-1 flex flex-wrap items-center gap-2">
             <TagChip tag={tag} />
+            <PriorityChip priority={task.priority} />
+            {moving && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-[11px] font-semibold text-white">
+                <ArrowDown className="gb-nudge-down size-3" aria-hidden />
+                Moving to Completed
+              </span>
+            )}
             {schedule && status && (
               <>
                 {/* Status and date are separate chips so they wrap cleanly on narrow screens. */}
@@ -822,6 +960,7 @@ function TaskRow({
                 + Add details
               </span>
             )}
+            <AssigneeBadge assignee={task.assignee} />
           </span>
         </button>
   
@@ -838,6 +977,14 @@ function TaskRow({
         >
           <Trash2 className="size-4" />
         </button>
+        {landed && <span aria-hidden className="gb-landed pointer-events-none absolute inset-0 rounded-[inherit]" />}
+        {moving && (
+          <span
+            aria-hidden
+            className="gb-move-progress absolute inset-x-4 bottom-0 h-0.5 origin-left rounded-full bg-success"
+            style={{ animationDuration: `${MOVE_PROGRESS_MS}ms` }}
+          />
+        )}
       </div>
     </li>
   );

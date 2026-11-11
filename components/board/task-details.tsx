@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useState, useSyncExternalStore, type CSSProperties, type ComponentType, type ReactNode } from "react";
+import { Dialog } from "@base-ui/react/dialog";
 import { CalendarClock, Trash2, X } from "lucide-react";
 import {
   Drawer,
@@ -16,7 +17,40 @@ import { taskActions, type Task } from "@/lib/tasks";
 import { findTag, useTags } from "@/lib/tags";
 import { TagRadio } from "./tag-chip";
 
-/** Slide-in panel for viewing and editing one task, including its description. */
+/* ───────────────────────── Mobile vs larger screens ───────────────────────── */
+
+/** Phones (under 768px) get the slide-in drawer; larger screens get a centred modal. */
+const MOBILE_QUERY = "(max-width: 47.99rem)";
+
+function subscribeMobile(onChange: () => void) {
+  const mq = window.matchMedia(MOBILE_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+
+/** True on phone-sized screens; follows resizes and rotation. */
+function useIsMobile() {
+  return useSyncExternalStore(
+    subscribeMobile,
+    () => window.matchMedia(MOBILE_QUERY).matches,
+    () => false,
+  );
+}
+
+/** The title/description/close parts differ between the drawer and the modal. */
+type Parts = {
+  Title: ComponentType<{ className?: string; children?: ReactNode }>;
+  Description: ComponentType<{ className?: string; children?: ReactNode }>;
+  Close: ComponentType<{ className?: string; children?: ReactNode; "aria-label"?: string }>;
+};
+
+const DRAWER_PARTS: Parts = { Title: DrawerTitle, Description: DrawerDescription, Close: DrawerClose };
+const DIALOG_PARTS: Parts = { Title: Dialog.Title, Description: Dialog.Description, Close: Dialog.Close };
+
+/**
+ * View and edit one task, including its description: a slide-in drawer on
+ * phones and a centred modal on tablets and desktops.
+ */
 export function TaskDetails({
   task,
   open,
@@ -28,20 +62,40 @@ export function TaskDetails({
   onOpenChange: (open: boolean) => void;
   onRequestDelete: (task: Task) => void;
 }) {
+  const mobile = useIsMobile();
+  const isOpen = open && !!task;
+  // Remount per task so the editor starts from that task's description.
+  const body = (parts: Parts) =>
+    task && <DetailsBody key={task.id} task={task} parts={parts} onDelete={() => onRequestDelete(task)} />;
+
+  if (mobile) {
+    return (
+      <Drawer open={isOpen} onOpenChange={onOpenChange} swipeDirection="right">
+        <DrawerContent
+          className="bg-paper text-ink"
+          style={{ "--drawer-content-width": "min(34rem, 100vw)" } as CSSProperties}
+        >
+          {body(DRAWER_PARTS)}
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
   return (
-    <Drawer open={open && !!task} onOpenChange={onOpenChange} swipeDirection="right">
-      <DrawerContent
-        className="bg-paper text-ink"
-        style={{ "--drawer-content-width": "min(34rem, 100vw)" } as CSSProperties}
-      >
-        {/* Remount per task so the editor starts from that task's description. */}
-        {task && <DetailsBody key={task.id} task={task} onDelete={() => onRequestDelete(task)} />}
-      </DrawerContent>
-    </Drawer>
+    <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        {/* Same layer as the drawer (z-50): delete confirmation (z-60) and the calendar (z-70) sit above. */}
+        <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
+        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[88dvh] w-[calc(100vw-3rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[28px] border border-ink/10 bg-paper text-ink shadow-[0_30px_80px_-20px_rgb(46_51_73/0.5)] outline-none transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.2,0.9,0.3,1.1)] data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
+          {body(DIALOG_PARTS)}
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
-function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
+function DetailsBody({ task, parts, onDelete }: { task: Task; parts: Parts; onDelete: () => void }) {
+  const { Title, Description, Close } = parts;
   const tags = useTags();
   const [title, setTitle] = useState(task.title);
 
@@ -57,20 +111,16 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
   });
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
-        <DrawerTitle className="text-xs font-semibold uppercase tracking-widest text-ink/50">
-          Task details
-        </DrawerTitle>
-        <DrawerDescription className="sr-only">
-          Edit the task title, tag, timeline and description.
-        </DrawerDescription>
-        <DrawerClose
+        <Title className="text-xs font-semibold uppercase tracking-widest text-ink/50">Task details</Title>
+        <Description className="sr-only">Edit the task title, tag, timeline and description.</Description>
+        <Close
           aria-label="Close details"
           className="grid size-9 place-items-center rounded-xl text-ink/60 transition-colors hover:bg-surface hover:text-ink"
         >
           <X className="size-5" />
-        </DrawerClose>
+        </Close>
       </div>
 
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-6">
@@ -158,9 +208,9 @@ function DetailsBody({ task, onDelete }: { task: Task; onDelete: () => void }) {
             <Trash2 className="size-4" />
             Delete
           </button>
-          <DrawerClose className="rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5">
+          <Close className="rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5">
             Done
-          </DrawerClose>
+          </Close>
         </div>
       </div>
     </div>

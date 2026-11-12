@@ -2,7 +2,21 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, ArrowRight, Compass, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  LifeBuoy,
+  ListChecks,
+  ListFilter,
+  PanelLeft,
+  PenLine,
+  SlidersHorizontal,
+  Sparkles,
+  SunMoon,
+  Tag,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { tourActions, useTourRunning } from "@/lib/tour";
 
 /* ───────────────────────── Steps ───────────────────────── */
@@ -14,6 +28,7 @@ type Step = {
    * No targets, or none visible, shows the card centred.
    */
   targets?: string[];
+  icon: LucideIcon;
   title: string;
   /** Text per target id, falling back to `body`. */
   bodyFor?: Record<string, string>;
@@ -22,36 +37,43 @@ type Step = {
 
 const STEPS: Step[] = [
   {
+    icon: Sparkles,
     title: "Welcome to greenboard 👋",
     body: "A quick look around: it takes under a minute. Use the arrow keys or the buttons below, and press Esc to skip.",
   },
   {
     targets: ["tags"],
+    icon: Tag,
     title: "Pick a tag first",
     body: "Every new task gets the tag selected here. Default is preselected, and you can make up to 5 tags of your own.",
   },
   {
     targets: ["new-task"],
+    icon: PenLine,
     title: "Write a task",
     body: "Type what needs doing and press Enter. It lands at the top of your board.",
   },
   {
     targets: ["task-extras"],
+    icon: SlidersHorizontal,
     title: "Add the details up front",
     body: "Optionally give it a start and end time, a priority, and someone to do it, before you add it.",
   },
   {
     targets: ["filters"],
+    icon: ListFilter,
     title: "Switch between views",
     body: "See everything, just what's left, or what's done. The numbers keep count.",
   },
   {
     targets: ["tasks"],
+    icon: ListChecks,
     title: "Work through your tasks",
     body: "Tick the circle to complete a task. Click a task to edit its details and description, and drag to reorder.",
   },
   {
     targets: ["sidebar", "menu"],
+    icon: PanelLeft,
     title: "Find things fast",
     bodyFor: {
       sidebar: "Search (⌘/Ctrl K), Today and Upcoming, your tags and Trash all live in the sidebar. Drag its edge to resize it.",
@@ -61,11 +83,13 @@ const STEPS: Step[] = [
   },
   {
     targets: ["theme"],
+    icon: SunMoon,
     title: "Light or dark",
     body: "Switch themes whenever you like. greenboard remembers your choice.",
   },
   {
     targets: ["help"],
+    icon: LifeBuoy,
     title: "You're all set",
     bodyFor: {
       help: "Questions, shortcuts and feedback are in Help & feedback. Replay this tour any time from Take the tour.",
@@ -101,26 +125,49 @@ const sameRect = (a: Rect | null, b: Rect | null) =>
   a === b ||
   (!!a && !!b && Math.abs(a.top - b.top) < 0.5 && Math.abs(a.left - b.left) < 0.5 && a.width === b.width && a.height === b.height);
 
+/** Which side of the card the arrow sits on (pointing at the spotlight), if any. */
+type Side = "top" | "bottom" | "left" | "right";
+type Placement = { style: CSSProperties; caret: { side: Side; offset: number } | null };
+
+const CARET_MIN = 22; // keep the arrow clear of the card's rounded corners
+
 /** Place the card below, above, right or left of the spotlight, whichever fits first. */
-function cardPosition(spot: Rect | null, card: { width: number; height: number }): CSSProperties {
+function cardPosition(spot: Rect | null, card: { width: number; height: number }): Placement {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const clampX = (x: number) => Math.min(Math.max(x, EDGE), vw - card.width - EDGE);
   const clampY = (y: number) => Math.min(Math.max(y, EDGE), vh - card.height - EDGE);
+  // Point the arrow at the middle of the spotlight, as far as the card's edge allows.
+  const along = (start: number, size: number, center: number) =>
+    Math.min(Math.max(center - start, CARET_MIN), size - CARET_MIN);
 
-  if (!spot) return { left: clampX((vw - card.width) / 2), top: clampY((vh - card.height) / 2) };
+  if (!spot) return { style: { left: clampX((vw - card.width) / 2), top: clampY((vh - card.height) / 2) }, caret: null };
 
+  const cx = spot.left + spot.width / 2;
+  const cy = spot.top + spot.height / 2;
   const below = spot.top + spot.height + GAP;
   const above = spot.top - GAP - card.height;
   const right = spot.left + spot.width + GAP;
   const left = spot.left - GAP - card.width;
 
-  if (below + card.height <= vh - EDGE) return { left: clampX(spot.left), top: below };
-  if (above >= EDGE) return { left: clampX(spot.left), top: above };
-  if (right + card.width <= vw - EDGE) return { left: right, top: clampY(spot.top) };
-  if (left >= EDGE) return { left, top: clampY(spot.top) };
-  // Nothing fits (a tall target on a small screen): pin to the bottom.
-  return { left: clampX((vw - card.width) / 2), top: vh - card.height - EDGE };
+  if (below + card.height <= vh - EDGE) {
+    const x = clampX(spot.left);
+    return { style: { left: x, top: below }, caret: { side: "top", offset: along(x, card.width, cx) } };
+  }
+  if (above >= EDGE) {
+    const x = clampX(spot.left);
+    return { style: { left: x, top: above }, caret: { side: "bottom", offset: along(x, card.width, cx) } };
+  }
+  if (right + card.width <= vw - EDGE) {
+    const y = clampY(spot.top);
+    return { style: { left: right, top: y }, caret: { side: "left", offset: along(y, card.height, cy) } };
+  }
+  if (left >= EDGE) {
+    const y = clampY(spot.top);
+    return { style: { left, top: y }, caret: { side: "right", offset: along(y, card.height, cy) } };
+  }
+  // Nothing fits (a tall target on a small screen): pin to the bottom, no arrow.
+  return { style: { left: clampX((vw - card.width) / 2), top: vh - card.height - EDGE }, caret: null };
 }
 
 /* ───────────────────────── Tour ───────────────────────── */
@@ -236,7 +283,10 @@ function TourRun() {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [last]);
 
-  const position = typeof window === "undefined" ? {} : cardPosition(spot, cardSize);
+  const { style: position, caret } =
+    typeof window === "undefined" ? { style: {}, caret: null } : cardPosition(spot, cardSize);
+  const Icon = step.icon;
+  const progress = ((index + 1) / STEPS.length) * 100;
 
   return createPortal(
     <div className="fixed inset-0 z-[80]">
@@ -246,7 +296,8 @@ function TourRun() {
       <div
         aria-hidden
         // With no target it shrinks to a point in the middle: still dimming the page, with nothing lit.
-        className={`gb-tour-spot pointer-events-none fixed rounded-2xl ${spot ? "ring-2 ring-peach/80" : ""}`}
+        data-empty={spot ? undefined : ""}
+        className="gb-tour-spot pointer-events-none fixed rounded-2xl"
         style={
           spot
             ? { top: spot.top, left: spot.left, width: spot.width, height: spot.height }
@@ -261,20 +312,47 @@ function TourRun() {
         aria-labelledby={titleId}
         aria-describedby={bodyId}
         tabIndex={-1}
-        className="gb-tour-card fixed w-[min(22rem,calc(100vw-2rem))] rounded-[22px] border border-ink/10 bg-surface p-5 text-ink shadow-[0_30px_70px_-25px_rgb(20_22_34/0.6)] outline-none"
+        className="gb-tour-card fixed w-[min(23rem,calc(100vw-2rem))] rounded-[22px] p-5 text-ink outline-none"
         style={position}
       >
-        <div className="flex items-start justify-between gap-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-mist px-2.5 py-1 text-[11px] font-semibold uppercase tracking-widest text-ink/60">
-            <Compass className="size-3.5 text-iris" aria-hidden />
-            {index + 1} of {STEPS.length}
+        {caret && (
+          <span
+            aria-hidden
+            data-side={caret.side}
+            className="gb-tour-caret"
+            style={caret.side === "top" || caret.side === "bottom" ? { left: caret.offset } : { top: caret.offset }}
+          />
+        )}
+
+        <div className="flex items-center gap-3">
+          {/* Keyed so the icon pops in on each step. */}
+          <span key={index} className="gb-tour-icon grid size-11 shrink-0 place-items-center rounded-2xl bg-peach text-on-accent">
+            <Icon className="size-5" strokeWidth={2.25} />
           </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-ink/55">
+              Step {index + 1} of {STEPS.length}
+            </p>
+            <div
+              role="progressbar"
+              aria-label="Tour progress"
+              aria-valuemin={1}
+              aria-valuemax={STEPS.length}
+              aria-valuenow={index + 1}
+              className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-ink/12"
+            >
+              <div
+                className="h-full rounded-full bg-linear-to-r from-iris to-peach transition-[width] duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
           <button
             type="button"
             onClick={() => tourActions.end()}
             aria-label="Skip the tour"
             title="Skip the tour (Esc)"
-            className="-m-1 grid size-8 place-items-center rounded-lg text-ink/45 transition-colors hover:bg-mist hover:text-ink"
+            className="-mr-1 grid size-8 shrink-0 place-items-center self-start rounded-lg text-ink/55 transition-colors hover:bg-ink/10 hover:text-ink"
           >
             <X className="size-4" />
           </button>
@@ -282,31 +360,25 @@ function TourRun() {
 
         {/* Keyed so the text fades in on each step. */}
         <div key={index} className="gb-tour-text">
-          <h2 id={titleId} className="mt-3 font-display text-lg font-bold leading-snug">
+          <h2 id={titleId} className="mt-4 font-display text-xl font-bold leading-snug">
             {step.title}
           </h2>
-          <p id={bodyId} className="mt-1.5 text-sm leading-relaxed text-ink/70">
+          <p id={bodyId} className="mt-1.5 text-[15px] leading-relaxed text-ink/80">
             {body}
           </p>
         </div>
 
-        <div className="mt-5 flex items-center justify-between gap-3">
-          <div aria-hidden className="flex items-center gap-1">
-            {STEPS.map((_, i) => (
-              <span
-                key={i}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  i === index ? "w-4 bg-iris" : i < index ? "w-1.5 bg-iris/45" : "w-1.5 bg-ink/15"
-                }`}
-              />
-            ))}
-          </div>
+        <div className="mt-5 flex items-center justify-end gap-3 sm:justify-between">
+          {/* Keyboard hint: not shown on phones and touch screens, where there are no arrow keys. */}
+          <span className="hidden text-xs font-medium text-ink/50 sm:inline [@media(hover:none)]:hidden">
+            <kbd className="font-sans">←</kbd> <kbd className="font-sans">→</kbd> to move · Esc to skip
+          </span>
           <div className="flex items-center gap-1.5">
             {index > 0 && (
               <button
                 type="button"
                 onClick={back}
-                className="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-semibold text-ink/65 transition-colors hover:bg-mist hover:text-ink"
+                className="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-semibold text-ink/75 transition-colors hover:bg-ink/10 hover:text-ink"
               >
                 <ArrowLeft className="size-4" />
                 Back
@@ -315,7 +387,7 @@ function TourRun() {
             <button
               type="button"
               onClick={next}
-              className="inline-flex items-center gap-1 rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5"
+              className="inline-flex items-center gap-1 rounded-xl bg-peach px-4 py-2 text-sm font-bold text-on-accent shadow-[0_8px_20px_-8px_rgb(255_201_169/0.8)] transition-transform hover:-translate-y-0.5"
             >
               {last ? "Done" : index === 0 ? "Show me" : "Next"}
               {!last && <ArrowRight className="size-4" />}

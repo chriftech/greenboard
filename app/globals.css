@@ -379,24 +379,81 @@ body {
   height: 13px;
 }
 
-/* Guided tour: the spotlight dims everything around it with one huge shadow, and glides between steps. */
+/* ───────────── Guided tour ───────────── */
+
+/* Dimming, card and glow colours, tuned per theme so the tour stands out on either. */
+:root {
+  --tour-dim: rgb(24 27 44 / 0.58);
+  --tour-card: #fbfbfd;
+  --tour-card-border: rgb(46 51 73 / 0.14);
+  --tour-glow: rgb(255 170 120 / 0.55);
+}
+.dark {
+  /* The dark page is already near-black, so dim much harder for the spotlight to read. */
+  --tour-dim: rgb(2 3 10 / 0.8);
+  --tour-card: #252c4f;
+  --tour-card-border: rgb(255 255 255 / 0.16);
+  --tour-glow: rgb(255 201 169 / 0.45);
+}
+
+/* The spotlight: a peach ring and glow, with one huge shadow dimming everything else. Glides between steps. */
 .gb-tour-spot {
-  box-shadow: 0 0 0 9999px rgb(20 22 34 / 0.62);
-  transition: top 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), left 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
-    width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
+  box-shadow: 0 0 0 3px var(--color-peach), 0 0 36px 6px var(--tour-glow), 0 0 0 9999px var(--tour-dim);
+  transition: top 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), left 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+/* Lift the lit area a touch in dark mode, so it reads as "lit" against the dimming. */
+.dark .gb-tour-spot { background: rgb(255 255 255 / 0.05); }
+.gb-tour-spot[data-empty] { box-shadow: 0 0 0 9999px var(--tour-dim); background: none; }
+/* A soft ring that pulses outwards, drawing the eye to the target. */
+.gb-tour-spot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 2px solid var(--color-peach);
+  animation: gb-tour-pulse 1.8s cubic-bezier(0.2, 0.7, 0.2, 1) infinite;
+}
+.gb-tour-spot[data-empty]::after { display: none; }
+@keyframes gb-tour-pulse {
+  from { inset: -3px; opacity: 0.8; }
+  to { inset: -16px; opacity: 0; border-radius: 26px; }
+}
+
 .gb-tour-card {
+  background: var(--tour-card);
+  border: 1px solid var(--tour-card-border);
+  box-shadow: 0 30px 80px -20px rgb(0 0 0 / 0.55), 0 0 0 6px rgb(255 201 169 / 0.08);
   animation: gb-tour-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  transition: top 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), left 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: top 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), left 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+/* The little arrow pointing from the card to the spotlight. */
+.gb-tour-caret {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: var(--tour-card);
+  border: 1px solid var(--tour-card-border);
+  transform: translate(-50%, -50%) rotate(45deg);
+  transition: left 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), top 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.gb-tour-caret[data-side="top"] { top: 0; border-right: 0; border-bottom: 0; }
+.gb-tour-caret[data-side="bottom"] { top: 100%; border-left: 0; border-top: 0; }
+.gb-tour-caret[data-side="left"] { left: 0; border-top: 0; border-right: 0; }
+.gb-tour-caret[data-side="right"] { left: 100%; border-bottom: 0; border-left: 0; }
+
+.gb-tour-icon { animation: gb-tour-icon 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .gb-tour-text { animation: gb-tour-text 0.3s ease both; }
 @keyframes gb-tour-in {
   from { opacity: 0; transform: scale(0.96) translateY(6px); }
+}
+@keyframes gb-tour-icon {
+  from { opacity: 0; transform: scale(0.6) rotate(-12deg); }
 }
 @keyframes gb-tour-text {
   from { opacity: 0; transform: translateY(4px); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .gb-tour-spot, .gb-tour-card { transition: none; }
-  .gb-tour-card, .gb-tour-text { animation: none; }
+  .gb-tour-spot, .gb-tour-card, .gb-tour-caret { transition: none; }
+  .gb-tour-card, .gb-tour-text, .gb-tour-icon, .gb-tour-spot::after { animation: none; }
 }

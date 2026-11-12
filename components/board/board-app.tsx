@@ -55,6 +55,8 @@ import { TagChip, TagDot, TagRadio } from "./tag-chip";
 import { AssigneeBadge, AssigneePicker, PriorityChip, PriorityPicker } from "./task-meta";
 import { findTag, tagActions, useTags, type CustomTag, type TagView } from "@/lib/tags";
 import { TrashPanel } from "./trash-panel";
+import { Tour } from "./tour";
+import { hasSeenTour, tourActions } from "@/lib/tour";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileSidebar, Sidebar, type NavTarget, type SidebarProps } from "./sidebar";
 import {
@@ -167,6 +169,21 @@ export function BoardApp() {
 
   const loaded = tasks !== null;
   const selected = tasks?.find((t) => t.id === selectedId) ?? null;
+
+  // The guided tour starts by itself on a first visit, and from /board?tour (the Help page's link).
+  useEffect(() => {
+    if (!loaded) return;
+    const url = new URL(window.location.href);
+    const asked = url.searchParams.has("tour");
+    if (asked) {
+      url.searchParams.delete("tour");
+      window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    }
+    if (!asked && hasSeenTour()) return;
+    // Let the board's entrance animation settle first, so the spotlight lands in the right place.
+    const timer = window.setTimeout(tourActions.start, 900);
+    return () => window.clearTimeout(timer);
+  }, [loaded]);
 
   function openDetails(id: string) {
     setSelectedId(id);
@@ -374,6 +391,13 @@ export function BoardApp() {
       }),
     query,
     onQuery: setQuery,
+    onStartTour: () => {
+      // From the phone menu: let the drawer close first, so the tour can see the board.
+      if (menuOpen) {
+        setMenuOpen(false);
+        window.setTimeout(tourActions.start, 350);
+      } else tourActions.start();
+    },
     counts: {
       board: pendingAll.length,
       today: pendingAll.filter((t) => inView(t, "today")).length,
@@ -441,12 +465,15 @@ export function BoardApp() {
               type="button"
               onClick={() => setMenuOpen(true)}
               aria-label="Open menu"
+              data-tour="menu"
               className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-surface hover:text-ink sm:px-3 lg:hidden"
             >
               <Menu className="size-4" />
               <span className="hidden sm:inline">Menu</span>
             </button>
-            <ThemeToggle />
+            <span data-tour="theme" className="inline-flex">
+              <ThemeToggle />
+            </span>
             <Link
               href="/"
               aria-label="Home"
@@ -488,6 +515,7 @@ export function BoardApp() {
             <div
               role="tablist"
               aria-label="Filter tasks"
+              data-tour="filters"
               className="relative grid w-full grid-cols-3 rounded-2xl border border-ink/10 bg-surface p-1 sm:w-auto"
             >
               <span
@@ -531,7 +559,7 @@ export function BoardApp() {
           </div>
   
           {/* List */}
-          <section className="mt-5" aria-live="polite">
+          <section className="mt-5" aria-live="polite" data-tour="tasks">
             {!loaded ? (
               <ul className="space-y-3" aria-label="Loading tasks">
                 {[0, 1, 2].map((i) => (
@@ -623,6 +651,8 @@ export function BoardApp() {
         onDeleteForever={(t) => askDelete({ kind: "forever", id: t.id, title: t.title })}
         onEmptyTrash={() => askDelete({ kind: "empty", count: trashed.length })}
       />
+
+      <Tour />
 
       <ConfirmDialog
         open={confirmOpen}
@@ -749,7 +779,7 @@ function Composer() {
     >
       {/* Tag first, so it's chosen before typing the task. */}
       <div className="border-b border-ink/5 pb-4">
-        <div role="radiogroup" aria-label="Tag" className="flex flex-wrap gap-1.5">
+        <div role="radiogroup" aria-label="Tag" data-tour="tags" className="flex flex-wrap gap-1.5">
           {tags.map((t) => (
             <TagRadio key={t.id} tag={t} checked={tag === t.id} onSelect={() => setTag(t.id)} checkedClassName="scale-105" />
           ))}
@@ -759,7 +789,7 @@ function Composer() {
       <label htmlFor="new-task" className="sr-only">
         New task
       </label>
-      <div className="mt-4 flex items-center gap-3">
+      <div data-tour="new-task" className="mt-4 flex items-center gap-3">
         <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-peach text-on-accent">
           <Plus className="size-5" strokeWidth={3} />
         </span>
@@ -777,7 +807,7 @@ function Composer() {
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-ink/5 pt-4">
-        <div className="flex flex-wrap items-center gap-2">
+        <div data-tour="task-extras" className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => (scheduling ? closeSchedule() : setScheduling(true))}

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, Keyboard, LifeBuoy, MessageSquare } from "lucide-react";
+import { ArrowLeft, ChevronDown, Compass, Keyboard, LifeBuoy, MessageSquare } from "lucide-react";
 import { Logo } from "@/components/landing/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { FeedbackForm } from "@/components/help/feedback-form";
@@ -107,6 +107,15 @@ const FAQ: { q: string; a: ReactNode }[] = [
       </>
     ),
   },
+  {
+    q: "Can I see the guided tour again?",
+    a: (
+      <>
+        Yes. It plays by itself on your first visit to the board. To replay it, click <b>Take the tour</b> at the top
+        of this page, or in the sidebar (or the <b>Menu</b> on a phone or tablet).
+      </>
+    ),
+  },
 ];
 
 const SHORTCUTS: { keys: string[]; action: string }[] = [
@@ -117,6 +126,7 @@ const SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ["⌘ / Ctrl", "B · I · U"], action: "Bold, italic, underline in a description" },
   { keys: ["⌘ / Ctrl", "⇧", "8"], action: "Bullet list in a description" },
   { keys: ["← →"], action: "Resize the sidebar (with its edge focused)" },
+  { keys: ["← →", "Esc"], action: "Step through the guided tour, or skip it" },
 ];
 
 export default function HelpPage() {
@@ -175,6 +185,13 @@ export default function HelpPage() {
                   {label}
                 </a>
               ))}
+              <Link
+                href="/board?tour"
+                className="inline-flex items-center gap-1.5 rounded-full bg-peach px-3.5 py-1.5 text-sm font-semibold text-on-accent transition-transform hover:-translate-y-0.5"
+              >
+                <Compass className="size-4" />
+                Take the tour
+              </Link>
             </nav>
           </div>
         </section>

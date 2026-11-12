@@ -462,7 +462,16 @@ function SidebarBody({
           {!collapsed && (
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold">Guest</span>
-              <span className="block truncate text-xs text-ink/50">Personal workspace</span>
+              {/* Accounts aren't live yet; these lead to the login and signup pages. Guest mode stays the default. */}
+              <span className="block truncate text-xs text-ink/50">
+                <Link href="/login" className="font-semibold text-iris underline-offset-2 hover:underline">
+                  Log in
+                </Link>
+                {" · "}
+                <Link href="/signup" className="font-semibold text-iris underline-offset-2 hover:underline">
+                  Sign up
+                </Link>
+              </span>
             </span>
           )}
         </div>

@@ -51,6 +51,9 @@ export function Nav() {
             My board
           </Link>
           <span aria-hidden className="h-5 w-px bg-ink/10" />
+          <Link href="/login" className={NAV_LINK}>
+            Log in
+          </Link>
           <Link
             href="/board"
             className="rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5 hover:shadow-lg"
@@ -82,6 +85,13 @@ export function Nav() {
               {l.label}
             </a>
           ))}
+          <Link
+            href="/login"
+            onClick={() => setOpen(false)}
+            className="block rounded-xl px-3 py-3 font-medium text-ink hover:bg-mist"
+          >
+            Log in
+          </Link>
           <Link
             href="/board"
             onClick={() => setOpen(false)}

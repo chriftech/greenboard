@@ -349,6 +349,12 @@ body {
   50% { transform: translateY(2px); }
 }
 .gb-nudge-down { animation: gb-nudge-down 0.8s ease-in-out infinite; }
+/* Sideways version for the "Moving to Completed" badge: Completed is the column to the right. */
+@keyframes gb-nudge-right {
+  0%, 100% { transform: translateX(-1px); }
+  50% { transform: translateX(2px); }
+}
+.gb-nudge-right { animation: gb-nudge-right 0.8s ease-in-out infinite; }
 
 /* Brief green glow (an overlay inside the card) when a task arrives in the Completed group. */
 @keyframes gb-landed {

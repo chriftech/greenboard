@@ -10,13 +10,14 @@ import {
   type FormEvent,
   type KeyboardEventHandler,
   type MouseEvent,
+  type ReactNode,
+  type RefObject,
 } from "react";
 import {
-  ArrowDown,
   ArrowLeft,
+  ArrowRight,
   Menu,
   CalendarClock,
-  Check,
   ChevronRight,
   ClipboardCheck,
   GripVertical,
@@ -28,13 +29,20 @@ import {
 } from "lucide-react";
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
   MouseSensor,
   TouchSensor,
   closestCenter,
+  pointerWithin,
+  useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
+  type DraggableAttributes,
   type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
   type UniqueIdentifier,
 } from "@dnd-kit/core";
 import {
@@ -44,7 +52,6 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { CSS } from "@dnd-kit/utilities";
 import { Logo } from "@/components/landing/logo";
 import { CheckBox, ConfettiBurst } from "@/components/landing/check-box";
@@ -80,7 +87,8 @@ import {
   type Task,
 } from "@/lib/tasks";
 
-type Filter = "all" | "todo" | "done";
+/** The board's two columns. */
+type ColumnId = "todo" | "done";
 /** Which slice of the board is shown, chosen from the sidebar. */
 type View = "board" | "today" | "upcoming";
 /** Destructive actions waiting for confirmation. */
@@ -144,15 +152,23 @@ const MOVE_DELAY_MS = 50;
 /** The progress bar fills faster than the pause, so it's full just before the task moves. */
 const MOVE_PROGRESS_MS = 350;
 
-const FILTERS: { id: Filter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "todo", label: "Pending" },
-  { id: "done", label: "Completed" },
-];
+/** Droppable ids for the columns themselves (tasks use their own ids). */
+const COLUMN_DROP: Record<ColumnId, string> = { todo: "col-todo", done: "col-done" };
+
+/**
+ * Drop on the task under the pointer if there is one, else on the column
+ * under it (so empty columns and the space below the last task accept drops).
+ * Keyboard drags have no pointer, so they fall back to the nearest target.
+ */
+const collision: CollisionDetection = (args) => {
+  const hits = pointerWithin(args);
+  const onTasks = hits.filter((h) => !String(h.id).startsWith("col-"));
+  if (onTasks.length) return onTasks;
+  return hits.length ? hits : closestCenter(args);
+};
 
 export function BoardApp() {
   const tasks = useSyncExternalStore(subscribeTasks, getTasks, getServerTasks);
-  const [filter, setFilter] = useState<Filter>("all");
   const [view, setView] = useState<View>("board");
   const [tag, setTag] = useState<TagId | null>(null);
   const [query, setQuery] = useState("");
@@ -218,10 +234,17 @@ export function BoardApp() {
     });
   }
 
-  // The Completed tab's count: where the "done" bubble flies to.
+  // The Completed column's count: where the "done" bubble flies to.
   const completedCountRef = useRef<HTMLSpanElement>(null);
+  // The Completed column itself, so the sidebar's "Completed" can bring it into view.
+  const doneColumnRef = useRef<HTMLDivElement>(null);
+  // A column briefly highlighted after the sidebar points at it.
+  const [flash, setFlash] = useState<ColumnId | null>(null);
+  // While dragging: which task, and which column it's over.
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [overColumn, setOverColumn] = useState<ColumnId | null>(null);
 
-  /** A small ✓ bubble arcs from the ticked checkbox into the Completed tab, which bumps. */
+  /** A small ✓ bubble arcs from the ticked checkbox into the Completed column's count, which bumps. */
   function flyToCompleted(from: DOMRect) {
     const target = completedCountRef.current;
     if (!target || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -265,7 +288,6 @@ export function BoardApp() {
     taskActions.toggle(task.id);
     if (nowDone && origin) flyToCompleted(origin);
     if (!nowDone) return stopMoving(task.id); // unticked during the pause: stay put
-    if (filter === "done") return; // already looking at Completed: nothing moves
     setMoving((s) => new Set(s).add(task.id));
     moveTimers.current.set(
       task.id,
@@ -330,14 +352,15 @@ export function BoardApp() {
   const scoped = all.filter(matches);
   const narrowed = view !== "board" || activeTag !== null || q !== "";
 
-  // Tasks that are mid-move stay in the pending group until their pause ends.
+  // Tasks that are mid-move stay in the Pending column until their pause ends.
   const done = scoped.filter((t) => t.done && !moving.has(t.id));
   const todo = scoped.filter((t) => !t.done || moving.has(t.id));
+  // Counts change as soon as a task is ticked, before it slides across.
   const doneCount = scoped.filter((t) => t.done).length;
-  const counts: Record<Filter, number> = { all: scoped.length, todo: scoped.length - doneCount, done: doneCount };
+  const todoCount = scoped.length - doneCount;
 
-  // My board: pending first, then completed, each in the order the user dragged
-  // it into. Today/Upcoming: soonest start first, and not draggable.
+  // My board: each column in the order the user dragged it into.
+  // Today/Upcoming: soonest start first, and not draggable.
   const byOrder = (a: Task, b: Task) => a.order - b.order;
   const byStart = (a: Task, b: Task) => (a.start ?? "").localeCompare(b.start ?? "") || byOrder(a, b);
   const sortable = view === "board";
@@ -348,18 +371,24 @@ export function BoardApp() {
     switch (target) {
       case "trash":
         return openTrash();
-      case "completed":
+      case "completed": {
+        // Bring the Completed column into view (on phones it's the second, swiped-to column) and highlight it.
         setView("board");
-        return setFilter("done");
+        const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        requestAnimationFrame(() =>
+          doneColumnRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "nearest", inline: "center" }),
+        );
+        setFlash("done");
+        window.setTimeout(() => setFlash((f) => (f === "done" ? null : f)), 1400);
+        return;
+      }
       case "board":
         // "My board" is the reset: everything, unfiltered.
         setTag(null);
         setQuery("");
-        setView("board");
-        return setFilter("all");
+        return setView("board");
       default:
-        setView(target);
-        return setFilter("all");
+        return setView(target);
     }
   }
 
@@ -372,7 +401,7 @@ export function BoardApp() {
   // Sidebar state and counts (pending tasks, so the numbers mean "still to do").
   const pendingAll = all.filter((t) => !t.done);
   const sidebar: SidebarProps = {
-    active: view !== "board" ? view : filter === "done" ? "completed" : "board",
+    active: view,
     onNavigate: navigate,
     tag: activeTag,
     onTag: setTag,
@@ -410,9 +439,6 @@ export function BoardApp() {
     },
   };
 
-  const groups = filter === "all" ? [todo, done] : filter === "todo" ? [todo] : [done];
-  const visibleCount = groups.reduce((n, g) => n + g.length, 0);
-
   // Drag starts after a small move (mouse) or a short press (touch), so clicks
   // and scrolling still work; the grip handle supports keyboard reordering.
   const sensors = useSensors(
@@ -422,13 +448,58 @@ export function BoardApp() {
   );
   const titleOf = (id: UniqueIdentifier) => `"${all.find((t) => t.id === id)?.title ?? "task"}"`;
 
+  const columns: Record<ColumnId, Task[]> = { todo, done };
+  const columnOf = (id: UniqueIdentifier): ColumnId | null => {
+    const key = String(id);
+    if (key === COLUMN_DROP.todo || todo.some((t) => t.id === key)) return "todo";
+    if (key === COLUMN_DROP.done || done.some((t) => t.id === key)) return "done";
+    return null;
+  };
+  const activeTask = activeId ? all.find((t) => t.id === activeId) ?? null : null;
+
+  function handleDragStart({ active }: DragStartEvent) {
+    setActiveId(String(active.id));
+  }
+
+  function handleDragOver({ over }: DragOverEvent) {
+    setOverColumn(over ? columnOf(over.id) : null);
+  }
+
+  function endDrag() {
+    setActiveId(null);
+    setOverColumn(null);
+  }
+
   function handleDragEnd({ active, over }: DragEndEvent) {
-    if (!over || active.id === over.id) return;
-    // Reorder within pending or within completed; never across the two.
-    const group = [todo, done].find((g) => g.some((t) => t.id === active.id));
-    if (!group || !group.some((t) => t.id === over.id)) return;
-    const ids = group.map((t) => t.id);
-    taskActions.reorder(arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id))));
+    endDrag();
+    if (!over) return;
+    const id = String(active.id);
+    const from = columnOf(active.id);
+    const to = columnOf(over.id);
+    if (!from || !to) return;
+    const overTask = String(over.id) !== COLUMN_DROP[to] ? String(over.id) : null;
+
+    if (from === to) {
+      // Reorder within the column; dropping on the column's empty space moves it to the end.
+      const ids = columns[from].map((t) => t.id);
+      const target = overTask ? ids.indexOf(overTask) : ids.length - 1;
+      if (target === -1 || target === ids.indexOf(id)) return;
+      taskActions.reorder(arrayMove(ids, ids.indexOf(id), target));
+      return;
+    }
+
+    // Across columns: complete it (or reopen it), placed where it was dropped.
+    const ids = columns[to].map((t) => t.id);
+    const at = overTask ? ids.indexOf(overTask) : -1;
+    ids.splice(at === -1 ? ids.length : at, 0, id);
+    taskActions.toggle(id);
+    taskActions.reorder(ids);
+    const title = all.find((t) => t.id === id)?.title ?? "Task";
+    setAnnouncement(`"${title}" moved to ${to === "done" ? "Completed" : "Pending"}.`);
+    if (to === "done") {
+      setLanded(id);
+      window.setTimeout(() => setLanded((l) => (l === id ? null : l)), 1100);
+    }
   }
 
   return (
@@ -485,142 +556,142 @@ export function BoardApp() {
           </div>
         </header>
   
-        <main className="relative mx-auto max-w-3xl px-4 pb-24 pt-8">
-          <Summary loaded={loaded} total={all.length} doneCount={all.length - pendingAll.length} />
-          <Composer />
-  
-          {/* What the sidebar has narrowed the board to */}
-          {narrowed && (
-            <div className="mt-10 flex flex-wrap items-center gap-2" aria-live="polite">
-              <span className="text-xs font-semibold uppercase tracking-widest text-ink/45">Showing</span>
-              {view !== "board" && (
-                <FilterChip label={view === "today" ? "Today" : "Upcoming"} onClear={() => setView("board")} />
-              )}
-              {activeTag && (
-                <FilterChip label={findTag(tags, activeTag).label} tag={findTag(tags, activeTag)} onClear={() => setTag(null)} />
-              )}
-              {q && <FilterChip label={`“${query.trim()}”`} onClear={() => setQuery("")} />}
-              <button
-                type="button"
-                onClick={clearNarrowing}
-                className="text-xs font-semibold text-ink/50 underline-offset-4 transition-colors hover:text-ink hover:underline"
-              >
-                Clear all
-              </button>
-            </div>
-          )}
+        <main className="relative pb-24 pt-8">
+          <div className="mx-auto max-w-3xl px-4">
+            <Summary loaded={loaded} total={all.length} doneCount={all.length - pendingAll.length} />
+            <Composer />
 
-          {/* Filters */}
-          <div className={`${narrowed ? "mt-4" : "mt-10"} flex flex-wrap items-center justify-between gap-3`}>
-            <div
-              role="tablist"
-              aria-label="Filter tasks"
-              data-tour="filters"
-              className="relative grid w-full grid-cols-3 rounded-2xl border border-ink/10 bg-surface p-1 sm:w-auto"
-            >
-              <span
-                aria-hidden
-                className="absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-xl bg-deep transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
-                style={{ transform: `translateX(${FILTERS.findIndex((f) => f.id === filter) * 100}%)` }}
-              />
-              {FILTERS.map((f) => (
+            {/* What the sidebar has narrowed the board to */}
+            {narrowed && (
+              <div className="mt-10 flex flex-wrap items-center gap-2" aria-live="polite">
+                <span className="text-xs font-semibold uppercase tracking-widest text-ink/45">Showing</span>
+                {view !== "board" && (
+                  <FilterChip label={view === "today" ? "Today" : "Upcoming"} onClear={() => setView("board")} />
+                )}
+                {activeTag && (
+                  <FilterChip label={findTag(tags, activeTag).label} tag={findTag(tags, activeTag)} onClear={() => setTag(null)} />
+                )}
+                {q && <FilterChip label={`“${query.trim()}”`} onClear={() => setQuery("")} />}
                 <button
-                  key={f.id}
                   type="button"
-                  role="tab"
-                  aria-selected={filter === f.id}
-                  onClick={() => setFilter(f.id)}
-                  className={`relative z-10 flex items-center justify-center gap-1 whitespace-nowrap rounded-xl px-2 py-2 text-[13px] font-semibold transition-colors sm:gap-1.5 sm:px-4 sm:text-sm ${
-                    filter === f.id ? "text-peach" : "text-ink/60 hover:text-ink"
-                  }`}
+                  onClick={clearNarrowing}
+                  className="text-xs font-semibold text-ink/50 underline-offset-4 transition-colors hover:text-ink hover:underline"
                 >
-                  {f.label}
-                  <span
-                    ref={f.id === "done" ? completedCountRef : undefined}
-                    className={`inline-block rounded-full px-1.5 text-[11px] tabular-nums ${
-                      filter === f.id ? "bg-white/15" : "bg-ink/5"
-                    }`}
-                  >
-                    {loaded ? counts[f.id] : "–"}
-                  </span>
+                  Clear all
                 </button>
-              ))}
-            </div>
-  
-            {done.length > 0 && (
-              <button
-                type="button"
-                onClick={() => askDelete({ kind: "done", count: done.length })}
-                className="text-sm font-medium text-ink/55 underline-offset-4 transition-colors hover:text-coral hover:underline"
-              >
-                Clear completed ({done.length})
-              </button>
+              </div>
             )}
           </div>
-  
-          {/* List */}
-          <section className="mt-5" aria-live="polite" data-tour="tasks">
+
+          {/* The board: Pending and Completed columns, side by side (swiped between on phones). Wider than the form above. */}
+          <section aria-label="Task board" className={`mx-auto max-w-5xl px-4 ${narrowed ? "mt-5" : "mt-10"}`}>
             {!loaded ? (
-              <ul className="space-y-3" aria-label="Loading tasks">
-                {[0, 1, 2].map((i) => (
-                  <li key={i} className="h-[68px] animate-pulse rounded-2xl bg-surface/70" />
+              <div className="grid divide-ink/15 md:grid-cols-2 md:divide-x" aria-label="Loading tasks">
+                {[0, 1].map((c) => (
+                  <div key={c} className={`space-y-3 md:px-5 md:first:pl-0 md:last:pr-0 ${c ? "hidden md:block" : ""}`}>
+                    <div className="h-6 w-28 animate-pulse rounded-full bg-surface" />
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="h-[68px] animate-pulse rounded-2xl bg-surface/70" />
+                    ))}
+                  </div>
                 ))}
-              </ul>
-            ) : visibleCount === 0 ? (
-              <EmptyState filter={filter} total={all.length} view={view} narrowed={narrowed} onClear={clearNarrowing} />
+              </div>
+            ) : scoped.length === 0 ? (
+              <div className="mx-auto max-w-3xl">
+                <EmptyState total={all.length} view={view} narrowed={narrowed} onClear={clearNarrowing} />
+              </div>
             ) : (
               <DndContext
                 id="task-board"
                 sensors={sensors}
-                collisionDetection={closestCenter}
-                modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+                collisionDetection={collision}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
                 onDragEnd={handleDragEnd}
+                onDragCancel={endDrag}
                 accessibility={{
                   screenReaderInstructions: {
                     draggable:
-                      "To reorder, press space or enter to pick up the task, use the up and down arrow keys to move it, then space or enter to drop it. Press escape to cancel.",
+                      "To move a task, press space or enter to pick it up, use the arrow keys to move it within or between the Pending and Completed columns, then space or enter to drop it. Press escape to cancel.",
                   },
                   announcements: {
                     onDragStart: ({ active }) => `Picked up ${titleOf(active.id)}.`,
                     onDragOver: ({ active, over }) =>
-                      over ? `${titleOf(active.id)} is over ${titleOf(over.id)}.` : `${titleOf(active.id)} is not over a task.`,
+                      over
+                        ? String(over.id).startsWith("col-")
+                          ? `${titleOf(active.id)} is over the ${over.id === COLUMN_DROP.done ? "Completed" : "Pending"} column.`
+                          : `${titleOf(active.id)} is over ${titleOf(over.id)}.`
+                        : `${titleOf(active.id)} is not over a column.`,
                     onDragEnd: ({ active, over }) =>
-                      over ? `${titleOf(active.id)} moved to the position of ${titleOf(over.id)}.` : `${titleOf(active.id)} dropped.`,
+                      over ? `${titleOf(active.id)} dropped.` : `${titleOf(active.id)} was not moved.`,
                     onDragCancel: ({ active }) => `Moving ${titleOf(active.id)} was cancelled.`,
                   },
                 }}
               >
-                <ul className="space-y-3">
-                  {groups.map((group, i) => (
-                    <SortableContext key={i} items={group.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                      {/* In "All", label where completed tasks go (also the target while one is moving). */}
-                      {filter === "all" && group === done && (done.length > 0 || moving.size > 0) && (
-                        <li aria-hidden className="flex items-center gap-3 pt-3">
-                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-success">
-                            <Check className="size-3.5" strokeWidth={3} />
-                            Completed
-                          </span>
-                          <span className="h-px flex-1 bg-success/20" />
-                          <span className="text-xs font-semibold tabular-nums text-ink/40">{doneCount}</span>
-                        </li>
-                      )}
-                      {group.map((t) => (
-                        <TaskRow
-                          key={t.id}
-                          task={t}
-                          tag={findTag(tags, t.tag)}
-                          leaving={removingId === t.id}
-                          moving={moving.has(t.id)}
-                          landed={landed === t.id}
-                          onToggle={(origin) => toggleTask(t, origin)}
-                          sortable={sortable && !moving.has(t.id)}
-                          onOpen={() => openDetails(t.id)}
-                          onDelete={() => askDelete({ kind: "task", id: t.id, title: t.title })}
-                        />
-                      ))}
-                    </SortableContext>
+                <div
+                  data-tour="columns"
+                  // Two open columns split by a vertical line (no cards). Phones: a sideways-swiping row; md up: a grid.
+                  className="-mx-4 flex snap-x snap-mandatory divide-x divide-ink/15 overflow-x-auto scroll-px-4 px-4 pb-3 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 md:pb-0"
+                >
+                  {(["todo", "done"] as const).map((col) => (
+                    <BoardColumn
+                      key={col}
+                      id={col}
+                      count={col === "todo" ? todoCount : doneCount}
+                      countRef={col === "done" ? completedCountRef : undefined}
+                      columnRef={col === "done" ? doneColumnRef : undefined}
+                      highlight={(activeTask !== null && overColumn === col && columnOf(activeTask.id) !== col) || flash === col}
+                      empty={columns[col].length === 0}
+                      dragging={activeTask !== null}
+                      action={
+                        col === "done" && done.length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => askDelete({ kind: "done", count: done.length })}
+                            className="rounded-lg px-2 py-1 text-xs font-semibold text-ink/50 transition-colors hover:bg-coral/10 hover:text-coral"
+                          >
+                            Clear
+                          </button>
+                        ) : null
+                      }
+                    >
+                      <SortableContext items={columns[col].map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                        {columns[col].map((t) => (
+                          <SortableTaskRow
+                            key={t.id}
+                            task={t}
+                            tag={findTag(tags, t.tag)}
+                            leaving={removingId === t.id}
+                            moving={moving.has(t.id)}
+                            landed={landed === t.id}
+                            onToggle={(origin) => toggleTask(t, origin)}
+                            sortable={sortable && !moving.has(t.id)}
+                            onOpen={() => openDetails(t.id)}
+                            onDelete={() => askDelete({ kind: "task", id: t.id, title: t.title })}
+                          />
+                        ))}
+                      </SortableContext>
+                    </BoardColumn>
                   ))}
-                </ul>
+                </div>
+
+                {/* The card that follows the pointer while dragging (the original stays behind as a placeholder). */}
+                <DragOverlay dropAnimation={{ duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }}>
+                  {activeTask ? (
+                    <TaskCard
+                      task={activeTask}
+                      tag={findTag(tags, activeTask.tag)}
+                      leaving={false}
+                      moving={false}
+                      landed={false}
+                      onToggle={() => {}}
+                      sortable
+                      onOpen={() => {}}
+                      onDelete={() => {}}
+                      overlay
+                    />
+                  ) : null}
+                </DragOverlay>
               </DndContext>
             )}
             <p className="sr-only" aria-live="polite">
@@ -850,9 +921,153 @@ function Composer() {
   );
 }
 
+/* ───────────────────────── Columns ───────────────────────── */
+
+const COLUMN_META: Record<ColumnId, { title: string; dot: string; emptyTitle: string; emptyBody: string }> = {
+  todo: {
+    title: "Pending",
+    dot: "bg-iris",
+    emptyTitle: "Nothing left to do 🎉",
+    emptyBody: "Every task here is ticked off. Add a new one above.",
+  },
+  done: {
+    title: "Completed",
+    dot: "bg-success",
+    emptyTitle: "Nothing ticked yet",
+    emptyBody: "Tick a task's circle, or drag it here, to complete it.",
+  },
+};
+
+function BoardColumn({
+  id,
+  count,
+  countRef,
+  columnRef,
+  highlight,
+  empty,
+  dragging,
+  action,
+  children,
+}: {
+  id: ColumnId;
+  count: number;
+  /** The count badge (Completed's is where the ✓ bubble lands). */
+  countRef?: RefObject<HTMLSpanElement | null>;
+  columnRef?: RefObject<HTMLDivElement | null>;
+  /** A task is being dragged over from the other column, or the sidebar pointed here. */
+  highlight: boolean;
+  empty: boolean;
+  dragging: boolean;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  const { setNodeRef } = useDroppable({ id: COLUMN_DROP[id] });
+  const meta = COLUMN_META[id];
+
+  return (
+    <div
+      ref={(el) => {
+        setNodeRef(el);
+        if (columnRef) columnRef.current = el;
+      }}
+      role="group"
+      aria-label={`${meta.title}, ${count} ${count === 1 ? "task" : "tasks"}`}
+      data-tour={id === "todo" ? "tasks" : undefined}
+      // Open columns: spacing either side of the dividing line, none at the outer edges.
+      className="flex w-[86%] shrink-0 snap-center flex-col px-3 first:pl-0 last:pr-0 sm:w-[70%] md:w-auto md:px-5"
+    >
+      <div className="flex items-center gap-2 px-1 pb-3 pt-1">
+        <span aria-hidden className={`size-2.5 rounded-full ${meta.dot}`} />
+        <h2 className={`font-display text-base font-bold transition-colors ${highlight ? "text-iris" : ""}`}>{meta.title}</h2>
+        <span
+          ref={countRef}
+          className="inline-block rounded-full bg-ink/8 px-2 py-0.5 text-xs font-semibold tabular-nums text-ink/60"
+        >
+          {count}
+        </span>
+        <span className="ml-auto">{action}</span>
+      </div>
+      {/* The drop zone: outlined (without shifting anything) while a task is dragged over from the other column. */}
+      <ul
+        className={`flex min-h-[132px] flex-1 flex-col gap-3 rounded-2xl outline-2 outline-offset-[6px] transition-[outline-color,background-color] duration-200 ${
+          highlight ? "bg-iris/5 outline-dashed outline-iris/50" : "outline-transparent"
+        }`}
+      >
+        {children}
+        {empty && (
+          <li
+            className={`flex flex-1 flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-8 text-center transition-colors ${
+              highlight ? "border-iris/50" : "border-ink/10"
+            }`}
+          >
+            <p className="font-display font-bold">{dragging ? "Drop it here" : meta.emptyTitle}</p>
+            {!dragging && <p className="mt-1 max-w-[16rem] text-sm text-ink/55">{meta.emptyBody}</p>}
+          </li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
 /* ───────────────────────── Task row ───────────────────────── */
 
-function TaskRow({
+type TaskRowProps = {
+  task: Task;
+  /** The task's tag, already resolved (unknown tags show as Default). */
+  tag: TagView;
+  leaving: boolean;
+  /** Just ticked: pausing in place before moving to the Completed column. */
+  moving: boolean;
+  /** Just arrived in the Completed column: briefly highlighted. */
+  landed: boolean;
+  /** Called with the checkbox's position, so a bubble can fly from it. */
+  onToggle: (origin: DOMRect) => void;
+  /** False in Today/Upcoming, which are sorted by start time. */
+  sortable: boolean;
+  onOpen: () => void;
+  onDelete: () => void;
+};
+
+/** The grip button's drag wiring (keyboard drags start from it). */
+type Grip = {
+  ref: (el: HTMLElement | null) => void;
+  attributes: DraggableAttributes;
+  onKeyDown?: KeyboardEventHandler<HTMLButtonElement>;
+};
+
+/** A task in a column: draggable within it and across to the other column. */
+function SortableTaskRow(props: TaskRowProps) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id: props.task.id, disabled: !props.sortable });
+  // Pointer/touch drags start anywhere on the card; keyboard drags start from the grip.
+  const { onKeyDown, ...pointerListeners } = listeners ?? {};
+
+  return (
+    <li
+      ref={setNodeRef}
+      {...pointerListeners}
+      style={{ transform: CSS.Translate.toString(transform), transition }}
+      // Raised while just ticked so its confetti draws over the rows around it.
+      className={`relative touch-manipulation ${props.moving ? "z-10" : ""}`}
+    >
+      <TaskCard
+        {...props}
+        placeholder={isDragging}
+        grip={
+          props.sortable
+            ? {
+                ref: setActivatorNodeRef,
+                attributes,
+                onKeyDown: onKeyDown as KeyboardEventHandler<HTMLButtonElement> | undefined,
+              }
+            : undefined
+        }
+      />
+    </li>
+  );
+}
+
+function TaskCard({
   task,
   tag,
   leaving,
@@ -862,27 +1077,17 @@ function TaskRow({
   sortable,
   onOpen,
   onDelete,
-}: {
-  task: Task;
-  /** The task's tag, already resolved (unknown tags show as Default). */
-  tag: TagView;
-  leaving: boolean;
-  /** Just ticked: pausing in place before moving to the Completed group. */
-  moving: boolean;
-  /** Just arrived in the Completed group: briefly highlighted. */
-  landed: boolean;
-  /** Called with the checkbox's position, so a bubble can fly from it. */
-  onToggle: (origin: DOMRect) => void;
-  /** False in Today/Upcoming, which are sorted by start time. */
-  sortable: boolean;
-  onOpen: () => void;
-  onDelete: () => void;
+  grip,
+  placeholder = false,
+  overlay = false,
+}: TaskRowProps & {
+  grip?: Grip;
+  /** Left behind in the column while its copy is being dragged. */
+  placeholder?: boolean;
+  /** The copy that follows the pointer while dragging. */
+  overlay?: boolean;
 }) {
   const [burst, setBurst] = useState(0);
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id: task.id, disabled: !sortable });
-  // Pointer/touch drags start anywhere on the card; keyboard drags start from the grip.
-  const { onKeyDown: onGripKeyDown, ...pointerListeners } = listeners ?? {};
   const schedule = task.start && task.end ? { start: task.start, end: task.end } : null;
   const status = schedule ? scheduleStatus(schedule, task.done) : null;
   const preview = task.descriptionText?.replace(/\s+/g, " ").trim();
@@ -893,39 +1098,36 @@ function TaskRow({
   }
 
   return (
-    <li
-      ref={setNodeRef}
-      {...pointerListeners}
-      style={{ transform: CSS.Translate.toString(transform), transition }}
-      // Raised while dragging, and while just ticked so its confetti draws over the rows around it.
-      className={`relative touch-manipulation ${isDragging ? "z-20" : moving ? "z-10" : ""}`}
-    >
-      {/* Inner card carries the entrance animation, which would override the li's drag transform. */}
-      <div
-        className={`gb-rise group relative flex items-center gap-2 rounded-2xl border py-3.5 pl-1.5 pr-4 transition-[box-shadow,transform,opacity,background-color,border-color] duration-300 ${
-          task.done ? "border-success/25 bg-success-soft" : "border-ink/10 bg-surface hover:shadow-md"
-        } ${leaving ? "scale-95 opacity-0" : ""} ${
-          isDragging
-            ? "scale-[1.02] cursor-grabbing shadow-[0_20px_45px_-15px_rgb(46_51_73/0.45)] ring-2 ring-iris/50"
+    // The card carries the entrance animation, which would override the li's drag transform.
+    <div
+      className={`group relative flex items-center gap-2 rounded-2xl border py-3.5 pl-1.5 pr-3 transition-[box-shadow,transform,opacity,background-color,border-color] duration-300 ${
+        overlay ? "" : "gb-rise"
+      } ${task.done ? "border-success/25 bg-success-soft" : "border-ink/10 bg-surface hover:shadow-md"} ${
+        leaving ? "scale-95 opacity-0" : ""
+      } ${
+        overlay
+          ? "rotate-[1.5deg] scale-[1.03] cursor-grabbing shadow-[0_24px_50px_-15px_rgb(20_22_34/0.55)] ring-2 ring-iris/50"
+          : placeholder
+            ? "border-dashed border-iris/40 opacity-40 shadow-none"
             : sortable
               ? "cursor-grab"
               : ""
-        }`}
-        style={{ animationDuration: "0.5s" } as CSSProperties}
-      >
+      }`}
+      style={{ animationDuration: "0.5s" } as CSSProperties}
+    >
         {sortable ? (
-        <button
-          type="button"
-          ref={setActivatorNodeRef}
-          {...attributes}
-          onKeyDown={onGripKeyDown as KeyboardEventHandler<HTMLButtonElement> | undefined}
-          aria-label={`Reorder "${task.title}"`}
-          className={`grid h-9 w-5 shrink-0 cursor-grab place-items-center rounded-md text-ink/25 transition-colors hover:text-ink/60 focus-visible:text-ink focus-visible:outline-2 focus-visible:outline-iris group-hover:text-ink/45 ${
-            isDragging ? "cursor-grabbing text-ink/60" : ""
-          }`}
-        >
-          <GripVertical className="size-4" />
-        </button>
+          <button
+            type="button"
+            ref={grip?.ref}
+            {...grip?.attributes}
+            onKeyDown={grip?.onKeyDown}
+            aria-label={`Move "${task.title}"`}
+            className={`grid h-9 w-5 shrink-0 cursor-grab place-items-center rounded-md text-ink/25 transition-colors hover:text-ink/60 focus-visible:text-ink focus-visible:outline-2 focus-visible:outline-iris group-hover:text-ink/45 ${
+              overlay ? "cursor-grabbing text-ink/60" : ""
+            }`}
+          >
+            <GripVertical className="size-4" />
+          </button>
         ) : (
           <span aria-hidden className="w-1" />
         )}
@@ -963,7 +1165,7 @@ function TaskRow({
             <PriorityChip priority={task.priority} />
             {moving && (
               <span className="inline-flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-[11px] font-semibold text-white">
-                <ArrowDown className="gb-nudge-down size-3" aria-hidden />
+                <ArrowRight className="gb-nudge-right size-3" aria-hidden />
                 Moving to Completed
               </span>
             )}
@@ -1015,8 +1217,7 @@ function TaskRow({
             style={{ animationDuration: `${MOVE_PROGRESS_MS}ms` }}
           />
         )}
-      </div>
-    </li>
+    </div>
   );
 }
 
@@ -1041,13 +1242,11 @@ function FilterChip({ label, tag, onClear }: { label: string; tag?: TagView; onC
 }
 
 function EmptyState({
-  filter,
   total,
   view,
   narrowed,
   onClear,
 }: {
-  filter: Filter;
   total: number;
   view: View;
   narrowed: boolean;
@@ -1060,11 +1259,7 @@ function EmptyState({
         : view === "upcoming"
           ? { emoji: "🗓️", title: "Nothing upcoming", body: "Tasks with a timeline starting tomorrow or later show up here." }
           : { emoji: "🔍", title: "No matching tasks", body: "Try a different search or tag." }
-      : total === 0
-      ? { emoji: "🌱", title: "Your board is empty", body: "Type a task above and hit Enter to plant your first one." }
-      : filter === "todo"
-        ? { emoji: "🎉", title: "Nothing left to do", body: "Every task is ticked off. Enjoy the calm." }
-        : { emoji: "✅", title: "Nothing ticked yet", body: "Go on, tick your first task off." };
+      : { emoji: "🌱", title: "Your board is empty", body: "Type a task above and hit Enter to plant your first one." };
 
   return (
     <div className="gb-pop flex flex-col items-center rounded-[28px] border-2 border-dashed border-ink/10 px-6 py-14 text-center">

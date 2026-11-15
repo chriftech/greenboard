@@ -7,6 +7,7 @@ import {
   ArrowRight,
   LifeBuoy,
   ListChecks,
+  Kanban,
   ListFilter,
   PanelLeft,
   PenLine,
@@ -30,7 +31,9 @@ type Step = {
   targets?: string[];
   icon: LucideIcon;
   title: string;
-  /** Text per target id, falling back to `body`. */
+  /** Title, icon and text per target id, falling back to `title`, `icon` and `body`. */
+  titleFor?: Record<string, string>;
+  iconFor?: Record<string, LucideIcon>;
   bodyFor?: Record<string, string>;
   body: string;
 };
@@ -60,16 +63,23 @@ const STEPS: Step[] = [
     body: "Optionally give it a start and end time, a priority, and someone to do it, before you add it.",
   },
   {
-    targets: ["filters"],
-    icon: ListFilter,
-    title: "Switch between views",
-    body: "See everything, just what's left, or what's done. The numbers keep count.",
+    // Columns on wider screens, tabs on phones.
+    targets: ["columns", "filters"],
+    icon: Kanban,
+    title: "Your board, in columns",
+    body: "Pending on one side, Completed on the other, each with its own count.",
+    titleFor: { filters: "Switch between views" },
+    iconFor: { filters: ListFilter },
+    bodyFor: { filters: "See everything, just what's left, or what's done. The numbers keep count." },
   },
   {
-    targets: ["tasks"],
+    targets: ["tasks", "tasks-list"],
     icon: ListChecks,
     title: "Work through your tasks",
-    body: "Tick the circle to complete a task. Click a task to edit its details and description, and drag to reorder.",
+    body: "Tick the circle, or drag a task across to Completed, to finish it. Click a task to edit it, and drag to reorder.",
+    bodyFor: {
+      "tasks-list": "Tick the circle to complete a task. Click a task to edit its details and description, and drag to reorder.",
+    },
   },
   {
     targets: ["sidebar", "menu"],
@@ -193,6 +203,7 @@ function TourRun() {
   const step = STEPS[index];
   const last = index === STEPS.length - 1;
   const body = (targetId && step.bodyFor?.[targetId]) || step.body;
+  const title = (targetId && step.titleFor?.[targetId]) || step.title;
 
   const next = () => (last ? tourActions.end() : setIndex((i) => i + 1));
   const back = () => setIndex((i) => Math.max(0, i - 1));
@@ -285,7 +296,7 @@ function TourRun() {
 
   const { style: position, caret } =
     typeof window === "undefined" ? { style: {}, caret: null } : cardPosition(spot, cardSize);
-  const Icon = step.icon;
+  const Icon = (targetId && step.iconFor?.[targetId]) || step.icon;
   const progress = ((index + 1) / STEPS.length) * 100;
 
   return createPortal(
@@ -361,7 +372,7 @@ function TourRun() {
         {/* Keyed so the text fades in on each step. */}
         <div key={index} className="gb-tour-text">
           <h2 id={titleId} className="mt-4 font-display text-xl font-bold leading-snug">
-            {step.title}
+            {title}
           </h2>
           <p id={bodyId} className="mt-1.5 text-[15px] leading-relaxed text-ink/80">
             {body}

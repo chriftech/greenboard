@@ -26,7 +26,9 @@ const FAQ: { q: string; a: ReactNode }[] = [
     a: (
       <>
         Click the circle on the left of a task. It turns green and the text is struck through. Click it again to
-        mark the task as not done. The <b>Pending</b> and <b>Completed</b> tabs split the two.
+        mark the task as not done. On a wider screen, tasks sit in two columns, <b>Pending</b> and <b>Completed</b>, and
+        you can also drag a task from one column to the other. On a phone, the <b>Pending</b> and <b>Completed</b> tabs
+        split the two.
       </>
     ),
   },

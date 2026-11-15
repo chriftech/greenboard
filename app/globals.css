@@ -308,6 +308,11 @@ body {
   mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 75%);
 }
 
+/* The board's grid: strong at the top of the page, gone by the task columns. */
+.gb-grid-fade {
+  mask-image: linear-gradient(to bottom, black 0%, black 30%, transparent 100%);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
@@ -349,6 +354,12 @@ body {
   50% { transform: translateY(2px); }
 }
 .gb-nudge-down { animation: gb-nudge-down 0.8s ease-in-out infinite; }
+/* Sideways version for the "Moving to Completed" badge: Completed is the column to the right. */
+@keyframes gb-nudge-right {
+  0%, 100% { transform: translateX(-1px); }
+  50% { transform: translateX(2px); }
+}
+.gb-nudge-right { animation: gb-nudge-right 0.8s ease-in-out infinite; }
 
 /* Brief green glow (an overlay inside the card) when a task arrives in the Completed group. */
 @keyframes gb-landed {

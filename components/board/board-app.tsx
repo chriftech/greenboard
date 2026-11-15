@@ -552,13 +552,13 @@ export function BoardApp() {
       <Sidebar {...sidebar} />
       <MobileSidebar {...sidebar} open={menuOpen} onOpenChange={setMenuOpen} />
 
-      <div className="relative min-w-0 flex-1 overflow-x-clip">
+      {/* `isolate` lets the grid below sit behind the content (-z-10) without dropping under the page background. */}
+      <div className="relative isolate min-w-0 flex-1 overflow-x-clip">
         {/*
           Full-screen backdrop, fixed so it stays put while the board scrolls.
           It sits behind the sidebar (z-30) and the content (positioned later).
         */}
         <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
-          <div className="gb-grid-bg absolute inset-0" />
           <div className="gb-blob absolute -top-48 left-[22%] size-[560px] rounded-full bg-peach/35 blur-3xl dark:bg-peach/10" />
           <div
             className="gb-blob absolute -right-40 top-1/4 size-[460px] rounded-full bg-skyblue/20 blur-3xl"
@@ -602,80 +602,88 @@ export function BoardApp() {
         </header>
   
         <main className="relative pb-24 pt-8">
-          <div className="mx-auto max-w-5xl px-4">
-            <Summary loaded={loaded} total={all.length} doneCount={all.length - pendingAll.length} />
-            <Composer />
+          <div className="relative">
+            {/*
+              The grid scrolls with the page: full strength behind the header, fading out by the
+              time the task columns start (it reaches up past the header and down to the board).
+            */}
+            <div aria-hidden className="gb-grid-bg gb-grid-fade pointer-events-none absolute inset-x-0 -top-40 -bottom-10 -z-10" />
+            <div className="mx-auto max-w-5xl px-4">
+              <Summary loaded={loaded} total={all.length} doneCount={all.length - pendingAll.length} />
+              <Composer />
 
-            {/* What the sidebar has narrowed the board to */}
-            {narrowed && (
-              <div className="mt-10 flex flex-wrap items-center gap-2" aria-live="polite">
-                <span className="text-xs font-semibold uppercase tracking-widest text-ink/45">Showing</span>
-                {view !== "board" && (
-                  <FilterChip label={view === "today" ? "Today" : "Upcoming"} onClear={() => setView("board")} />
-                )}
-                {activeTag && (
-                  <FilterChip label={findTag(tags, activeTag).label} tag={findTag(tags, activeTag)} onClear={() => setTag(null)} />
-                )}
-                {q && <FilterChip label={`“${query.trim()}”`} onClear={() => setQuery("")} />}
-                <button
-                  type="button"
-                  onClick={clearNarrowing}
-                  className="text-xs font-semibold text-ink/50 underline-offset-4 transition-colors hover:text-ink hover:underline"
-                >
-                  Clear all
-                </button>
-              </div>
-            )}
-
-            {/* Phones: tabs instead of columns. */}
-            {!columnsLayout && (
-              <div className={`${narrowed ? "mt-4" : "mt-10"} flex flex-wrap items-center justify-between gap-3`}>
-                <div
-                  role="tablist"
-                  aria-label="Filter tasks"
-                  data-tour="filters"
-                  className="relative grid w-full grid-cols-3 rounded-2xl border border-ink/10 bg-surface p-1 sm:w-auto"
-                >
-                  <span
-                    aria-hidden
-                    className="absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-xl bg-deep transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
-                    style={{ transform: `translateX(${FILTERS.findIndex((f) => f.id === filter) * 100}%)` }}
-                  />
-                  {FILTERS.map((f) => (
-                    <button
-                      key={f.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={filter === f.id}
-                      onClick={() => setFilter(f.id)}
-                      className={`relative z-10 flex items-center justify-center gap-1 whitespace-nowrap rounded-xl px-2 py-2 text-[13px] font-semibold transition-colors sm:gap-1.5 sm:px-4 sm:text-sm ${
-                        filter === f.id ? "text-peach" : "text-ink/60 hover:text-ink"
-                      }`}
-                    >
-                      {f.label}
-                      <span
-                        ref={f.id === "done" ? completedCountRef : undefined}
-                        className={`inline-block rounded-full px-1.5 text-[11px] tabular-nums ${
-                          filter === f.id ? "bg-white/15" : "bg-ink/5"
-                        }`}
-                      >
-                        {loaded ? listCounts[f.id] : "–"}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-
-                {done.length > 0 && (
+              {/* What the sidebar has narrowed the board to */}
+              {narrowed && (
+                <div className="mt-10 flex flex-wrap items-center gap-2" aria-live="polite">
+                  <span className="text-xs font-semibold uppercase tracking-widest text-ink/45">Showing</span>
+                  {view !== "board" && (
+                    <FilterChip label={view === "today" ? "Today" : "Upcoming"} onClear={() => setView("board")} />
+                  )}
+                  {activeTag && (
+                    <FilterChip label={findTag(tags, activeTag).label} tag={findTag(tags, activeTag)} onClear={() => setTag(null)} />
+                  )}
+                  {q && <FilterChip label={`“${query.trim()}”`} onClear={() => setQuery("")} />}
                   <button
                     type="button"
-                    onClick={() => askDelete({ kind: "done", count: done.length })}
-                    className="text-sm font-medium text-ink/55 underline-offset-4 transition-colors hover:text-coral hover:underline"
+                    onClick={clearNarrowing}
+                    className="text-xs font-semibold text-ink/50 underline-offset-4 transition-colors hover:text-ink hover:underline"
                   >
-                    Clear completed ({done.length})
+                    Clear all
                   </button>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+
+              {/* Phones: tabs instead of columns. */}
+              {!columnsLayout && (
+                <div className={`${narrowed ? "mt-4" : "mt-10"} flex flex-wrap items-center justify-between gap-3`}>
+                  <div
+                    role="tablist"
+                    aria-label="Filter tasks"
+                    data-tour="filters"
+                    className="relative grid w-full grid-cols-3 rounded-2xl border border-ink/10 bg-surface p-1 sm:w-auto"
+                  >
+                    <span
+                      aria-hidden
+                      className="absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-xl bg-deep transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+                      style={{ transform: `translateX(${FILTERS.findIndex((f) => f.id === filter) * 100}%)` }}
+                    />
+                    {FILTERS.map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={filter === f.id}
+                        onClick={() => setFilter(f.id)}
+                        className={`relative z-10 flex items-center justify-center gap-1 whitespace-nowrap rounded-xl px-2 py-2 text-[13px] font-semibold transition-colors sm:gap-1.5 sm:px-4 sm:text-sm ${
+                          filter === f.id ? "text-peach" : "text-ink/60 hover:text-ink"
+                        }`}
+                      >
+                        {f.label}
+                        <span
+                          ref={f.id === "done" ? completedCountRef : undefined}
+                          className={`inline-block rounded-full px-1.5 text-[11px] tabular-nums ${
+                            filter === f.id ? "bg-white/15" : "bg-ink/5"
+                          }`}
+                        >
+                          {loaded ? listCounts[f.id] : "–"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {done.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => askDelete({ kind: "done", count: done.length })}
+                      className="text-sm font-medium text-ink/55 underline-offset-4 transition-colors hover:text-coral hover:underline"
+                    >
+                      Clear completed ({done.length})
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
           </div>
 
           {/* The board: Pending and Completed columns side by side, as wide as the section above. Phones get the tabbed list. */}

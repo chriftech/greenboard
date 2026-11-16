@@ -18,6 +18,8 @@ import {
   Compass,
   LayoutDashboard,
   LifeBuoy,
+  Loader2,
+  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
@@ -33,6 +35,8 @@ import { Logo } from "@/components/landing/logo";
 import type { TagId } from "@/lib/tasks";
 import { MAX_CUSTOM_TAGS, getCustomTags, type CustomTag, type TagView } from "@/lib/tags";
 import { TagDot } from "./tag-chip";
+import { UserAvatar } from "@/components/auth/user-avatar";
+import { authActions, useAuth } from "@/lib/auth";
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -456,7 +460,7 @@ function SidebarBody({
         })()}
       </nav>
 
-      {/* Settings and the profile aren't wired to anything yet; Help opens /help. */}
+      {/* Settings isn't wired to anything yet; Help opens /help. */}
       <div className="space-y-0.5 border-t border-ink/10 px-3 py-3">
         <SidebarItem icon={<Settings className="size-4" />} label="Settings" collapsed={collapsed} />
         {/* The tour's last stop points here. */}
@@ -464,28 +468,80 @@ function SidebarBody({
           <SidebarItem icon={<LifeBuoy className="size-4" />} label="Help & feedback" href="/help" collapsed={collapsed} />
           <SidebarItem icon={<Compass className="size-4" />} label="Take the tour" onClick={onStartTour} collapsed={collapsed} />
         </div>
-        <div className={`mt-2 flex items-center gap-3 rounded-xl px-2 py-2 ${collapsed ? "justify-center" : ""}`}>
-          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-peach text-xs font-bold text-on-accent">
-            G
-          </span>
-          {!collapsed && (
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold">Guest</span>
-              {/* Accounts aren't live yet; these lead to the login and signup pages. Guest mode stays the default. */}
-              <span className="block truncate text-xs text-ink/50">
-                <Link href="/login" className="font-semibold text-iris underline-offset-2 hover:underline">
-                  Log in
-                </Link>
-                {" · "}
-                <Link href="/signup" className="font-semibold text-iris underline-offset-2 hover:underline">
-                  Sign up
-                </Link>
-              </span>
-            </span>
-          )}
-        </div>
+        <AccountChip collapsed={collapsed} />
       </div>
     </>
+  );
+}
+
+/** Who's using the board: the signed-in account (with Log out), or Guest with Log in and Sign up. */
+function AccountChip({ collapsed }: { collapsed: boolean }) {
+  const auth = useAuth();
+  const [leaving, setLeaving] = useState(false);
+  const row = `mt-2 flex items-center gap-3 rounded-xl px-2 py-2 ${collapsed ? "justify-center" : ""}`;
+
+  if (auth.status === "loading") {
+    return (
+      <div className={row} aria-hidden>
+        <span className="size-8 shrink-0 animate-pulse rounded-full bg-ink/10" />
+        {!collapsed && <span className="h-3 w-24 animate-pulse rounded-full bg-ink/10" />}
+      </div>
+    );
+  }
+
+  if (auth.status === "signed-in") {
+    const { user } = auth;
+    const label = user.name || user.email || "Your account";
+    return (
+      <div className={row} title={collapsed ? label : undefined}>
+        <UserAvatar user={user} className="size-8 text-xs" />
+        {!collapsed && (
+          <>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold">{label}</span>
+              {user.name && user.email && <span className="block truncate text-xs text-ink/50">{user.email}</span>}
+            </span>
+            <button
+              type="button"
+              disabled={leaving}
+              onClick={async () => {
+                setLeaving(true);
+                await authActions.logOut().catch(() => {});
+                setLeaving(false);
+              }}
+              aria-label="Log out"
+              title="Log out"
+              className="grid size-8 shrink-0 place-items-center rounded-lg text-ink/45 transition-colors hover:bg-mist hover:text-ink disabled:opacity-60"
+            >
+              {leaving ? <Loader2 className="size-4 animate-spin" /> : <LogOut className="size-4" />}
+            </button>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // Signed out, or accounts not set up: guest mode, with the way in.
+  return (
+    <div className={row}>
+      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-peach text-xs font-bold text-on-accent">
+        G
+      </span>
+      {!collapsed && (
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-semibold">Guest</span>
+          <span className="block truncate text-xs text-ink/50">
+            <Link href="/login" className="font-semibold text-iris underline-offset-2 hover:underline">
+              Log in
+            </Link>
+            {" · "}
+            <Link href="/signup" className="font-semibold text-iris underline-offset-2 hover:underline">
+              Sign up
+            </Link>
+          </span>
+        </span>
+      )}
+    </div>
   );
 }
 

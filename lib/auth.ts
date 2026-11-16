@@ -20,6 +20,7 @@ import {
   type User,
 } from "firebase/auth";
 import { getFirebaseAuth, isFirebaseConfigured } from "./firebase";
+import { setAuthHint } from "./auth-hint";
 
 export type AuthUser = {
   uid: string;
@@ -45,6 +46,8 @@ const listeners = new Set<() => void>();
 
 function set(next: AuthState) {
   state = next;
+  // Remember whether this browser is signed in, for pages that redirect before Firebase has answered.
+  if (next.status === "signed-in" || next.status === "signed-out") setAuthHint(next.status === "signed-in");
   listeners.forEach((l) => l());
 }
 

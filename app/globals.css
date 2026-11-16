@@ -196,6 +196,11 @@ body {
   transition: background-color 0.3s ease;
 }
 
+/* A signed-in check is pending on a page that redirects signed-in users: show just the background. */
+html[data-auth-pending] body > * {
+  visibility: hidden;
+}
+
 @keyframes gb-float {
   0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); }
   50% { transform: translateY(-14px) rotate(var(--rot, 0deg)); }

@@ -144,6 +144,24 @@ async function attempt<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * Send the verification email: greenboard's own branded one (via the server
+ * route) when that's set up, else Firebase's built-in email, so it always goes out.
+ */
+async function sendVerification(user: User) {
+  try {
+    const response = await fetch("/api/auth/send-verification", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+    });
+    // Sent, already verified, or asked again too soon: nothing more to do.
+    if (response.ok || response.status === 429) return;
+  } catch {
+    // Network trouble reaching our server: fall through to Firebase's email.
+  }
+  await sendEmailVerification(user);
+}
+
 /* ───────────────────────── Actions ───────────────────────── */
 
 export const authActions = {
@@ -158,7 +176,7 @@ export const authActions = {
       await updateProfile(user, { displayName: name.trim() });
       refresh(); // show the name straight away
       // Best effort: a failed verification email shouldn't undo a successful sign-up.
-      sendEmailVerification(user).catch(() => {});
+      sendVerification(user).catch(() => {});
     }),
 
   logInWithGoogle: () =>

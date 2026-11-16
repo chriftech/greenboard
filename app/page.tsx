@@ -10,6 +10,7 @@ import { Nav } from "@/components/landing/nav";
 import { Logo } from "@/components/landing/logo";
 import { HeroBoard } from "@/components/landing/hero-board";
 import { Reveal } from "@/components/landing/reveal";
+import { SignedInRedirect } from "@/components/landing/signed-in-redirect";
 
 const MARQUEE = [
   "Ship the release",
@@ -27,6 +28,8 @@ const MARQUEE = [
 export default function Home() {
   return (
     <div id="top" className="relative flex-1 overflow-x-clip bg-paper text-ink">
+      {/* Signed in? Go to the board (the head script in app/layout.tsx hides this page until it's checked). */}
+      <SignedInRedirect />
       <Nav />
       <Hero />
       <Marquee />

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Confirm your email for greenboard</title>
+</head>
+<body style="margin:0; padding:0; background:#e8ebf2;">
+<!--
+  greenboard · email verification
+  Firebase console → Authentication → Templates → Email address verification → edit (pencil) → Message.
+  Firebase fills in the percent-sign placeholders below: the name given at sign-up, the email address,
+  and the verification link. Styles are inline and the layout is tables, so it holds up in Gmail,
+  Outlook and Apple Mail.
+-->
+<!-- ═══════════ Paste everything from here … ═══════════ -->
+<style>
+  /* Clients that support it (Apple Mail, iOS Mail, some Outlooks) get a dark version. */
+  @media (prefers-color-scheme: dark) {
+    .gb-bg { background:#0e1120 !important; }
+    .gb-card { background:#171b2e !important; border-color:#262c4d !important; }
+    .gb-ink { color:#e4e7f5 !important; }
+    .gb-muted { color:#a3a9c6 !important; }
+    .gb-soft { background:#1f2545 !important; }
+    .gb-rule { border-color:#262c4d !important; }
+    .gb-link { color:#7d93f7 !important; }
+    .gb-btn { background:#ffc9a9 !important; }
+    .gb-btn a { color:#2e3349 !important; }
+  }
+  @media (max-width: 600px) {
+    .gb-pad { padding:28px 22px !important; }
+    .gb-title { font-size:24px !important; }
+  }
+</style>
+<div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">One tap to confirm your email, and your greenboard account is ready.&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;</div>
+<table role="presentation" class="gb-bg" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#e8ebf2;">
+  <tr>
+    <td align="center" style="padding:40px 16px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
+
+        <!-- Brand -->
+        <tr>
+          <td style="padding:0 4px 20px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td width="36" height="36" align="center" valign="middle" style="width:36px; height:36px; background:#2e3349; border-radius:10px; color:#ffc9a9; font:bold 20px/36px Arial, Helvetica, sans-serif;">&#10003;</td>
+                <td class="gb-ink" style="padding-left:10px; color:#2e3349; font:bold 20px/36px 'Segoe UI', Helvetica, Arial, sans-serif; letter-spacing:-0.3px;">greenboard</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Card -->
+        <tr>
+          <td class="gb-card" style="background:#f4f5f9; border:1px solid #dfe4f4; border-radius:24px; overflow:hidden;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+
+              <!-- Header band -->
+              <tr>
+                <td style="background:#2e3349; background-image:linear-gradient(135deg,#2e3349 0%,#3c4260 60%,#4f6bed 140%); padding:30px 36px; border-radius:24px 24px 0 0;" class="gb-pad">
+                  <p style="margin:0 0 6px; color:#ffc9a9; font:600 12px/1.4 'Segoe UI', Helvetica, Arial, sans-serif; letter-spacing:1.6px; text-transform:uppercase;">One last step</p>
+                  <h1 class="gb-title" style="margin:0; color:#ffffff; font:800 28px/1.25 'Segoe UI', Helvetica, Arial, sans-serif; letter-spacing:-0.5px;">Confirm your email 👋</h1>
+                </td>
+              </tr>
+
+              <!-- Body -->
+              <tr>
+                <td class="gb-pad" style="padding:32px 36px 8px;">
+                  <p class="gb-ink" style="margin:0 0 14px; color:#2e3349; font:600 16px/1.6 'Segoe UI', Helvetica, Arial, sans-serif;">Hi %DISPLAY_NAME%,</p>
+                  <p class="gb-muted" style="margin:0 0 26px; color:#5b6180; font:400 15px/1.65 'Segoe UI', Helvetica, Arial, sans-serif;">
+                    Thanks for joining greenboard. Tap the button below to confirm that
+                    <strong class="gb-ink" style="color:#2e3349;">%EMAIL%</strong> is yours, and your account is all set.
+                  </p>
+
+                  <!-- Button -->
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td align="center" bgcolor="#2e3349" class="gb-btn" style="background:#2e3349; border-radius:14px;">
+                        <a href="%LINK%" target="_blank" style="display:inline-block; padding:15px 30px; color:#ffc9a9; font:700 15px/1 'Segoe UI', Helvetica, Arial, sans-serif; text-decoration:none; border-radius:14px;">Confirm my email &rarr;</a>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <p class="gb-muted" style="margin:22px 0 0; color:#7a8099; font:400 13px/1.6 'Segoe UI', Helvetica, Arial, sans-serif;">This link works once and expires after a while. If it has, log in and ask for a new one.</p>
+                </td>
+              </tr>
+
+              <!-- What's next -->
+              <tr>
+                <td class="gb-pad" style="padding:26px 36px 8px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="gb-soft" style="background:#dfe4f4; border-radius:16px;">
+                    <tr>
+                      <td style="padding:18px 20px;">
+                        <p class="gb-ink" style="margin:0 0 10px; color:#2e3349; font:700 14px/1.4 'Segoe UI', Helvetica, Arial, sans-serif;">While you're here</p>
+                        <p class="gb-muted" style="margin:0 0 6px; color:#5b6180; font:400 14px/1.55 'Segoe UI', Helvetica, Arial, sans-serif;"><span style="color:#16a34a; font-weight:700;">&#10003;</span>&nbsp; Pick a tag, type a task, press Enter.</p>
+                        <p class="gb-muted" style="margin:0 0 6px; color:#5b6180; font:400 14px/1.55 'Segoe UI', Helvetica, Arial, sans-serif;"><span style="color:#16a34a; font-weight:700;">&#10003;</span>&nbsp; Add a timeline, a priority and who's doing it.</p>
+                        <p class="gb-muted" style="margin:0; color:#5b6180; font:400 14px/1.55 'Segoe UI', Helvetica, Arial, sans-serif;"><span style="color:#16a34a; font-weight:700;">&#10003;</span>&nbsp; Tick it off, and watch it get done.</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- Fallback link -->
+              <tr>
+                <td class="gb-pad" style="padding:22px 36px 30px;">
+                  <p class="gb-muted" style="margin:0 0 6px; color:#7a8099; font:400 12px/1.6 'Segoe UI', Helvetica, Arial, sans-serif;">Button not working? Copy this link into your browser:</p>
+                  <p style="margin:0; font:400 12px/1.6 'Segoe UI', Helvetica, Arial, sans-serif; word-break:break-all;"><a href="%LINK%" target="_blank" class="gb-link" style="color:#4f6bed; text-decoration:underline;">%LINK%</a></p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:22px 8px 0; text-align:center;">
+            <p class="gb-muted" style="margin:0 0 6px; color:#7a8099; font:400 12px/1.6 'Segoe UI', Helvetica, Arial, sans-serif;">Didn't create a greenboard account? You can ignore this email; nothing will happen.</p>
+            <p class="gb-muted" style="margin:0; color:#9aa0b8; font:400 12px/1.6 'Segoe UI', Helvetica, Arial, sans-serif;">greenboard · Tick it off. Watch it get done.</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<!-- ═══════════ … to here ═══════════ -->
+</body>
+</html>

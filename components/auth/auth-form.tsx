@@ -1,18 +1,22 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { ArrowRight, Eye, EyeOff, Info, Loader2, UserRound } from "lucide-react";
+import { ArrowRight, CircleAlert, Eye, EyeOff, Info, LayoutDashboard, Loader2, LogOut, UserRound } from "lucide-react";
+import { AuthActionError, authActions, useAuth, type AuthUser } from "@/lib/auth";
+import { UserAvatar } from "./user-avatar";
 
 /*
- * Login and signup forms. There are no accounts yet: the forms validate what's
- * typed, then explain that accounts are coming soon. Nothing is sent or stored
- * (passwords included), and guest mode is always one click away.
+ * Login and signup forms, backed by Firebase Auth (email and password, or Google).
+ * If Firebase isn't configured, the forms still validate, then explain that
+ * accounts aren't set up yet. Guest mode is always one click away.
  */
 
 type Mode = "login" | "signup";
 type Field = "name" | "email" | "password";
 type Errors = Partial<Record<Field, string>>;
+type Status = "idle" | "working" | "google" | "unavailable";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const MIN_PASSWORD = 8;
@@ -46,22 +50,34 @@ const STRENGTH = [
 ];
 
 export function AuthForm({ mode }: { mode: Mode }) {
+  const auth = useAuth();
+  const router = useRouter();
   const [values, setValues] = useState<Record<Field, string>>({ name: "", email: "", password: "" });
   const [errors, setErrors] = useState<Errors>({});
   const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({});
   const [showPassword, setShowPassword] = useState(false);
-  const [status, setStatus] = useState<"idle" | "checking" | "soon">("idle");
-  const [forgot, setForgot] = useState(false);
+  const [status, setStatus] = useState<Status>("idle");
+  // A problem that isn't about one field (network, too many attempts, Google window closed…).
+  const [formError, setFormError] = useState<string | null>(null);
+  // Forgot password: the link being requested, or sent; or a note when there's nothing to reset.
+  const [reset, setReset] = useState<{ state: "sending" | "sent" | "unavailable"; email: string } | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+
+  const signup = mode === "signup";
+  const busy = status === "working" || status === "google";
+  const unavailable = auth.status === "unavailable";
+
+  const focusField = (field: Field) => ({ name: nameRef, email: emailRef, password: passwordRef })[field].current?.focus();
 
   const set = (field: Field, value: string) => {
     const next = { ...values, [field]: value };
     setValues(next);
     // Once a field has been left (or the form submitted), keep its error up to date as you type.
     if (touched[field]) setErrors((e) => ({ ...e, [field]: validate(mode, next)[field] }));
-    if (status === "soon") setStatus("idle");
+    if (status === "unavailable") setStatus("idle");
+    setFormError(null);
   };
 
   const blur = (field: Field) => {
@@ -70,23 +86,84 @@ export function AuthForm({ mode }: { mode: Mode }) {
     setErrors((e) => ({ ...e, [field]: validate(mode, values)[field] }));
   };
 
-  function submit(e: FormEvent) {
+  /** Show an auth failure: on its field when it has one, else above the button. */
+  function fail(error: unknown) {
+    const err = error instanceof AuthActionError ? error : new AuthActionError("Something went wrong. Please try again.");
+    const field = err.field && (err.field !== "name" || signup) ? err.field : null;
+    if (field) {
+      setErrors((e) => ({ ...e, [field]: err.message }));
+      setTouched((t) => ({ ...t, [field]: true }));
+      focusField(field);
+    } else setFormError(err.message);
+    setStatus("idle");
+  }
+
+  async function submit(e: FormEvent) {
     e.preventDefault();
+    if (busy) return;
     const found = validate(mode, values);
     setErrors(found);
     setTouched({ name: true, email: true, password: true });
+    setFormError(null);
     const first = (["name", "email", "password"] as Field[]).find((f) => found[f]);
     if (first) {
-      ({ name: nameRef, email: emailRef, password: passwordRef })[first].current?.focus();
+      focusField(first);
       return;
     }
-    // Nothing is sent anywhere: a short pause, then the "coming soon" note.
-    setStatus("checking");
-    window.setTimeout(() => setStatus("soon"), 500);
+    setStatus("working");
+    if (unavailable) {
+      // Nothing to sign in to: a short pause, then the "not set up yet" note.
+      window.setTimeout(() => setStatus("unavailable"), 500);
+      return;
+    }
+    try {
+      if (signup) await authActions.signUp(values.name, values.email, values.password);
+      else await authActions.logIn(values.email, values.password);
+      router.push("/board");
+    } catch (error) {
+      fail(error);
+    }
   }
 
+  async function google() {
+    if (busy) return;
+    setFormError(null);
+    setStatus("google");
+    try {
+      await authActions.logInWithGoogle();
+      router.push("/board");
+    } catch (error) {
+      fail(error);
+    }
+  }
+
+  async function forgotPassword() {
+    setFormError(null);
+    const email = values.email.trim();
+    if (!EMAIL.test(email)) {
+      setTouched((t) => ({ ...t, email: true }));
+      setErrors((e) => ({
+        ...e,
+        email: email ? "That doesn't look like an email address." : "Enter your email first, then we'll send a reset link.",
+      }));
+      focusField("email");
+      return;
+    }
+    if (unavailable) return setReset({ state: "unavailable", email });
+    setReset({ state: "sending", email });
+    try {
+      await authActions.resetPassword(email);
+      setReset({ state: "sent", email });
+    } catch (error) {
+      setReset(null);
+      fail(error);
+    }
+  }
+
+  // Already signed in (and not mid-submit, which moves on to the board by itself).
+  if (auth.status === "signed-in" && !busy) return <SignedIn user={auth.user} />;
+
   const score = strength(values.password);
-  const signup = mode === "signup";
 
   return (
     <div>
@@ -132,10 +209,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
             !signup && (
               <button
                 type="button"
-                onClick={() => setForgot((f) => !f)}
-                aria-expanded={forgot}
-                className="text-xs font-semibold text-iris underline-offset-4 hover:underline"
+                onClick={forgotPassword}
+                disabled={reset?.state === "sending"}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-iris underline-offset-4 hover:underline disabled:opacity-60"
               >
+                {reset?.state === "sending" && <Loader2 className="size-3 animate-spin" />}
                 Forgot password?
               </button>
             )
@@ -168,24 +246,33 @@ export function AuthForm({ mode }: { mode: Mode }) {
           }
         />
 
-        {!signup && forgot && (
-          <Note>Password resets arrive with accounts. For now there&rsquo;s nothing to reset: guest mode needs no password.</Note>
-        )}
+        <div aria-live="polite" className="space-y-4 empty:hidden">
+          {reset?.state === "sent" && (
+            <Note>
+              If there&rsquo;s an account for <b className="font-semibold text-ink">{reset.email}</b>, a link to reset your
+              password is on its way. Check your inbox (and spam).
+            </Note>
+          )}
+          {reset?.state === "unavailable" && (
+            <Note>Password resets arrive with accounts. For now there&rsquo;s nothing to reset: guest mode needs no password.</Note>
+          )}
+          {formError && <Note tone="error">{formError}</Note>}
+        </div>
 
         <button
           type="submit"
-          disabled={status === "checking"}
+          disabled={busy}
           className="gb-shine inline-flex w-full items-center justify-center gap-2 rounded-xl bg-deep px-4 py-3 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-70"
         >
-          {status === "checking" && <Loader2 className="size-4 animate-spin" />}
+          {status === "working" && <Loader2 className="size-4 animate-spin" />}
           {signup ? "Create account" : "Log in"}
         </button>
 
         <div aria-live="polite">
-          {status === "soon" && (
+          {status === "unavailable" && (
             <Note tone="peach">
-              <b className="font-semibold text-ink">Accounts are coming soon.</b> Nothing was sent or saved. Until then,
-              your board works in guest mode, with everything kept in this browser.
+              <b className="font-semibold text-ink">Accounts aren&rsquo;t set up yet.</b> Nothing was sent or saved. Until
+              then, your board works in guest mode, with everything kept in this browser.
             </Note>
           )}
         </div>
@@ -197,16 +284,30 @@ export function AuthForm({ mode }: { mode: Mode }) {
         <span className="h-px flex-1 bg-ink/10" />
       </div>
 
-      <Link
-        href="/board"
-        className={`group flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-colors ${
-          status === "soon" ? "border-iris bg-iris/10 text-ink" : "border-ink/15 text-ink/80 hover:border-ink/30 hover:text-ink"
-        }`}
-      >
-        <UserRound className="size-4" />
-        Continue as guest
-        <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-      </Link>
+      <div className="space-y-3">
+        {!unavailable && (
+          <button
+            type="button"
+            onClick={google}
+            disabled={busy}
+            className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-ink/15 bg-surface px-4 py-3 text-sm font-semibold text-ink transition-colors hover:border-ink/30 disabled:opacity-70"
+          >
+            {status === "google" ? <Loader2 className="size-4 animate-spin" /> : <GoogleMark />}
+            Continue with Google
+          </button>
+        )}
+
+        <Link
+          href="/board"
+          className={`group flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-colors ${
+            status === "unavailable" ? "border-iris bg-iris/10 text-ink" : "border-ink/15 text-ink/80 hover:border-ink/30 hover:text-ink"
+          }`}
+        >
+          <UserRound className="size-4" />
+          Continue as guest
+          <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+        </Link>
+      </div>
       <p className="mt-2 text-center text-xs text-ink/45">No account needed. Your tasks stay in this browser.</p>
 
       <p className="mt-8 text-center text-sm text-ink/60">
@@ -216,6 +317,53 @@ export function AuthForm({ mode }: { mode: Mode }) {
         </Link>
       </p>
     </div>
+  );
+}
+
+/** Shown on the login and signup pages when you're already signed in. */
+function SignedIn({ user }: { user: AuthUser }) {
+  const [leaving, setLeaving] = useState(false);
+  return (
+    <div className="gb-rise space-y-4" style={{ animationDuration: "0.35s" }}>
+      <div className="flex items-center gap-3 rounded-2xl bg-mist px-4 py-3.5">
+        <UserAvatar user={user} />
+        <div className="min-w-0">
+          <p className="text-sm text-ink/60">You&rsquo;re logged in as</p>
+          <p className="truncate font-semibold">{user.name || user.email}</p>
+        </div>
+      </div>
+      <Link
+        href="/board"
+        className="gb-shine flex w-full items-center justify-center gap-2 rounded-xl bg-deep px-4 py-3 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5"
+      >
+        <LayoutDashboard className="size-4" />
+        Go to your board
+      </Link>
+      <button
+        type="button"
+        disabled={leaving}
+        onClick={async () => {
+          setLeaving(true);
+          await authActions.logOut().catch(() => {});
+          setLeaving(false);
+        }}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-ink/15 px-4 py-3 text-sm font-semibold text-ink/80 transition-colors hover:border-ink/30 hover:text-ink disabled:opacity-70"
+      >
+        {leaving ? <Loader2 className="size-4 animate-spin" /> : <LogOut className="size-4" />}
+        Log out
+      </button>
+    </div>
+  );
+}
+
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 48 48" className="size-4" aria-hidden>
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+      <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
+    </svg>
   );
 }
 
@@ -286,15 +434,19 @@ function TextField({
   );
 }
 
-function Note({ children, tone = "mist" }: { children: ReactNode; tone?: "mist" | "peach" }) {
+function Note({ children, tone = "mist" }: { children: ReactNode; tone?: "mist" | "peach" | "error" }) {
+  const tones = { mist: "bg-mist", peach: "bg-peach/25", error: "bg-coral/10 text-ink/80" };
   return (
     <p
-      className={`gb-rise flex items-start gap-2.5 rounded-xl px-3.5 py-3 text-sm text-ink/70 ${
-        tone === "peach" ? "bg-peach/25" : "bg-mist"
-      }`}
+      role={tone === "error" ? "alert" : undefined}
+      className={`gb-rise flex items-start gap-2.5 rounded-xl px-3.5 py-3 text-sm text-ink/70 ${tones[tone]}`}
       style={{ animationDuration: "0.35s" }}
     >
-      <Info className="mt-0.5 size-4 shrink-0 text-iris" />
+      {tone === "error" ? (
+        <CircleAlert className="mt-0.5 size-4 shrink-0 text-coral" />
+      ) : (
+        <Info className="mt-0.5 size-4 shrink-0 text-iris" />
+      )}
       <span>{children}</span>
     </p>
   );

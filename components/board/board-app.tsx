@@ -14,7 +14,6 @@ import {
   type RefObject,
 } from "react";
 import {
-  ArrowLeft,
   ArrowRight,
   Check,
   Menu,
@@ -67,6 +66,7 @@ import { TrashPanel } from "./trash-panel";
 import { Tour } from "./tour";
 import { hasSeenTour, tourActions } from "@/lib/tour";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ProfileMenu } from "./profile-menu";
 import { MobileSidebar, Sidebar, type NavTarget, type SidebarProps } from "./sidebar";
 import {
   ScheduleFields,
@@ -590,14 +590,7 @@ export function BoardApp() {
             <span data-tour="theme" className="inline-flex">
               <ThemeToggle />
             </span>
-            <Link
-              href="/"
-              aria-label="Home"
-              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-surface hover:text-ink sm:px-3"
-            >
-              <ArrowLeft className="size-4" />
-              <span className="hidden sm:inline">Home</span>
-            </Link>
+            <ProfileMenu onStartTour={sidebar.onStartTour} />
           </div>
         </header>
   

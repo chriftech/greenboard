@@ -40,7 +40,7 @@ const LOADING: AuthState = { status: "loading", user: null };
 const UNAVAILABLE: AuthState = { status: "unavailable", user: null };
 const SIGNED_OUT: AuthState = { status: "signed-out", user: null };
 
-let state: AuthState = isFirebaseConfigured ? LOADING : UNAVAILABLE;
+let state: AuthState = isFirebaseConfigured() ? LOADING : UNAVAILABLE;
 let started = false;
 const listeners = new Set<() => void>();
 

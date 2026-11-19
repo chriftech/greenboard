@@ -19,12 +19,13 @@ export function PageSkeleton({ label, children }: { label: string; children: Rea
         />
       </div>
 
-      <header className="relative mx-auto flex max-w-3xl items-center justify-between px-4 pt-6">
-        <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="Greenboard home">
+      <header className="relative mx-auto flex max-w-3xl items-center justify-between px-4 pt-6 lg:justify-end">
+        <Link href="/" className="flex shrink-0 items-center gap-2 lg:hidden" aria-label="Greenboard home">
           <Logo />
           <span className="font-display text-xl font-bold tracking-tight">greenboard</span>
         </Link>
         <div aria-hidden className="flex items-center gap-2">
+          <Skeleton className="h-9 w-9 rounded-xl sm:w-20 lg:hidden" />
           <Skeleton className="size-9 rounded-xl" />
           <Skeleton className="h-9 w-20 rounded-xl sm:w-32" />
         </div>

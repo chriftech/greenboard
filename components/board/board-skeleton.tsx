@@ -70,84 +70,59 @@ const TITLES = [
 /** The Pending and Completed columns (on phones, just the list). */
 export function TaskBoardSkeleton() {
   return (
-    <SkeletonRegion label="Loading your tasks…" className="grid divide-ink/15 border-ink/15 md:grid-cols-2 md:divide-x md:border-t">
-      {TITLES.map((titles, c) => (
-        <div key={c} className={`space-y-3 md:px-5 md:pt-4 md:first:pl-0 md:last:pr-0 ${c ? "hidden md:block" : ""}`}>
-          <div className="flex items-center gap-2 pb-1">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-4 w-6" />
-          </div>
-          {titles.map((title, i) => (
-            <TaskCardSkeleton key={i} title={title} />
-          ))}
+    <SkeletonRegion label="Loading your tasks…">
+      {/* The filter bar: filters on the left, Import and Export on the right. */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Skeleton className="hidden h-3 w-14 sm:block" />
+        <Skeleton className="h-8 w-20 rounded-xl" />
+        <Skeleton className="h-8 w-24 rounded-xl" />
+        <Skeleton className="h-8 w-24 rounded-xl" />
+        <div className="ml-auto flex items-center gap-2">
+          <Skeleton className="h-8 w-20 rounded-xl" />
+          <Skeleton className="h-8 w-20 rounded-xl" />
         </div>
-      ))}
+      </div>
+      <div className="grid divide-ink/15 border-ink/15 md:grid-cols-2 md:divide-x md:border-t">
+        {TITLES.map((titles, c) => (
+          <div key={c} className={`space-y-3 md:px-5 md:pt-4 md:first:pl-0 md:last:pr-0 ${c ? "hidden md:block" : ""}`}>
+            <div className="flex items-center gap-2 pb-1">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-6" />
+            </div>
+            {titles.map((title, i) => (
+              <TaskCardSkeleton key={i} title={title} />
+            ))}
+          </div>
+        ))}
+      </div>
     </SkeletonRegion>
   );
 }
 
-/** The sidebar (from lg up): logo, search, the workspace list, tags and the account. */
-function SidebarSkeleton() {
-  const row = (w: string, i: number) => (
-    <div key={i} className="flex items-center gap-3 px-3 py-2">
-      <Skeleton className="size-4 rounded-md" />
-      <Skeleton className="h-3" style={{ width: w }} />
-    </div>
-  );
-  return (
-    <div
-      aria-hidden
-      className="sticky top-0 hidden h-dvh w-[272px] shrink-0 flex-col border-r border-ink/10 bg-surface/75 lg:flex"
-    >
-      <div className="flex items-center gap-2 px-4 pb-3 pt-5">
-        <Logo />
-        <span className="font-display text-xl font-bold tracking-tight">greenboard</span>
-      </div>
-      <div className="px-3">
-        <Skeleton className="h-9 w-full rounded-xl" />
-        <Skeleton className="mb-1 ml-3 mt-6 h-2.5 w-20" />
-        {["50%", "35%", "45%", "50%", "30%"].map(row)}
-        <Skeleton className="mb-1 ml-3 mt-6 h-2.5 w-12" />
-        {["40%", "30%", "45%", "35%"].map(row)}
-      </div>
-      <div className="mt-auto px-3 pb-4">
-        {["40%", "55%"].map(row)}
-        <div className="mt-2 flex items-center gap-3 px-2 py-2">
-          <Skeleton className="size-8 shrink-0" />
-          <Skeleton className="h-3 w-24" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** The whole board page, shown while it opens. */
+/** The board page beside the sidebar (the workspace layout keeps the real sidebar on screen), shown while it opens. */
 export function BoardPageSkeleton() {
   return (
-    <div className="flex min-h-full flex-1 bg-paper text-ink">
-      <SidebarSkeleton />
-      <div className="relative min-w-0 flex-1 overflow-x-clip">
-        <header className="relative mx-auto flex max-w-5xl items-center justify-between px-4 pt-6 lg:justify-end">
-          <Link href="/" className="flex shrink-0 items-center gap-2 lg:hidden">
-            <Logo />
-            <span className="font-display text-xl font-bold tracking-tight">greenboard</span>
-          </Link>
-          <div aria-hidden className="flex items-center gap-2">
-            <Skeleton className="h-9 w-9 rounded-xl sm:w-20 lg:hidden" />
-            <Skeleton className="size-9 rounded-xl" />
-            <Skeleton className="mx-1 size-9" />
-          </div>
-        </header>
-        <main className="relative pb-24 pt-8">
-          <div className="mx-auto max-w-5xl px-4">
-            <GreetingSkeleton />
-            <ComposerSkeleton />
-          </div>
-          <section className="mx-auto mt-10 max-w-5xl px-4">
-            <TaskBoardSkeleton />
-          </section>
-        </main>
-      </div>
+    <div className="relative min-w-0 flex-1 overflow-x-clip">
+      <header className="relative mx-auto flex max-w-5xl items-center justify-between px-4 pt-6 lg:justify-end">
+        <Link href="/" className="flex shrink-0 items-center gap-2 lg:hidden">
+          <Logo />
+          <span className="font-display text-xl font-bold tracking-tight">greenboard</span>
+        </Link>
+        <div aria-hidden className="flex items-center gap-2">
+          <Skeleton className="h-9 w-9 rounded-xl sm:w-20 lg:hidden" />
+          <Skeleton className="size-9 rounded-xl" />
+          <Skeleton className="mx-1 size-9" />
+        </div>
+      </header>
+      <main className="relative pb-24 pt-8">
+        <div className="mx-auto max-w-5xl px-4">
+          <GreetingSkeleton />
+          <ComposerSkeleton />
+        </div>
+        <section className="mx-auto mt-10 max-w-5xl px-4">
+          <TaskBoardSkeleton />
+        </section>
+      </main>
     </div>
   );
 }

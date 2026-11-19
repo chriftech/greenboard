@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, Settings } from "lucide-react";
 import { Logo } from "@/components/landing/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { MenuButton } from "@/components/workspace/menu-button";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { ProfileSettings } from "@/components/settings/profile-settings";
 
@@ -23,12 +24,14 @@ export default function SettingsPage() {
         />
       </div>
 
-      <header className="relative mx-auto flex max-w-3xl items-center justify-between px-4 pt-6">
-        <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="Greenboard home">
+      <header className="relative mx-auto flex max-w-3xl items-center justify-between px-4 pt-6 lg:justify-end">
+        {/* From lg up the sidebar shows the logo. */}
+        <Link href="/" className="flex shrink-0 items-center gap-2 lg:hidden" aria-label="Greenboard home">
           <Logo />
           <span className="font-display text-xl font-bold tracking-tight">greenboard</span>
         </Link>
         <div className="flex items-center gap-1">
+          <MenuButton />
           <ThemeToggle />
           <Link
             href="/board"

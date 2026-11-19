@@ -281,6 +281,21 @@ export const taskActions = {
       }),
     );
   },
+  /**
+   * Add several tasks at once (from an import), at the top of the board in the
+   * order given. Titles are trimmed; empty ones and broken timelines are dropped.
+   */
+  importMany(input: Omit<Task, "id" | "order">[]) {
+    const existing = getTasks();
+    const top = Math.min(-Date.now(), ...existing.map((t) => t.order)) - input.length - 1;
+    const added: Task[] = [];
+    input.forEach((t, i) => {
+      const title = t.title.trim();
+      if (!title) return;
+      added.push(normalize({ ...t, title, id: newId(), order: top + i }));
+    });
+    if (added.length) save([...added, ...existing]);
+  },
   /** Move a task to Trash. It can be restored for 30 days. */
   trash(id: string) {
     const now = Date.now();

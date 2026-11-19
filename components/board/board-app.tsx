@@ -68,7 +68,10 @@ import { hasSeenTour, tourActions } from "@/lib/tour";
 import { useSettings } from "@/lib/settings";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProfileMenu } from "./profile-menu";
-import { MobileSidebar, Sidebar, type NavTarget, type SidebarProps } from "./sidebar";
+import { BoardToolbar } from "./board-toolbar";
+import { ImportDialog } from "./import-dialog";
+import { usePeople } from "@/lib/people";
+import { registerBoard, useColumns, useWorkspace, workspace, type Filter, type NavTarget, type View } from "@/lib/workspace";
 import { GreetingSkeleton, TaskBoardSkeleton } from "./board-skeleton";
 import {
   ScheduleFields,
@@ -93,10 +96,6 @@ import {
 
 /** The board's two columns (wider screens). */
 type ColumnId = "todo" | "done";
-/** The tabs above the single list (phones). */
-type Filter = "all" | "todo" | "done";
-/** Which slice of the board is shown, chosen from the sidebar. */
-type View = "board" | "today" | "upcoming";
 /** Destructive actions waiting for confirmation. */
 type PendingDelete =
   | { kind: "task"; id: string; title: string } // move one task to Trash
@@ -164,21 +163,6 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "done", label: "Completed" },
 ];
 
-/** Phones get the tabbed list; columns start at Tailwind's md breakpoint. */
-const COLUMNS_QUERY = "(min-width: 768px)";
-function subscribeColumns(onChange: () => void) {
-  const mq = window.matchMedia(COLUMNS_QUERY);
-  mq.addEventListener("change", onChange);
-  return () => mq.removeEventListener("change", onChange);
-}
-function useColumns() {
-  return useSyncExternalStore(
-    subscribeColumns,
-    () => window.matchMedia(COLUMNS_QUERY).matches,
-    () => true,
-  );
-}
-
 /** Droppable ids for the columns themselves (tasks use their own ids). */
 const COLUMN_DROP: Record<ColumnId, string> = { todo: "col-todo", done: "col-done" };
 
@@ -197,18 +181,24 @@ const collision: CollisionDetection = (args) => {
 export function BoardApp() {
   const { showGreeting } = useSettings();
   const tasks = useSyncExternalStore(subscribeTasks, getTasks, getServerTasks);
-  const [view, setView] = useState<View>("board");
-  const [filter, setFilter] = useState<Filter>("all");
+  // View, tag, search and filters live in the workspace store, shared with the sidebar
+  // (which stays on screen across /board, /settings and /help).
+  const { view, filter, tag, query, priority, assignee: assigneeFilter } = useWorkspace();
+  const { setView, setFilter, setTag, setQuery, setPriority, setAssignee: setAssigneeFilter } = workspace;
   const columnsLayout = useColumns();
-  const [tag, setTag] = useState<TagId | null>(null);
-  const [query, setQuery] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
+  const people = usePeople();
+  const [importOpen, setImportOpen] = useState(false);
   const tags = useTags();
   // Tag editor: null = creating a new tag. Kept after closing so the dialog can animate out.
   const [editingTag, setEditingTag] = useState<CustomTag | null>(null);
   const [tagEditorOpen, setTagEditorOpen] = useState(false);
   // A filter on a tag that was since deleted shows nothing; treat it as no filter.
   const activeTag = tag && tags.some((t) => t.id === tag) ? tag : null;
+  // Likewise for a person who was since removed.
+  const activeAssignee =
+    assigneeFilter === "any" || assigneeFilter === "none" || assigneeFilter === "me" || people.some((p) => p.id === assigneeFilter)
+      ? assigneeFilter
+      : "any";
   // Keep the selected id after closing so the panel can animate out with its content.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -379,9 +369,13 @@ export function BoardApp() {
   const matches = (t: Task) =>
     inView(t, view) &&
     (!activeTag || t.tag === activeTag) &&
+    (priority === "any" || (priority === "none" ? !t.priority : t.priority === priority)) &&
+    (activeAssignee === "any" || (activeAssignee === "none" ? !t.assignee : t.assignee === activeAssignee)) &&
     (!q || t.title.toLowerCase().includes(q) || (t.descriptionText ?? "").toLowerCase().includes(q));
   const scoped = all.filter(matches);
-  const narrowed = view !== "board" || activeTag !== null || q !== "";
+  // What the sidebar narrowed (shown as chips), and everything that narrows the board.
+  const sidebarNarrowed = view !== "board" || activeTag !== null || q !== "";
+  const narrowed = sidebarNarrowed || priority !== "any" || activeAssignee !== "any";
 
   // Tasks that are mid-move stay in the Pending column until their pause ends.
   const done = scoped.filter((t) => t.done && !moving.has(t.id));
@@ -416,7 +410,7 @@ export function BoardApp() {
       }
       case "board":
         // "My board" is the reset: everything, unfiltered.
-        setTag(null);
+        clearFilters();
         setQuery("");
         setFilter("all");
         return setView("board");
@@ -426,25 +420,34 @@ export function BoardApp() {
     }
   }
 
-  function clearNarrowing() {
-    setView("board");
+  function clearFilters() {
     setTag(null);
-    setQuery("");
+    setPriority("any");
+    setAssigneeFilter("any");
   }
 
-  // Sidebar state and counts (pending tasks, so the numbers mean "still to do").
+  function clearNarrowing() {
+    setView("board");
+    setQuery("");
+    clearFilters();
+  }
+
+  // Pending tasks, for the greeting card.
   const pendingAll = all.filter((t) => !t.done);
-  const sidebar: SidebarProps = {
-    active: view !== "board" ? view : !columnsLayout && filter === "done" ? "completed" : "board",
-    onNavigate: navigate,
-    tag: activeTag,
-    onTag: setTag,
-    tags,
-    onEditTag: (t) => {
+  // The sidebar (in the workspace layout) sends its board actions here, including
+  // ones asked for on another page before the board opened.
+  const actions = useRef<{
+    navigate: (target: NavTarget) => void;
+    editTag: (tag: CustomTag | null) => void;
+    deleteTag: (tag: TagView) => void;
+  } | null>(null);
+  actions.current = {
+    navigate,
+    editTag: (t) => {
       setEditingTag(t);
       setTagEditorOpen(true);
     },
-    onDeleteTag: (t) =>
+    deleteTag: (t) =>
       askDelete({
         kind: "tag",
         id: t.id,
@@ -452,26 +455,18 @@ export function BoardApp() {
         // Every task (Trash included) carrying the tag moves to Default.
         count: (tasks ?? []).filter((x) => x.tag === t.id).length,
       }),
-    query,
-    onQuery: setQuery,
-    onStartTour: () => {
-      // From the phone menu: let the drawer close first, so the tour can see the board.
-      if (menuOpen) {
-        setMenuOpen(false);
-        window.setTimeout(tourActions.start, 350);
-      } else tourActions.start();
-    },
-    counts: {
-      board: pendingAll.length,
-      today: pendingAll.filter((t) => inView(t, "today")).length,
-      upcoming: pendingAll.filter((t) => inView(t, "upcoming")).length,
-      completed: all.length - pendingAll.length,
-      trash: trashed.length,
-      tags: Object.fromEntries(
-        tags.map((t) => [t.id, pendingAll.filter((x) => findTag(tags, x.tag).id === t.id).length]),
-      ),
-    },
   };
+  useEffect(
+    () =>
+      registerBoard((action) => {
+        const run = actions.current;
+        if (!run) return;
+        if (action.type === "navigate") run.navigate(action.target);
+        else if (action.type === "editTag") run.editTag(action.tag);
+        else run.deleteTag(action.tag);
+      }),
+    [],
+  );
 
   // Drag starts after a small move (mouse) or a short press (touch), so clicks
   // and scrolling still work; the grip handle supports keyboard reordering.
@@ -551,10 +546,7 @@ export function BoardApp() {
   }
 
   return (
-    <div className="flex min-h-full flex-1 bg-paper text-ink">
-      <Sidebar {...sidebar} />
-      <MobileSidebar {...sidebar} open={menuOpen} onOpenChange={setMenuOpen} />
-
+    <>
       {/* `isolate` lets the grid below sit behind the content (-z-10) without dropping under the page background. */}
       <div className="relative isolate min-w-0 flex-1 overflow-x-clip">
         {/*
@@ -582,7 +574,7 @@ export function BoardApp() {
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setMenuOpen(true)}
+              onClick={() => workspace.setMenuOpen(true)}
               aria-label="Open menu"
               data-tour="menu"
               className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-surface hover:text-ink sm:px-3 lg:hidden"
@@ -593,7 +585,7 @@ export function BoardApp() {
             <span data-tour="theme" className="inline-flex">
               <ThemeToggle />
             </span>
-            <ProfileMenu onStartTour={sidebar.onStartTour} />
+            <ProfileMenu onStartTour={tourActions.start} />
           </div>
         </header>
   
@@ -614,7 +606,7 @@ export function BoardApp() {
               <Composer />
 
               {/* What the sidebar has narrowed the board to */}
-              {narrowed && (
+              {sidebarNarrowed && (
                 <div className="mt-10 flex flex-wrap items-center gap-2" aria-live="polite">
                   <span className="text-xs font-semibold uppercase tracking-widest text-ink/45">Showing</span>
                   {view !== "board" && (
@@ -636,7 +628,7 @@ export function BoardApp() {
 
               {/* Phones: tabs instead of columns. */}
               {!columnsLayout && (
-                <div className={`${narrowed ? "mt-4" : "mt-10"} flex flex-wrap items-center justify-between gap-3`}>
+                <div className={`${sidebarNarrowed ? "mt-4" : "mt-10"} flex flex-wrap items-center justify-between gap-3`}>
                   <div
                     role="tablist"
                     aria-label="Filter tasks"
@@ -690,8 +682,24 @@ export function BoardApp() {
           {/* The board: Pending and Completed columns side by side, as wide as the section above. Phones get the tabbed list. */}
           <section
             aria-label="Task board"
-            className={`mx-auto max-w-5xl px-4 ${columnsLayout ? (narrowed ? "mt-5" : "mt-10") : "mt-5"}`}
+            className={`mx-auto max-w-5xl px-4 ${columnsLayout ? (sidebarNarrowed ? "mt-5" : "mt-10") : "mt-5"}`}
           >
+            {/* Filters on the left, Export on the far right, above the columns. */}
+            {loaded && (
+              <BoardToolbar
+                empty={all.length === 0}
+                onImport={() => setImportOpen(true)}
+                tags={tags}
+                people={people}
+                tag={activeTag}
+                onTagChange={setTag}
+                priority={priority}
+                onPriorityChange={setPriority}
+                assignee={activeAssignee}
+                onAssigneeChange={setAssigneeFilter}
+                onClear={clearFilters}
+              />
+            )}
             {!loaded ? (
               <TaskBoardSkeleton />
             ) : (columnsLayout ? scoped.length : listCount) === 0 ? (
@@ -706,6 +714,8 @@ export function BoardApp() {
               </div>
             ) : !columnsLayout ? (
               <DndContext
+                // Separate keys: switching layouts (crossing 768px) must remount, not reuse, the drag context.
+                key="task-list"
                 id="task-list"
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -761,6 +771,7 @@ export function BoardApp() {
               </DndContext>
             ) : (
               <DndContext
+                key="task-board"
                 id="task-board"
                 sensors={sensors}
                 collisionDetection={collision}
@@ -874,6 +885,7 @@ export function BoardApp() {
         onRequestDelete={(t) => askDelete({ kind: "task", id: t.id, title: t.title })}
       />
 
+      <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
       <TrashPanel
         open={trashOpen}
         onOpenChange={setTrashOpen}
@@ -890,7 +902,7 @@ export function BoardApp() {
         onConfirm={confirmDelete}
         {...confirmCopy(pending)}
       />
-    </div>
+    </>
   );
 }
 

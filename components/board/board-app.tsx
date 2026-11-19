@@ -69,6 +69,7 @@ import { useSettings } from "@/lib/settings";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProfileMenu } from "./profile-menu";
 import { MobileSidebar, Sidebar, type NavTarget, type SidebarProps } from "./sidebar";
+import { GreetingSkeleton, TaskBoardSkeleton } from "./board-skeleton";
 import {
   ScheduleFields,
   draftsToSchedule,
@@ -604,8 +605,12 @@ export function BoardApp() {
             */}
             <div aria-hidden className="gb-grid-bg gb-grid-fade pointer-events-none absolute inset-x-0 -top-40 -bottom-10 -z-10" />
             <div className="mx-auto max-w-5xl px-4">
-              {/* The greeting card can be turned off in Settings. */}
-              {showGreeting && <Summary loaded={loaded} total={all.length} doneCount={all.length - pendingAll.length} />}
+              {/* The greeting card can be turned off in Settings (which, like the tasks, is only known once loaded). */}
+              {!loaded ? (
+                <GreetingSkeleton />
+              ) : (
+                showGreeting && <Summary total={all.length} doneCount={all.length - pendingAll.length} />
+              )}
               <Composer />
 
               {/* What the sidebar has narrowed the board to */}
@@ -688,17 +693,7 @@ export function BoardApp() {
             className={`mx-auto max-w-5xl px-4 ${columnsLayout ? (narrowed ? "mt-5" : "mt-10") : "mt-5"}`}
           >
             {!loaded ? (
-              <div className="grid divide-ink/15 border-ink/15 md:grid-cols-2 md:divide-x md:border-t" aria-label="Loading tasks">
-                {/* Rendered before the screen width is known, so it works for both layouts. */}
-                {[0, 1].map((c) => (
-                  <div key={c} className={`space-y-3 md:px-5 md:pt-4 md:first:pl-0 md:last:pr-0 ${c ? "hidden md:block" : ""}`}>
-                    <div className="h-6 w-28 animate-pulse rounded-full bg-surface" />
-                    {[0, 1, 2].map((i) => (
-                      <div key={i} className="h-[68px] animate-pulse rounded-2xl bg-surface/70" />
-                    ))}
-                  </div>
-                ))}
-              </div>
+              <TaskBoardSkeleton />
             ) : (columnsLayout ? scoped.length : listCount) === 0 ? (
               <div>
                 <EmptyState
@@ -901,25 +896,21 @@ export function BoardApp() {
 
 /* ───────────────────────── Summary card ───────────────────────── */
 
-function Summary({ loaded, total, doneCount }: { loaded: boolean; total: number; doneCount: number }) {
+function Summary({ total, doneCount }: { total: number; doneCount: number }) {
   const pct = total ? Math.round((doneCount / total) * 100) : 0;
   const left = total - doneCount;
   const allDone = total > 0 && left === 0;
   const R = 40;
   const C = 2 * Math.PI * R;
 
-  let dateLabel = "";
-  let greeting = "Hello";
-  if (loaded) {
-    const now = new Date();
-    dateLabel = now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
-    const h = now.getHours();
-    greeting = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-  }
+  // Only rendered in the browser (a skeleton stands in before that), so local time is safe here.
+  const now = new Date();
+  const dateLabel = now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+  const h = now.getHours();
+  const greeting = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
 
-  const message = !loaded
-    ? "Loading your board…"
-    : total === 0
+  const message =
+    total === 0
       ? "Nothing here yet. Add your first task below."
       : allDone
         ? "Every task is ticked. Your board is all clear!"
@@ -933,7 +924,7 @@ function Summary({ loaded, total, doneCount }: { loaded: boolean; total: number;
       <div className="relative flex items-center justify-between gap-4 sm:gap-6">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-peach/80 sm:text-xs">
-            {dateLabel || " "}
+            {dateLabel}
           </p>
           <h1 className="mt-2 font-display text-2xl font-extrabold tracking-tight sm:text-4xl">
             {greeting} <span className="inline-block origin-[70%_70%] gb-wiggle">👋</span>

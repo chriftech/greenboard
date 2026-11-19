@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BadgeCheck, KeyRound, Loader2, LogOut, Mail, MailWarning, RefreshCw, UserRound } from "lucide-react";
 import { AuthActionError, authActions, useAuth, type AuthUser } from "@/lib/auth";
 import { UserAvatar } from "@/components/auth/user-avatar";
+import { ProfileSkeleton } from "./settings-skeleton";
 
 const MAX_NAME = 50;
 
@@ -22,15 +23,7 @@ export function ProfileSettings() {
       </h2>
 
       {auth.status === "loading" ? (
-        <div className={card} aria-label="Loading your profile">
-          <div className="flex items-center gap-4 p-5">
-            <span className="size-14 animate-pulse rounded-full bg-mist" />
-            <span className="space-y-2">
-              <span className="block h-4 w-36 animate-pulse rounded-full bg-mist" />
-              <span className="block h-3 w-48 animate-pulse rounded-full bg-mist" />
-            </span>
-          </div>
-        </div>
+        <ProfileSkeleton />
       ) : auth.status === "signed-in" ? (
         <SignedInProfile key={auth.user.uid} user={auth.user} />
       ) : (

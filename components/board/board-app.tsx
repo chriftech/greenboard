@@ -68,6 +68,9 @@ import { hasSeenTour, tourActions } from "@/lib/tour";
 import { useSettings } from "@/lib/settings";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProfileMenu } from "./profile-menu";
+import { BoardToolbar, type AssigneeFilter, type PriorityFilter } from "./board-toolbar";
+import { ImportDialog } from "./import-dialog";
+import { usePeople } from "@/lib/people";
 import { MobileSidebar, Sidebar, type NavTarget, type SidebarProps } from "./sidebar";
 import {
   ScheduleFields,
@@ -201,6 +204,11 @@ export function BoardApp() {
   const columnsLayout = useColumns();
   const [tag, setTag] = useState<TagId | null>(null);
   const [query, setQuery] = useState("");
+  // The filter bar above the columns: tag (shared with the sidebar), priority and assignee.
+  const [priority, setPriority] = useState<PriorityFilter>("any");
+  const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>("any");
+  const people = usePeople();
+  const [importOpen, setImportOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const tags = useTags();
   // Tag editor: null = creating a new tag. Kept after closing so the dialog can animate out.
@@ -208,6 +216,11 @@ export function BoardApp() {
   const [tagEditorOpen, setTagEditorOpen] = useState(false);
   // A filter on a tag that was since deleted shows nothing; treat it as no filter.
   const activeTag = tag && tags.some((t) => t.id === tag) ? tag : null;
+  // Likewise for a person who was since removed.
+  const activeAssignee =
+    assigneeFilter === "any" || assigneeFilter === "none" || assigneeFilter === "me" || people.some((p) => p.id === assigneeFilter)
+      ? assigneeFilter
+      : "any";
   // Keep the selected id after closing so the panel can animate out with its content.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -378,9 +391,13 @@ export function BoardApp() {
   const matches = (t: Task) =>
     inView(t, view) &&
     (!activeTag || t.tag === activeTag) &&
+    (priority === "any" || (priority === "none" ? !t.priority : t.priority === priority)) &&
+    (activeAssignee === "any" || (activeAssignee === "none" ? !t.assignee : t.assignee === activeAssignee)) &&
     (!q || t.title.toLowerCase().includes(q) || (t.descriptionText ?? "").toLowerCase().includes(q));
   const scoped = all.filter(matches);
-  const narrowed = view !== "board" || activeTag !== null || q !== "";
+  // What the sidebar narrowed (shown as chips), and everything that narrows the board.
+  const sidebarNarrowed = view !== "board" || activeTag !== null || q !== "";
+  const narrowed = sidebarNarrowed || priority !== "any" || activeAssignee !== "any";
 
   // Tasks that are mid-move stay in the Pending column until their pause ends.
   const done = scoped.filter((t) => t.done && !moving.has(t.id));
@@ -415,7 +432,7 @@ export function BoardApp() {
       }
       case "board":
         // "My board" is the reset: everything, unfiltered.
-        setTag(null);
+        clearFilters();
         setQuery("");
         setFilter("all");
         return setView("board");
@@ -425,10 +442,16 @@ export function BoardApp() {
     }
   }
 
+  function clearFilters() {
+    setTag(null);
+    setPriority("any");
+    setAssigneeFilter("any");
+  }
+
   function clearNarrowing() {
     setView("board");
-    setTag(null);
     setQuery("");
+    clearFilters();
   }
 
   // Sidebar state and counts (pending tasks, so the numbers mean "still to do").
@@ -609,7 +632,7 @@ export function BoardApp() {
               <Composer />
 
               {/* What the sidebar has narrowed the board to */}
-              {narrowed && (
+              {sidebarNarrowed && (
                 <div className="mt-10 flex flex-wrap items-center gap-2" aria-live="polite">
                   <span className="text-xs font-semibold uppercase tracking-widest text-ink/45">Showing</span>
                   {view !== "board" && (
@@ -631,7 +654,7 @@ export function BoardApp() {
 
               {/* Phones: tabs instead of columns. */}
               {!columnsLayout && (
-                <div className={`${narrowed ? "mt-4" : "mt-10"} flex flex-wrap items-center justify-between gap-3`}>
+                <div className={`${sidebarNarrowed ? "mt-4" : "mt-10"} flex flex-wrap items-center justify-between gap-3`}>
                   <div
                     role="tablist"
                     aria-label="Filter tasks"
@@ -685,8 +708,24 @@ export function BoardApp() {
           {/* The board: Pending and Completed columns side by side, as wide as the section above. Phones get the tabbed list. */}
           <section
             aria-label="Task board"
-            className={`mx-auto max-w-5xl px-4 ${columnsLayout ? (narrowed ? "mt-5" : "mt-10") : "mt-5"}`}
+            className={`mx-auto max-w-5xl px-4 ${columnsLayout ? (sidebarNarrowed ? "mt-5" : "mt-10") : "mt-5"}`}
           >
+            {/* Filters on the left, Export on the far right, above the columns. */}
+            {loaded && (
+              <BoardToolbar
+                empty={all.length === 0}
+                onImport={() => setImportOpen(true)}
+                tags={tags}
+                people={people}
+                tag={activeTag}
+                onTagChange={setTag}
+                priority={priority}
+                onPriorityChange={setPriority}
+                assignee={activeAssignee}
+                onAssigneeChange={setAssigneeFilter}
+                onClear={clearFilters}
+              />
+            )}
             {!loaded ? (
               <div className="grid divide-ink/15 border-ink/15 md:grid-cols-2 md:divide-x md:border-t" aria-label="Loading tasks">
                 {/* Rendered before the screen width is known, so it works for both layouts. */}
@@ -711,6 +750,8 @@ export function BoardApp() {
               </div>
             ) : !columnsLayout ? (
               <DndContext
+                // Separate keys: switching layouts (crossing 768px) must remount, not reuse, the drag context.
+                key="task-list"
                 id="task-list"
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -766,6 +807,7 @@ export function BoardApp() {
               </DndContext>
             ) : (
               <DndContext
+                key="task-board"
                 id="task-board"
                 sensors={sensors}
                 collisionDetection={collision}
@@ -879,6 +921,7 @@ export function BoardApp() {
         onRequestDelete={(t) => askDelete({ kind: "task", id: t.id, title: t.title })}
       />
 
+      <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
       <TrashPanel
         open={trashOpen}
         onOpenChange={setTrashOpen}

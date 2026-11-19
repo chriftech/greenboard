@@ -6,6 +6,8 @@ import { Menu } from "@base-ui/react/menu";
 import { Compass, House, LifeBuoy, LogIn, LogOut, Settings, UserPlus } from "lucide-react";
 import { UserAvatar } from "@/components/auth/user-avatar";
 import { authActions, useAuth } from "@/lib/auth";
+import { FileDown } from "lucide-react";
+import { downloadTasksCsv } from "@/lib/export";
 
 /**
  * The board header's account button: your avatar (or Guest), opening a menu with
@@ -78,6 +80,9 @@ export function ProfileMenu({ onStartTour }: { onStartTour: () => void }) {
             {/* Let the menu close first, so the tour's spotlight isn't fighting it for focus. */}
             <Option icon={<Compass className="size-4" />} onClick={() => window.setTimeout(onStartTour, 150)}>
               Take the tour
+            </Option>
+            <Option icon={<FileDown className="size-4" />} onClick={() => downloadTasksCsv()}>
+              Export tasks as CSV
             </Option>
             {!user && (
               <LinkOption href="/" icon={<House className="size-4" />}>

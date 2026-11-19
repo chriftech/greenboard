@@ -37,6 +37,8 @@ import { MAX_CUSTOM_TAGS, getCustomTags, type CustomTag, type TagView } from "@/
 import { TagDot } from "./tag-chip";
 import { UserAvatar } from "@/components/auth/user-avatar";
 import { authActions, useAuth } from "@/lib/auth";
+import { FileDown } from "lucide-react";
+import { downloadTasksCsv } from "@/lib/export";
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -468,6 +470,7 @@ function SidebarBody({
           <SidebarItem icon={<LifeBuoy className="size-4" />} label="Help & feedback" href="/help" collapsed={collapsed} />
           <SidebarItem icon={<Compass className="size-4" />} label="Take the tour" onClick={onStartTour} collapsed={collapsed} />
         </div>
+        <SidebarItem icon={<FileDown className="size-4" />} label="Export as CSV" onClick={downloadTasksCsv} collapsed={collapsed} />
         <AccountChip collapsed={collapsed} />
       </div>
     </>

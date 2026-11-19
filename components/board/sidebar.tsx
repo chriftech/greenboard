@@ -460,9 +460,9 @@ function SidebarBody({
         })()}
       </nav>
 
-      {/* Settings isn't wired to anything yet; Help opens /help. */}
+      {/* Settings opens /settings; Help opens /help. */}
       <div className="space-y-0.5 border-t border-ink/10 px-3 py-3">
-        <SidebarItem icon={<Settings className="size-4" />} label="Settings" collapsed={collapsed} />
+        <SidebarItem icon={<Settings className="size-4" />} label="Settings" href="/settings" collapsed={collapsed} />
         {/* The tour's last stop points here. */}
         <div data-tour="help" className="space-y-0.5">
           <SidebarItem icon={<LifeBuoy className="size-4" />} label="Help & feedback" href="/help" collapsed={collapsed} />

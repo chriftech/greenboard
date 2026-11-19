@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Menu } from "@base-ui/react/menu";
-import { Compass, House, LifeBuoy, LogIn, LogOut, UserPlus } from "lucide-react";
+import { Compass, House, LifeBuoy, LogIn, LogOut, Settings, UserPlus } from "lucide-react";
 import { UserAvatar } from "@/components/auth/user-avatar";
 import { authActions, useAuth } from "@/lib/auth";
 
@@ -69,6 +69,9 @@ export function ProfileMenu({ onStartTour }: { onStartTour: () => void }) {
               </>
             )}
 
+            <LinkOption href="/settings" icon={<Settings className="size-4" />}>
+              Settings
+            </LinkOption>
             <LinkOption href="/help" icon={<LifeBuoy className="size-4" />}>
               Help &amp; feedback
             </LinkOption>

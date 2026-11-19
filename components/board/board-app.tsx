@@ -65,6 +65,7 @@ import { findTag, tagActions, useTags, type CustomTag, type TagView } from "@/li
 import { TrashPanel } from "./trash-panel";
 import { Tour } from "./tour";
 import { hasSeenTour, tourActions } from "@/lib/tour";
+import { useSettings } from "@/lib/settings";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProfileMenu } from "./profile-menu";
 import { MobileSidebar, Sidebar, type NavTarget, type SidebarProps } from "./sidebar";
@@ -193,6 +194,7 @@ const collision: CollisionDetection = (args) => {
 };
 
 export function BoardApp() {
+  const { showGreeting } = useSettings();
   const tasks = useSyncExternalStore(subscribeTasks, getTasks, getServerTasks);
   const [view, setView] = useState<View>("board");
   const [filter, setFilter] = useState<Filter>("all");
@@ -602,7 +604,8 @@ export function BoardApp() {
             */}
             <div aria-hidden className="gb-grid-bg gb-grid-fade pointer-events-none absolute inset-x-0 -top-40 -bottom-10 -z-10" />
             <div className="mx-auto max-w-5xl px-4">
-              <Summary loaded={loaded} total={all.length} doneCount={all.length - pendingAll.length} />
+              {/* The greeting card can be turned off in Settings. */}
+              {showGreeting && <Summary loaded={loaded} total={all.length} doneCount={all.length - pendingAll.length} />}
               <Composer />
 
               {/* What the sidebar has narrowed the board to */}
@@ -685,10 +688,10 @@ export function BoardApp() {
             className={`mx-auto max-w-5xl px-4 ${columnsLayout ? (narrowed ? "mt-5" : "mt-10") : "mt-5"}`}
           >
             {!loaded ? (
-              <div className="grid divide-ink/15 md:grid-cols-2 md:divide-x" aria-label="Loading tasks">
+              <div className="grid divide-ink/15 border-ink/15 md:grid-cols-2 md:divide-x md:border-t" aria-label="Loading tasks">
                 {/* Rendered before the screen width is known, so it works for both layouts. */}
                 {[0, 1].map((c) => (
-                  <div key={c} className={`space-y-3 md:px-5 md:first:pl-0 md:last:pr-0 ${c ? "hidden md:block" : ""}`}>
+                  <div key={c} className={`space-y-3 md:px-5 md:pt-4 md:first:pl-0 md:last:pr-0 ${c ? "hidden md:block" : ""}`}>
                     <div className="h-6 w-28 animate-pulse rounded-full bg-surface" />
                     {[0, 1, 2].map((i) => (
                       <div key={i} className="h-[68px] animate-pulse rounded-2xl bg-surface/70" />
@@ -791,8 +794,8 @@ export function BoardApp() {
               >
                 <div
                   data-tour="columns"
-                  // Two open columns split by a vertical line (no cards).
-                  className="grid grid-cols-2 divide-x divide-ink/15"
+                  // Two open columns under a horizontal line, split by a vertical line that meets it (no cards).
+                  className="grid grid-cols-2 divide-x divide-ink/15 border-t border-ink/15"
                 >
                   {(["todo", "done"] as const).map((col) => (
                     <BoardColumn
@@ -1006,7 +1009,7 @@ function Composer() {
   return (
     <form
       onSubmit={submit}
-      className="gb-rise mt-6 rounded-[28px] border border-ink/10 bg-surface p-4 shadow-[0_20px_60px_-30px_rgb(46_51_73/0.4)] sm:p-5"
+      className="gb-rise mt-6 first:mt-0 rounded-[28px] border border-ink/10 bg-surface p-4 shadow-[0_20px_60px_-30px_rgb(46_51_73/0.4)] sm:p-5"
       style={{ animationDelay: "120ms" }}
     >
       {/* Tag first, so it's chosen before typing the task. */}
@@ -1135,7 +1138,7 @@ function BoardColumn({
       aria-label={`${meta.title}, ${count} ${count === 1 ? "task" : "tasks"}`}
       data-tour={id === "todo" ? "tasks" : undefined}
       // Open columns: spacing either side of the dividing line, none at the outer edges.
-      className="flex min-w-0 flex-col px-5 first:pl-0 last:pr-0"
+      className="flex min-w-0 flex-col px-5 pt-4 first:pl-0 last:pr-0"
     >
       <div className="flex items-center gap-2 px-1 pb-3 pt-1">
         <span aria-hidden className={`size-2.5 rounded-full ${meta.dot}`} />

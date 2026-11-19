@@ -26,10 +26,11 @@ const FAQ: { q: string; a: ReactNode }[] = [
     q: "How do I tick a task off, or undo it?",
     a: (
       <>
-        Click the circle on the left of a task. It turns green and the text is struck through. Click it again to
-        mark the task as not done. On a wider screen, tasks sit in two columns, <b>Pending</b> and <b>Completed</b>, and
-        you can also drag a task from one column to the other. On a phone, the <b>Pending</b> and <b>Completed</b> tabs
-        split the two.
+        Click the circle on the left of a task. It turns green, the text is struck through and it moves to{" "}
+        <b>Completed</b>. Click it again to put it back in <b>Todo</b>. On a wider screen, tasks sit in three columns,{" "}
+        <b>Todo</b>, <b>Pending</b> (started, not finished) and <b>Completed</b>, and you can drag a task between them.
+        On a phone, the <b>Todo</b>, <b>Pending</b> and <b>Completed</b> tabs split them; to move a task to{" "}
+        <b>Pending</b>, open it and pick a <b>Status</b>.
       </>
     ),
   },

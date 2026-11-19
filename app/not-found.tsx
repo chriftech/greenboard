@@ -23,7 +23,7 @@ export default function NotFound() {
         />
       </div>
 
-      <header className="relative mx-auto flex w-full max-w-5xl items-center justify-between px-4 pt-6">
+      <header className="relative mx-auto flex w-full max-w-7xl items-center justify-between px-4 pt-6">
         <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="Greenboard home">
           <Logo />
           <span className="font-display text-xl font-bold tracking-tight">greenboard</span>
@@ -31,7 +31,7 @@ export default function NotFound() {
         <ThemeToggle />
       </header>
 
-      <main className="relative mx-auto grid w-full max-w-5xl flex-1 items-center gap-12 px-4 pb-16 pt-10 md:grid-cols-[1.1fr_1fr] md:gap-10">
+      <main className="relative mx-auto grid w-full max-w-7xl flex-1 items-center gap-12 px-4 pb-16 pt-10 md:grid-cols-[1.1fr_1fr] md:gap-10">
         <section className="gb-rise text-center md:text-left">
           {/* "404", with the 0 drawn as an empty task checkbox. */}
           <p

@@ -6,10 +6,11 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { MenuButton } from "@/components/workspace/menu-button";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { ProfileSettings } from "@/components/settings/profile-settings";
+import { ColumnsSettings, WorkflowSettings } from "@/components/settings/columns-settings";
 
 export const metadata: Metadata = {
   title: "Settings — Greenboard",
-  description: "Your Greenboard profile, and how your board looks.",
+  description: "Your Greenboard profile, how your board looks, and its columns and workflow.",
 };
 
 export default function SettingsPage() {
@@ -24,7 +25,7 @@ export default function SettingsPage() {
         />
       </div>
 
-      <header className="relative mx-auto flex max-w-5xl items-center justify-between px-4 pt-6 lg:justify-end">
+      <header className="relative mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 lg:justify-end">
         {/* From lg up the sidebar shows the logo. */}
         <Link href="/" className="flex shrink-0 items-center gap-2 lg:hidden" aria-label="Greenboard home">
           <Logo />
@@ -44,7 +45,7 @@ export default function SettingsPage() {
         </div>
       </header>
 
-      <main className="relative mx-auto max-w-5xl px-4 pb-24 pt-8">
+      <main className="relative mx-auto max-w-7xl px-4 pb-24 pt-8">
         <section className="gb-rise relative overflow-hidden rounded-[28px] bg-deep p-6 text-white shadow-[0_30px_80px_-30px_rgb(46_51_73/0.7)] sm:p-8">
           <div aria-hidden className="gb-blob absolute -right-16 -top-24 size-72 rounded-full bg-iris/40 blur-3xl" />
           <div className="relative">
@@ -52,13 +53,15 @@ export default function SettingsPage() {
               <Settings className="size-6" />
             </span>
             <h1 className="mt-4 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">Settings</h1>
-            <p className="mt-2 max-w-lg text-white/75">Your profile, and how your board looks.</p>
+            <p className="mt-2 max-w-lg text-white/75">Your profile, how your board looks, and its columns and workflow.</p>
           </div>
         </section>
 
         <div className="mt-10 space-y-10">
           <ProfileSettings />
           <SettingsForm />
+          <ColumnsSettings />
+          <WorkflowSettings />
         </div>
       </main>
     </div>

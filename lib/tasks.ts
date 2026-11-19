@@ -1,3 +1,5 @@
+import { DONE_COLUMN, TODO_COLUMN, knownColumn } from "./columns";
+
 /**
  * Client-side task store backed by localStorage.
  *
@@ -59,30 +61,32 @@ export type Task = {
   priority?: PriorityId;
   /** Person the task is assigned to: an id from lib/people.ts ("me" or "person-…"). */
   assignee?: string;
-  /** Started but not finished (the Pending status). Only kept while the task isn't done. */
+  /** The column a not-done task sits in (see lib/columns.ts). Unset means Todo. */
+  column?: string;
+  /** Older saves: started but not finished, before custom columns. Read as the Pending column. */
   inProgress?: boolean;
 };
 
-/** Where a task is on the board: not started, in progress, or done. */
-export type TaskStatus = "todo" | "pending" | "done";
+/**
+ * Where a task is on the board: a column id from lib/columns.ts. "todo" and
+ * "done" (Completed) always exist; the rest are the user's columns.
+ */
+export type TaskStatus = string;
 
-export const STATUSES: readonly { id: TaskStatus; label: string }[] = [
-  { id: "todo", label: "Todo" },
-  { id: "pending", label: "Pending" },
-  { id: "done", label: "Completed" },
-];
-
-export function statusOf(t: Pick<Task, "done" | "inProgress">): TaskStatus {
-  return t.done ? "done" : t.inProgress ? "pending" : "todo";
+/** The column a task is in. A column that's been deleted reads as Todo. */
+export function statusOf(t: Pick<Task, "done" | "column" | "inProgress">): TaskStatus {
+  if (t.done) return DONE_COLUMN;
+  return knownColumn(t.column ?? (t.inProgress ? "pending" : TODO_COLUMN));
 }
 
-/** The fields that store a status (done tasks drop the in-progress flag). */
+/** The fields that store a status: done tasks keep doneAt; others keep their column (none for Todo). */
 function withStatus<T extends Task>(t: T, status: TaskStatus): T {
-  const { inProgress: _p, doneAt: _d, ...rest } = t;
+  const { inProgress: _p, doneAt: _d, column: _c, ...rest } = t;
   void _p;
   void _d;
-  if (status === "done") return { ...rest, done: true, doneAt: t.done ? t.doneAt : Date.now() } as T;
-  return { ...rest, done: false, ...(status === "pending" ? { inProgress: true } : {}) } as T;
+  void _c;
+  if (status === DONE_COLUMN) return { ...rest, done: true, doneAt: t.done ? t.doneAt : Date.now() } as T;
+  return { ...rest, done: false, ...(status !== TODO_COLUMN ? { column: status } : {}) } as T;
 }
 
 export type TaskPatch = Partial<
@@ -141,7 +145,8 @@ function isTask(v: unknown): v is Task {
     (t.descriptionText === undefined || typeof t.descriptionText === "string") &&
     (t.priority === undefined || (typeof t.priority === "string" && PRIORITY_IDS.has(t.priority))) &&
     (t.assignee === undefined || typeof t.assignee === "string") &&
-    (t.inProgress === undefined || typeof t.inProgress === "boolean")
+    (t.inProgress === undefined || typeof t.inProgress === "boolean") &&
+    (t.column === undefined || typeof t.column === "string")
   );
 }
 
@@ -245,9 +250,14 @@ export const taskActions = {
   toggle(id: string) {
     save(getTasks().map((t) => (t.id === id ? withStatus(t, t.done ? "todo" : "done") : t)));
   },
-  /** Move a task to Todo, Pending (in progress) or Completed. */
+  /** Move a task to a column (Completed ticks it off). */
   setStatus(id: string, status: TaskStatus) {
     save(getTasks().map((t) => (t.id === id && statusOf(t) !== status ? withStatus(t, status) : t)));
+  },
+  /** Move every task in one column to another (used before a column is deleted). Trash included. */
+  moveColumn(from: TaskStatus, to: TaskStatus) {
+    const tasks = getTasks();
+    if (tasks.some((t) => statusOf(t) === from)) save(tasks.map((t) => (statusOf(t) === from ? withStatus(t, to) : t)));
   },
   rename(id: string, title: string) {
     const clean = title.trim();

@@ -59,7 +59,7 @@ function Hero() {
         />
       </div>
 
-      <div className="relative mx-auto grid max-w-6xl items-center gap-16 lg:grid-cols-[1.1fr_1fr]">
+      <div className="relative mx-auto grid max-w-7xl items-center gap-16 lg:grid-cols-[1.1fr_1fr]">
         <div className="text-center lg:text-left">
           <div
             className="gb-rise inline-flex items-center gap-2 rounded-full border border-ink/10 bg-surface/70 px-3 py-1.5 text-sm font-medium text-ink/80 shadow-sm backdrop-blur"
@@ -230,7 +230,7 @@ function HowItWorks() {
         sub="If you can tick a box, you already know how to use Greenboard."
       />
 
-      <div className="relative mx-auto mt-16 grid max-w-5xl gap-6 md:grid-cols-3">
+      <div className="relative mx-auto mt-16 grid max-w-7xl gap-6 md:grid-cols-3">
         <div
           aria-hidden
           className="absolute left-[16%] right-[16%] top-12 hidden border-t-[3px] border-dashed border-iris/40 md:block"
@@ -265,7 +265,7 @@ function Cta() {
   ];
   return (
     <section id="start" className="scroll-mt-24 px-4 pb-24">
-      <Reveal className="mx-auto max-w-6xl">
+      <Reveal className="mx-auto max-w-7xl">
         <div className="relative overflow-hidden rounded-[36px] bg-deep px-6 py-20 text-center sm:px-12 sm:py-28">
           <div aria-hidden className="pointer-events-none absolute inset-0">
             <div className="gb-blob absolute -left-20 -top-20 size-80 rounded-full bg-iris/40 blur-3xl" />
@@ -318,7 +318,7 @@ function Cta() {
 function Footer() {
   return (
     <footer className="border-t border-ink/10 px-4 py-10">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 sm:flex-row">
+      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 sm:flex-row">
         <a href="#top" className="flex items-center gap-2">
           <Logo className="size-8" />
           <span className="font-display text-lg font-bold">greenboard</span>

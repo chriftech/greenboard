@@ -15,8 +15,8 @@ import type { TagId } from "./tasks";
 import type { CustomTag, TagView } from "./tags";
 
 export type View = "board" | "today" | "upcoming";
-/** The phone tabs: tasks grouped by status (Todo, Pending, Completed). */
-export type Filter = "todo" | "pending" | "done";
+/** The phone tab: a column id (see lib/columns.ts), "todo" by default. */
+export type Filter = string;
 /** "any" shows every task; "none" only tasks without one. */
 export type PriorityFilter = "any" | "none" | "urgent" | "high" | "medium" | "low";
 /** "any", "none" (unassigned), or a person's id ("me", "person-…"). */

@@ -83,7 +83,6 @@ import {
 } from "./schedule";
 import {
   DEFAULT_TAG,
-  STATUSES,
   TRASH_DAYS,
   getServerTasks,
   getTasks,
@@ -95,17 +94,23 @@ import {
   type Task,
   type TaskStatus,
 } from "@/lib/tasks";
+import {
+  DONE_COLUMN,
+  TODO_COLUMN,
+  canMove,
+  useBoardColumns,
+  useWorkflow,
+  type BoardColumn as ColumnDef,
+} from "@/lib/columns";
 
-/** The board's two columns (wider screens). */
-/** The board's columns (and phone tabs): one per status. */
+/** The board's columns (and phone tabs): Todo, the user's columns, Completed (see lib/columns.ts). */
 type ColumnId = TaskStatus;
-const COLUMN_IDS: readonly ColumnId[] = ["todo", "pending", "done"];
 /** Which column or tab a "Delete all" empties. */
 type DeleteAllList = ColumnId;
 /** Destructive actions waiting for confirmation. */
 type PendingDelete =
   | { kind: "task"; id: string; title: string } // move one task to Trash
-  | { kind: "all"; ids: string[]; list: DeleteAllList; narrowed: boolean } // move every task shown in a column or tab to Trash
+  | { kind: "all"; ids: string[]; list: DeleteAllList; label: string; narrowed: boolean } // move every task shown in a column or tab to Trash
   | { kind: "forever"; id: string; title: string } // delete one trashed task for good
   | { kind: "empty"; count: number } // delete everything in Trash for good
   | { kind: "tag"; id: string; label: string; count: number }; // delete a custom tag
@@ -115,7 +120,7 @@ function confirmCopy(p: PendingDelete | null) {
   switch (p?.kind) {
     case "all": {
       const n = p.ids.length;
-      const kind = p.list === "todo" ? "todo task" : p.list === "pending" ? "pending task" : "completed task";
+      const kind = `${p.label.toLowerCase()} task`;
       return {
         title: n === 1 ? `Move 1 ${kind} to Trash?` : `Move all ${plural(n, kind)} to Trash?`,
         description: `${p.narrowed ? "Only the tasks shown with your current filters are included. " : ""}You can restore ${n === 1 ? "it" : "them"} from Trash for ${TRASH_DAYS} days. After that ${n === 1 ? "it's" : "they're"} deleted for good.`,
@@ -166,11 +171,8 @@ const MOVE_DELAY_MS = 50;
 /** The progress bar fills faster than the pause, so it's full just before the task moves. */
 const MOVE_PROGRESS_MS = 350;
 
-/** Phone tabs: tasks grouped by status. */
-const FILTERS: { id: Filter; label: string }[] = STATUSES.map((s) => ({ id: s.id, label: s.label }));
-
-/** Droppable ids for the columns themselves (tasks use their own ids). */
-const COLUMN_DROP: Record<ColumnId, string> = { todo: "col-todo", pending: "col-pending", done: "col-done" };
+/** Droppable id for a column itself (tasks use their own ids). */
+const dropId = (col: ColumnId) => `col-${col}`;
 
 /**
  * Drop on the task under the pointer if there is one, else on the column
@@ -192,6 +194,23 @@ export function BoardApp() {
   const { view, filter, tag, query, priority, assignee: assigneeFilter } = useWorkspace();
   const { setView, setFilter, setTag, setQuery, setPriority, setAssignee: setAssigneeFilter } = workspace;
   const columnsLayout = useColumns();
+  // The user's columns (Settings), and which moves between them the workflow allows.
+  const boardColumns = useBoardColumns();
+  const workflow = useWorkflow();
+  const columnIds = boardColumns.map((c) => c.id);
+  const labelOf = (col: ColumnId) => boardColumns.find((c) => c.id === col)?.label ?? "Todo";
+  // A phone tab for a column that was since deleted falls back to the first one.
+  const tab: ColumnId = columnIds.includes(filter) ? filter : TODO_COLUMN;
+  // A short visible note when the workflow blocks a move.
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimer = useRef<number | undefined>(undefined);
+  function blockMove(from: ColumnId, to: ColumnId) {
+    const text = `Your workflow doesn't allow moving from ${labelOf(from)} to ${labelOf(to)}.`;
+    setNotice(text);
+    setAnnouncement(text);
+    window.clearTimeout(noticeTimer.current);
+    noticeTimer.current = window.setTimeout(() => setNotice(null), 3500);
+  }
   const people = usePeople();
   const [importOpen, setImportOpen] = useState(false);
   const tags = useTags();
@@ -312,11 +331,13 @@ export function BoardApp() {
 
   function toggleTask(task: Task, origin?: DOMRect) {
     const nowDone = !task.done;
+    const from = statusOf(task);
+    const to = nowDone ? DONE_COLUMN : TODO_COLUMN;
+    if (!canMove(from, to, workflow)) return blockMove(from, to);
     taskActions.toggle(task.id);
     if (nowDone && origin) flyToCompleted(origin);
     if (!nowDone) return stopMoving(task.id); // unticked during the pause: stay put
-    if (!columnsLayout && filter === "done") return; // already looking at Completed: nothing moves
-    const from = statusOf(task);
+    if (!columnsLayout && tab === DONE_COLUMN) return; // already looking at Completed: nothing moves
     setMoving((s) => new Map(s).set(task.id, from));
     moveTimers.current.set(
       task.id,
@@ -387,25 +408,22 @@ export function BoardApp() {
   const narrowed = sidebarNarrowed || priority !== "any" || activeAssignee !== "any";
   /** Ask to move every task shown in a column or tab to Trash. */
   const askDeleteAll = (list: DeleteAllList, tasks: Task[]) =>
-    askDelete({ kind: "all", ids: tasks.map((t) => t.id), list, narrowed });
+    askDelete({ kind: "all", ids: tasks.map((t) => t.id), list, label: labelOf(list), narrowed });
 
-  // Tasks that are mid-move stay in their column (Todo or Pending) until their pause ends.
+  // Tasks that are mid-move stay in the column they were ticked in until their pause ends.
   const shownIn = (t: Task) => moving.get(t.id) ?? statusOf(t);
-  const todo = scoped.filter((t) => shownIn(t) === "todo");
-  const pendingTasks = scoped.filter((t) => shownIn(t) === "pending");
-  const done = scoped.filter((t) => shownIn(t) === "done");
+  const columns: Record<ColumnId, Task[]> = Object.fromEntries(columnIds.map((c) => [c, [] as Task[]]));
+  scoped.forEach((t) => (columns[shownIn(t)] ?? columns[TODO_COLUMN]).push(t));
   // Counts change as soon as a task is ticked, before it slides across.
-  const counts: Record<ColumnId, number> = { todo: 0, pending: 0, done: 0 };
-  scoped.forEach((t) => counts[statusOf(t)]++);
+  const counts: Record<ColumnId, number> = Object.fromEntries(columnIds.map((c) => [c, 0]));
+  scoped.forEach((t) => (counts[statusOf(t)] = (counts[statusOf(t)] ?? 0) + 1));
 
   // My board: each column in the order the user dragged it into.
   // Today/Upcoming: soonest start first, and not draggable.
   const byOrder = (a: Task, b: Task) => a.order - b.order;
   const byStart = (a: Task, b: Task) => (a.start ?? "").localeCompare(b.start ?? "") || byOrder(a, b);
   const sortable = view === "board";
-  todo.sort(sortable ? byOrder : byStart);
-  pendingTasks.sort(sortable ? byOrder : byStart);
-  done.sort(sortable ? byOrder : byStart);
+  Object.values(columns).forEach((list) => list.sort(sortable ? byOrder : byStart));
 
   function navigate(target: NavTarget) {
     switch (target) {
@@ -424,7 +442,7 @@ export function BoardApp() {
         return;
       }
       case "board":
-        // "My board" is the reset: unfiltered, back on the Pending tab.
+        // "My board" is the reset: unfiltered, back on the first tab.
         clearFilters();
         setQuery("");
         setFilter("todo");
@@ -492,21 +510,20 @@ export function BoardApp() {
   );
   const titleOf = (id: UniqueIdentifier) => `"${all.find((t) => t.id === id)?.title ?? "task"}"`;
 
-  const columns: Record<ColumnId, Task[]> = { todo, pending: pendingTasks, done };
   const columnOf = (id: UniqueIdentifier): ColumnId | null => {
     const key = String(id);
-    return COLUMN_IDS.find((c) => key === COLUMN_DROP[c] || columns[c].some((t) => t.id === key)) ?? null;
+    return columnIds.find((c) => key === dropId(c) || columns[c].some((t) => t.id === key)) ?? null;
   };
   const activeTask = activeId ? all.find((t) => t.id === activeId) ?? null : null;
 
-  // Phones: one list per status, picked with the Todo / Pending / Completed tabs.
-  const list = columns[filter];
+  // Phones: one list per column, picked with the tabs.
+  const list = columns[tab];
   const listCount = list.length;
 
   /** Phones: reorder within one status; never across them. */
   function handleListDragEnd({ active, over }: DragEndEvent) {
     if (!over || active.id === over.id) return;
-    const group = COLUMN_IDS.map((c) => columns[c]).find((g) => g.some((t) => t.id === active.id));
+    const group = columnIds.map((c) => columns[c]).find((g) => g.some((t) => t.id === active.id));
     if (!group || !group.some((t) => t.id === over.id)) return;
     const ids = group.map((t) => t.id);
     taskActions.reorder(arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id))));
@@ -532,7 +549,7 @@ export function BoardApp() {
     const from = columnOf(active.id);
     const to = columnOf(over.id);
     if (!from || !to) return;
-    const overTask = String(over.id) !== COLUMN_DROP[to] ? String(over.id) : null;
+    const overTask = String(over.id) !== dropId(to) ? String(over.id) : null;
 
     if (from === to) {
       // Reorder within the column; dropping on the column's empty space moves it to the end.
@@ -543,19 +560,27 @@ export function BoardApp() {
       return;
     }
 
-    // Across columns: give it that column's status, placed where it was dropped.
+    // Across columns: give it that column's status, placed where it was dropped (if the workflow allows it).
+    if (!canMove(from, to, workflow)) return blockMove(from, to);
     const ids = columns[to].map((t) => t.id);
     const at = overTask ? ids.indexOf(overTask) : -1;
     ids.splice(at === -1 ? ids.length : at, 0, id);
     taskActions.setStatus(id, to);
     taskActions.reorder(ids);
     const title = all.find((t) => t.id === id)?.title ?? "Task";
-    setAnnouncement(`"${title}" moved to ${COLUMN_META[to].title}.`);
-    if (to === "done") {
+    setAnnouncement(`"${title}" moved to ${labelOf(to)}.`);
+    if (to === DONE_COLUMN) {
       setLanded(id);
       window.setTimeout(() => setLanded((l) => (l === id ? null : l)), 1100);
     }
   }
+
+  const workflowNotice = notice ? (
+    <p role="status" className="gb-pop mb-4 flex items-center gap-2 rounded-2xl border border-coral/30 bg-coral/10 px-4 py-2.5 text-sm font-medium text-ink">
+      <span aria-hidden className="size-2 shrink-0 rounded-full bg-coral" />
+      {notice}
+    </p>
+  ) : null;
 
   return (
     <>
@@ -577,7 +602,7 @@ export function BoardApp() {
           />
         </div>
   
-        <header className="relative mx-auto flex max-w-5xl items-center justify-between px-4 pt-6 lg:justify-end">
+        <header className="relative mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 lg:justify-end">
           {/* The sidebar shows the logo from md up. */}
           <Link href="/" className="flex shrink-0 items-center gap-2 lg:hidden">
             <Logo />
@@ -608,7 +633,7 @@ export function BoardApp() {
               time the task columns start (it reaches up past the header and down to the board).
             */}
             <div aria-hidden className="gb-grid-bg gb-grid-fade pointer-events-none absolute inset-x-0 -top-40 -bottom-10 -z-10" />
-            <div className="mx-auto max-w-5xl px-4">
+            <div className="mx-auto max-w-7xl px-4">
               {/* The greeting card can be turned off in Settings (which, like the tasks, is only known once loaded). */}
               {!loaded ? (
                 <GreetingSkeleton />
@@ -641,46 +666,55 @@ export function BoardApp() {
               {/* Phones: tabs instead of columns. */}
               {!columnsLayout && (
                 <div className={`${sidebarNarrowed ? "mt-4" : "mt-10"} flex flex-wrap items-center justify-between gap-3`}>
+                  {/* Up to three columns share the width with a sliding highlight; more scroll sideways. */}
                   <div
                     role="tablist"
                     aria-label="Filter tasks"
                     data-tour="filters"
-                    className="relative grid w-full grid-cols-3 rounded-2xl border border-ink/10 bg-surface p-1 sm:w-auto"
+                    className={`relative w-full rounded-2xl border border-ink/10 bg-surface p-1 sm:w-auto ${
+                      boardColumns.length <= 3 ? "grid" : "gb-column-scroll flex gap-1 overflow-x-auto"
+                    }`}
+                    style={boardColumns.length <= 3 ? { gridTemplateColumns: `repeat(${boardColumns.length}, minmax(0, 1fr))` } : undefined}
                   >
-                    <span
-                      aria-hidden
-                      className="absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-xl bg-deep transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
-                      style={{ transform: `translateX(${FILTERS.findIndex((f) => f.id === filter) * 100}%)` }}
-                    />
-                    {FILTERS.map((f) => (
+                    {boardColumns.length <= 3 && (
+                      <span
+                        aria-hidden
+                        className="absolute inset-y-1 left-1 rounded-xl bg-deep transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+                        style={{
+                          width: `calc((100% - 0.5rem) / ${boardColumns.length})`,
+                          transform: `translateX(${columnIds.indexOf(tab) * 100}%)`,
+                        }}
+                      />
+                    )}
+                    {boardColumns.map((f) => (
                       <button
                         key={f.id}
                         type="button"
                         role="tab"
-                        aria-selected={filter === f.id}
+                        aria-selected={tab === f.id}
                         onClick={() => setFilter(f.id)}
-                        className={`relative z-10 flex items-center justify-center gap-1 whitespace-nowrap rounded-xl px-2 py-2 text-[13px] font-semibold transition-colors sm:gap-1.5 sm:px-4 sm:text-sm ${
-                          filter === f.id ? "text-peach" : "text-ink/60 hover:text-ink"
-                        }`}
+                        className={`relative z-10 flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl px-2 py-2 text-[13px] font-semibold transition-colors sm:gap-1.5 sm:px-4 sm:text-sm ${
+                          tab === f.id ? "text-peach" : "text-ink/60 hover:text-ink"
+                        } ${tab === f.id && boardColumns.length > 3 ? "bg-deep" : ""}`}
                       >
                         {f.label}
                         <span
-                          ref={f.id === "done" ? completedCountRef : undefined}
+                          ref={f.id === DONE_COLUMN ? completedCountRef : undefined}
                           className={`inline-block rounded-full px-1.5 text-[11px] tabular-nums ${
-                            filter === f.id ? "bg-white/15" : "bg-ink/5"
+                            tab === f.id ? "bg-white/15" : "bg-ink/5"
                           }`}
                         >
-                          {loaded ? counts[f.id] : "–"}
+                          {loaded ? (counts[f.id] ?? 0) : "–"}
                         </span>
                       </button>
                     ))}
                   </div>
 
-                  {/* Empties the tab you're on: Todo, Pending or Completed (only the tasks shown). */}
+                  {/* Empties the tab you're on (only the tasks shown). */}
                   {listCount > 0 && (
                     <button
                       type="button"
-                      onClick={() => askDeleteAll(filter, list)}
+                      onClick={() => askDeleteAll(tab, list)}
                       className="text-sm font-medium text-ink/55 underline-offset-4 transition-colors hover:text-coral hover:underline"
                     >
                       Delete all ({listCount})
@@ -695,7 +729,7 @@ export function BoardApp() {
           {/* The board: Pending and Completed columns side by side, as wide as the section above. Phones get the tabbed list. */}
           <section
             aria-label="Task board"
-            className={`mx-auto max-w-5xl px-4 ${columnsLayout ? (sidebarNarrowed ? "mt-5" : "mt-10") : "mt-5"}`}
+            className={`mx-auto max-w-7xl px-4 ${columnsLayout ? (sidebarNarrowed ? "mt-5" : "mt-10") : "mt-5"}`}
           >
             {/* Filters on the left, Export on the far right, above the columns. */}
             {loaded && (
@@ -718,7 +752,8 @@ export function BoardApp() {
             ) : (columnsLayout ? scoped.length : listCount) === 0 ? (
               <div>
                 <EmptyState
-                  filter={columnsLayout ? null : filter}
+                  filter={columnsLayout ? null : tab}
+                  filterLabel={labelOf(tab)}
                   total={all.length}
                   view={view}
                   narrowed={narrowed}
@@ -782,14 +817,14 @@ export function BoardApp() {
                 accessibility={{
                   screenReaderInstructions: {
                     draggable:
-                      "To move a task, press space or enter to pick it up, use the arrow keys to move it within or between the Todo, Pending and Completed columns, then space or enter to drop it. Press escape to cancel.",
+                      "To move a task, press space or enter to pick it up, use the arrow keys to move it within or between the columns, then space or enter to drop it. Press escape to cancel.",
                   },
                   announcements: {
                     onDragStart: ({ active }) => `Picked up ${titleOf(active.id)}.`,
                     onDragOver: ({ active, over }) =>
                       over
                         ? String(over.id).startsWith("col-")
-                          ? `${titleOf(active.id)} is over the ${COLUMN_META[columnOf(over.id) ?? "todo"].title} column.`
+                          ? `${titleOf(active.id)} is over the ${labelOf(columnOf(over.id) ?? TODO_COLUMN)} column.`
                           : `${titleOf(active.id)} is over ${titleOf(over.id)}.`
                         : `${titleOf(active.id)} is not over a column.`,
                     onDragEnd: ({ active, over }) =>
@@ -798,19 +833,28 @@ export function BoardApp() {
                   },
                 }}
               >
+                {workflowNotice}
+                {/* Open columns under a horizontal line, split by vertical lines that meet it (no cards).
+                    Four fit a wide screen; more scroll sideways. Only sideways: a vertical scroll here could hide the top line. */}
+                <div className="gb-column-scroll -mx-2 overflow-x-auto overflow-y-hidden px-2">
                 <div
                   data-tour="columns"
-                  // Three open columns under a horizontal line, split by vertical lines that meet it (no cards).
-                  className="grid grid-cols-3 divide-x divide-ink/15 border-t border-ink/15"
+                  className="grid divide-x divide-ink/15 border-t border-ink/15"
+                  style={{ gridTemplateColumns: `repeat(${boardColumns.length}, minmax(19rem, 1fr))` }}
                 >
-                  {COLUMN_IDS.map((col) => (
+                  {boardColumns.map(({ id: col }) => {
+                    const dragFrom = activeTask ? columnOf(activeTask.id) : null;
+                    const draggedOver = activeTask !== null && overColumn === col && dragFrom !== col;
+                    const blocked = draggedOver && dragFrom !== null && !canMove(dragFrom, col, workflow);
+                    return (
                     <BoardColumn
                       key={col}
-                      id={col}
-                      count={counts[col]}
-                      countRef={col === "done" ? completedCountRef : undefined}
-                      columnRef={col === "done" ? doneColumnRef : undefined}
-                      highlight={(activeTask !== null && overColumn === col && columnOf(activeTask.id) !== col) || flash === col}
+                      column={boardColumns.find((c) => c.id === col)!}
+                      count={counts[col] ?? 0}
+                      countRef={col === DONE_COLUMN ? completedCountRef : undefined}
+                      columnRef={col === DONE_COLUMN ? doneColumnRef : undefined}
+                      highlight={(draggedOver && !blocked) || flash === col}
+                      blocked={blocked}
                       empty={columns[col].length === 0}
                       dragging={activeTask !== null}
                       action={
@@ -818,7 +862,7 @@ export function BoardApp() {
                           <button
                             type="button"
                             onClick={() => askDeleteAll(col, columns[col])}
-                            aria-label={`Delete all ${COLUMN_META[col].title.toLowerCase()} tasks`}
+                            aria-label={`Delete all ${labelOf(col).toLowerCase()} tasks`}
                             className="rounded-lg px-2 py-1 text-xs font-semibold text-ink/50 transition-colors hover:bg-coral/10 hover:text-coral"
                           >
                             Delete all
@@ -843,7 +887,9 @@ export function BoardApp() {
                         ))}
                       </SortableContext>
                     </BoardColumn>
-                  ))}
+                    );
+                  })}
+                </div>
                 </div>
 
                 {/* The card that follows the pointer while dragging (the original stays behind as a placeholder). */}
@@ -865,6 +911,7 @@ export function BoardApp() {
                 </DragOverlay>
               </DndContext>
             )}
+            {!columnsLayout && workflowNotice}
             <p className="sr-only" aria-live="polite">
               {announcement}
             </p>
@@ -1091,52 +1138,42 @@ function Composer() {
 
 /* ───────────────────────── Columns ───────────────────────── */
 
-const COLUMN_META: Record<ColumnId, { title: string; dot: string; emptyTitle: string; emptyBody: string }> = {
-  todo: {
-    title: "Todo",
-    dot: "bg-iris",
-    emptyTitle: "Nothing waiting 🎉",
-    emptyBody: "New tasks start here. Add one above.",
-  },
-  pending: {
-    title: "Pending",
-    dot: "bg-peach",
-    emptyTitle: "Nothing in progress",
-    emptyBody: "Drag a task here, or set its status to Pending, when you start on it.",
-  },
-  done: {
-    title: "Completed",
-    dot: "bg-success",
-    emptyTitle: "Nothing ticked yet",
-    emptyBody: "Tick a task's circle, or drag it here, to complete it.",
-  },
-};
+/** A column's heading and empty-state words. */
+function columnCopy(c: ColumnDef): { emptyTitle: string; emptyBody: string } {
+  if (c.id === TODO_COLUMN) return { emptyTitle: "Nothing waiting 🎉", emptyBody: "New tasks start here. Add one above." };
+  if (c.id === DONE_COLUMN) return { emptyTitle: "Nothing ticked yet", emptyBody: "Tick a task's circle, or drag it here, to complete it." };
+  return { emptyTitle: `Nothing in ${c.label}`, emptyBody: `Drag a task here, or set its status to ${c.label}.` };
+}
 
 function BoardColumn({
-  id,
+  column,
   count,
   countRef,
   columnRef,
   highlight,
+  blocked = false,
   empty,
   dragging,
   action,
   children,
 }: {
-  id: ColumnId;
+  column: ColumnDef;
   count: number;
   /** The count badge (Completed's is where the ✓ bubble lands). */
   countRef?: RefObject<HTMLSpanElement | null>;
   columnRef?: RefObject<HTMLDivElement | null>;
-  /** A task is being dragged over from the other column, or the sidebar pointed here. */
+  /** A task is being dragged over from another column, or the sidebar pointed here. */
   highlight: boolean;
+  /** A task is dragged over, but the workflow doesn't allow the move. */
+  blocked?: boolean;
   empty: boolean;
   dragging: boolean;
   action?: ReactNode;
   children: ReactNode;
 }) {
-  const { setNodeRef } = useDroppable({ id: COLUMN_DROP[id] });
-  const meta = COLUMN_META[id];
+  const id = column.id;
+  const { setNodeRef } = useDroppable({ id: dropId(id) });
+  const meta = { title: column.label, dot: column.dot, ...columnCopy(column) };
 
   return (
     <div
@@ -1146,28 +1183,32 @@ function BoardColumn({
       }}
       role="group"
       aria-label={`${meta.title}, ${count} ${count === 1 ? "task" : "tasks"}`}
-      data-tour={id === "todo" ? "tasks" : undefined}
+      data-tour={id === TODO_COLUMN ? "tasks" : undefined}
       // Open columns: spacing either side of the dividing line, none at the outer edges.
-      className="flex min-w-0 flex-col px-5 pt-4 first:pl-0 last:pr-0"
+      // pb-2 holds the scroll area's negative bottom margin, so nothing spills below the board.
+      className="flex min-w-0 flex-col px-5 pb-2 pt-4 first:pl-0 last:pr-0"
     >
       <div className="flex items-center gap-2 px-1 pb-3 pt-1">
-        <span aria-hidden className={`size-2.5 rounded-full ${meta.dot}`} />
-        <h2 className={`font-display text-base font-bold transition-colors ${highlight ? "text-iris" : ""}`}>{meta.title}</h2>
+        <span aria-hidden className={`size-2.5 shrink-0 rounded-full ${meta.dot}`} />
+        <h2 className={`min-w-0 truncate font-display text-base font-bold transition-colors ${highlight ? "text-iris" : blocked ? "text-coral" : ""}`}>
+          {meta.title}
+        </h2>
         <span
           ref={countRef}
           className="inline-block rounded-full bg-ink/8 px-2 py-0.5 text-xs font-semibold tabular-nums text-ink/60"
         >
           {count}
         </span>
-        <span className="ml-auto">{action}</span>
+        <span className="ml-auto shrink-0 whitespace-nowrap">{action}</span>
       </div>
       {/* Each column scrolls on its own once its tasks outgrow the screen, so the headers stay put.
           The padding (taken back by the negative margin) leaves room for the drop outline. */}
       <div className="gb-column-scroll -m-2 flex max-h-[calc(100dvh-11rem)] flex-1 flex-col overflow-y-auto overscroll-contain p-2">
-        {/* The drop zone: outlined (without shifting anything) while a task is dragged over from the other column. */}
+        {/* The drop zone: outlined (without shifting anything) while a task is dragged over from another column;
+            coral when the workflow doesn't allow the move. */}
         <ul
           className={`flex min-h-[132px] flex-1 flex-col gap-3 rounded-2xl outline-2 outline-offset-[6px] transition-[outline-color,background-color] duration-200 ${
-            highlight ? "bg-iris/5 outline-dashed outline-iris/50" : "outline-transparent"
+            highlight ? "bg-iris/5 outline-dashed outline-iris/50" : blocked ? "bg-coral/5 outline-dashed outline-coral/50" : "outline-transparent"
           }`}
         >
           {children}
@@ -1177,7 +1218,7 @@ function BoardColumn({
                 highlight ? "border-iris/50" : "border-ink/10"
               }`}
             >
-              <p className="font-display font-bold">{dragging ? "Drop it here" : meta.emptyTitle}</p>
+              <p className="font-display font-bold">{blocked ? "Not allowed by your workflow" : dragging ? "Drop it here" : meta.emptyTitle}</p>
               {!dragging && <p className="mt-1 max-w-[16rem] text-sm text-ink/55">{meta.emptyBody}</p>}
             </li>
           )}
@@ -1430,13 +1471,15 @@ function FilterChip({ label, tag, onClear }: { label: string; tag?: TagView; onC
 
 function EmptyState({
   filter,
+  filterLabel,
   total,
   view,
   narrowed,
   onClear,
 }: {
-  /** The phone tab (null in the columns, which show both). */
+  /** The phone tab (null in the columns, which show every column). */
   filter: Filter | null;
+  filterLabel: string;
   total: number;
   view: View;
   narrowed: boolean;
@@ -1451,8 +1494,8 @@ function EmptyState({
           : { emoji: "🔍", title: "No matching tasks", body: "Try a different search or tag." }
       : total > 0 && filter === "todo"
         ? { emoji: "🎉", title: "Nothing waiting", body: "Every task is started or ticked off. New tasks start here." }
-        : total > 0 && filter === "pending"
-          ? { emoji: "⏳", title: "Nothing in progress", body: "Open a task and set its status to Pending when you start on it." }
+        : total > 0 && filter !== null && filter !== "done"
+          ? { emoji: "⏳", title: `Nothing in ${filterLabel}`, body: `Open a task and set its status to ${filterLabel} to put it here.` }
           : total > 0 && filter === "done"
             ? { emoji: "✅", title: "Nothing ticked yet", body: "Go on, tick your first task off." }
             : { emoji: "🌱", title: "Your board is empty", body: "Type a task above and hit Enter to plant your first one." };

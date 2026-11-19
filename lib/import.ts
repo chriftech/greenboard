@@ -14,6 +14,7 @@ import { DEFAULT_TAG, PRIORITIES, TAGS, isValidSchedule, taskActions, type Prior
 import { MAX_CUSTOM_TAGS, MAX_TAG_LABEL, TAG_COLORS, getCustomTags, tagActions } from "./tags";
 import { MAX_PERSON_NAME, ME, getPeople, peopleActions } from "./people";
 import { parseCsv } from "./csv";
+import { DONE_COLUMN, TODO_COLUMN, getColumns } from "./columns";
 
 /** More than this and the file is probably not a task list. */
 export const MAX_IMPORT_ROWS = 500;
@@ -48,8 +49,8 @@ type Ref = { id: string } | { create: string };
 export type DraftTask = {
   title: string;
   done: boolean;
-  /** Pending (started, not finished). */
-  inProgress?: boolean;
+  /** The column a not-done task goes in (unset: Todo). */
+  column?: string;
   tag: Ref;
   priority?: PriorityId;
   assignee?: Ref;
@@ -113,6 +114,7 @@ export function previewImport(text: string): ImportPreview {
 
 /** Work out what these rows (headings first) would add, without changing anything. */
 export function previewRows(rows: string[][]): ImportPreview {
+  const boardColumns = getColumns();
   const preview: ImportPreview = { tasks: [], skipped: [], warnings: [], newTags: [], newPeople: [], ignoredColumns: [] };
   const blank = (r: string[]) => r.every((c) => c.trim() === "");
   // The headings are the first row with anything in it.
@@ -169,11 +171,16 @@ export function previewRows(rows: string[][]): ImportPreview {
     }
 
     // Status
+    // A column's own name wins (custom columns included); then the usual words.
     const status = key(get("status"));
-    const done = DONE_WORDS.has(status);
-    const inProgress = PENDING_WORDS.has(status);
-    if (!done && !inProgress && !TODO_WORDS.has(status)) {
-      warn(`Status “${get("status")}” isn’t Todo, Pending or Completed, so it’s Todo.`);
+    const named = boardColumns.find((c) => c.label.toLowerCase() === status)?.id;
+    const done = named === DONE_COLUMN || (!named && DONE_WORDS.has(status));
+    let column: string | undefined = named && named !== DONE_COLUMN && named !== TODO_COLUMN ? named : undefined;
+    if (!named && !done && PENDING_WORDS.has(status)) {
+      if (boardColumns.some((c) => c.id === "pending")) column = "pending";
+      else warn(`There’s no Pending column, so “${get("status")}” goes in ${boardColumns[0].label}.`);
+    } else if (!named && !done && !TODO_WORDS.has(status)) {
+      warn(`Status “${get("status")}” doesn’t match a column, so it goes in ${boardColumns[0].label}.`);
     }
 
     // Tag: an existing one, a new one (if there's room), or Default.
@@ -235,7 +242,7 @@ export function previewRows(rows: string[][]): ImportPreview {
     preview.tasks.push({
       title,
       done,
-      ...(inProgress ? { inProgress } : {}),
+      ...(column ? { column } : {}),
       tag,
       priority,
       assignee,
@@ -279,7 +286,7 @@ export function applyImport(preview: ImportPreview): number {
   const tasks: Omit<Task, "id" | "order">[] = preview.tasks.map((d) => ({
     title: d.title,
     done: d.done,
-    ...(d.inProgress ? { inProgress: true } : {}),
+    ...(d.column && !d.done ? { column: d.column } : {}),
     tag: resolve(d.tag, createdTags) ?? DEFAULT_TAG,
     ...(d.priority ? { priority: d.priority } : {}),
     ...(() => {

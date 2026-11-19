@@ -3,7 +3,8 @@
  * ExcelJS is large, so it's only loaded when one of these runs, never with the board.
  */
 
-import { PRIORITIES, STATUSES, TAGS } from "./tasks";
+import { PRIORITIES, TAGS } from "./tasks";
+import { getColumns } from "./columns";
 import { getCustomTags } from "./tags";
 import { ME, getPeople } from "./people";
 import { MAX_IMPORT_ROWS } from "./import";
@@ -64,11 +65,15 @@ export async function downloadImportTemplateXlsx() {
   const now = new Date();
   const day = (offset: number, h: number, min = 0) =>
     wallClock(now.getFullYear(), now.getMonth(), now.getDate() + offset, h, min);
+  // Sample statuses use the board's own column names.
+  const boardColumns = getColumns();
+  const first = boardColumns[0].label;
+  const middle = boardColumns.length > 2 ? boardColumns[1].label : first;
   sheet.addRows([
-    { title: "Plan the team offsite", status: "Todo", tag: "Work", priority: "High", assignee: "Me", start: day(1, 9), end: day(1, 11), description: "Shortlist venues\nSend the invites" },
-    { title: "Book a dentist appointment", status: "Todo", tag: "Personal", priority: "Medium" },
+    { title: "Plan the team offsite", status: first, tag: "Work", priority: "High", assignee: "Me", start: day(1, 9), end: day(1, 11), description: "Shortlist venues\nSend the invites" },
+    { title: "Book a dentist appointment", status: first, tag: "Personal", priority: "Medium" },
     { title: "Water the plants", status: "Completed", tag: "Home", priority: "Low" },
-    { title: "Draft the newsletter", status: "Pending", tag: "Work", assignee: "Me", start: day(2, 14), end: day(2, 16, 30), description: "Ask for the photos" },
+    { title: "Draft the newsletter", status: middle, tag: "Work", assignee: "Me", start: day(2, 14), end: day(2, 16, 30), description: "Ask for the photos" },
   ]);
   sheet.getColumn("description").alignment = { wrapText: true, vertical: "top" };
   for (const key of ["start", "end"]) sheet.getColumn(key).numFmt = "yyyy-mm-dd hh:mm";
@@ -77,7 +82,7 @@ export async function downloadImportTemplateXlsx() {
   const tags = [...TAGS.map((t) => t.label), ...getCustomTags().map((t) => t.label)];
   const people = [ME.name, ...getPeople().map((p) => p.name)];
   const lists: Record<string, string[]> = {
-    Status: STATUSES.map((s) => s.label),
+    Status: getColumns().map((c) => c.label),
     Tag: tags,
     Priority: PRIORITIES.map((p) => p.label),
     Assignee: people,
@@ -107,7 +112,7 @@ export async function downloadImportTemplateXlsx() {
       errorTitle: `Pick a ${list.toLowerCase()}`,
       error: `Choose one of the options in the list.`,
     });
-  dropdown("B", "Status", true, "Todo, Pending (in progress) or Completed. Leave empty for Todo.");
+  dropdown("B", "Status", true, "One of your board's columns. Leave empty for the first one.");
   dropdown("C", "Tag", false, "Pick a tag, or type a new one (it will be created).");
   dropdown("D", "Priority", true, "Urgent, High, Medium or Low. Leave empty for none.");
   dropdown("E", "Assignee", false, "Pick someone, or type a new name (they’ll be added).");

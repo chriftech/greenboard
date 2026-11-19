@@ -23,7 +23,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
         />
       </div>
 
-      <header className="relative mx-auto flex w-full max-w-5xl items-center justify-between px-4 pt-6">
+      <header className="relative mx-auto flex w-full max-w-7xl items-center justify-between px-4 pt-6">
         <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="Greenboard home">
           <Logo />
           <span className="font-display text-xl font-bold tracking-tight">greenboard</span>
@@ -41,7 +41,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
         </div>
       </header>
 
-      <main className="relative mx-auto flex w-full max-w-5xl flex-1 items-center px-4 pb-16 pt-8">
+      <main className="relative mx-auto flex w-full max-w-6xl flex-1 items-center px-4 pb-16 pt-8">
         <div className="gb-rise grid w-full overflow-hidden rounded-[28px] border border-ink/10 bg-surface shadow-[0_30px_80px_-35px_rgb(46_51_73/0.55)] md:grid-cols-[1fr_1.1fr]">
           {/* Brand panel: hidden on phones, where the form needs the room. */}
           <section className="relative hidden overflow-hidden bg-deep p-10 text-white md:flex md:flex-col">

@@ -67,10 +67,10 @@ const STEPS: Step[] = [
     targets: ["columns", "filters"],
     icon: Kanban,
     title: "Your board, in columns",
-    body: "Todo, Pending (in progress) and Completed, each with its own count.",
+    body: "Todo, Pending and Completed to start, each with its own count. Add your own columns in Settings.",
     titleFor: { filters: "Switch between views" },
     iconFor: { filters: ListFilter },
-    bodyFor: { filters: "Switch between Todo, Pending (in progress) and Completed. The numbers keep count." },
+    bodyFor: { filters: "One tab per column: Todo, Pending, Completed and any you add in Settings. The numbers keep count." },
   },
   {
     targets: ["tasks", "tasks-list"],

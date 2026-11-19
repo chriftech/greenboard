@@ -1,12 +1,13 @@
 /**
  * Export the board's tasks as a CSV file (opens in Excel, Numbers or Google Sheets).
- * Everything on the board is included, Todo first, then Pending, then Completed, in board
+ * Everything on the board is included, column by column (left to right), in board
  * order; tasks in Trash are left out. Browser only: it reads this browser's tasks.
  *
  * The columns match what import reads (lib/import.ts), so an export can be imported again.
  */
 
-import { getTasks, PRIORITIES, STATUSES, statusOf, TAGS, type Task } from "./tasks";
+import { getTasks, PRIORITIES, statusOf, TAGS, type Task } from "./tasks";
+import { getColumns } from "./columns";
 import { getCustomTags } from "./tags";
 import { getPeople, ME } from "./people";
 import { downloadCsv, fileDate, formatDateTime, toCsv } from "./csv";
@@ -38,8 +39,9 @@ export function tasksToCsv(tasks: Task[]): string {
 
   const onBoard = tasks.filter((t) => !t.deletedAt);
   const byOrder = (a: Task, b: Task) => a.order - b.order;
-  const ordered = STATUSES.flatMap((s) => onBoard.filter((t) => statusOf(t) === s.id).sort(byOrder));
-  const statusLabels = new Map(STATUSES.map((s) => [s.id, s.label]));
+  const columns = getColumns();
+  const ordered = columns.flatMap((c) => onBoard.filter((t) => statusOf(t) === c.id).sort(byOrder));
+  const statusLabels = new Map(columns.map((c) => [c.id, c.label]));
 
   const rows = ordered.map((t) => [
     t.title,

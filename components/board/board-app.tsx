@@ -15,7 +15,6 @@ import {
 } from "react";
 import {
   ArrowRight,
-  Check,
   Menu,
   CalendarClock,
   ChevronRight,
@@ -84,20 +83,25 @@ import {
 } from "./schedule";
 import {
   DEFAULT_TAG,
+  STATUSES,
   TRASH_DAYS,
   getServerTasks,
   getTasks,
+  statusOf,
   subscribeTasks,
   taskActions,
   type PriorityId,
   type TagId,
   type Task,
+  type TaskStatus,
 } from "@/lib/tasks";
 
 /** The board's two columns (wider screens). */
-type ColumnId = "todo" | "done";
+/** The board's columns (and phone tabs): one per status. */
+type ColumnId = TaskStatus;
+const COLUMN_IDS: readonly ColumnId[] = ["todo", "pending", "done"];
 /** Which column or tab a "Delete all" empties. */
-type DeleteAllList = "all" | "todo" | "done";
+type DeleteAllList = ColumnId;
 /** Destructive actions waiting for confirmation. */
 type PendingDelete =
   | { kind: "task"; id: string; title: string } // move one task to Trash
@@ -111,7 +115,7 @@ function confirmCopy(p: PendingDelete | null) {
   switch (p?.kind) {
     case "all": {
       const n = p.ids.length;
-      const kind = p.list === "todo" ? "pending task" : p.list === "done" ? "completed task" : "task";
+      const kind = p.list === "todo" ? "todo task" : p.list === "pending" ? "pending task" : "completed task";
       return {
         title: n === 1 ? `Move 1 ${kind} to Trash?` : `Move all ${plural(n, kind)} to Trash?`,
         description: `${p.narrowed ? "Only the tasks shown with your current filters are included. " : ""}You can restore ${n === 1 ? "it" : "them"} from Trash for ${TRASH_DAYS} days. After that ${n === 1 ? "it's" : "they're"} deleted for good.`,
@@ -162,14 +166,11 @@ const MOVE_DELAY_MS = 50;
 /** The progress bar fills faster than the pause, so it's full just before the task moves. */
 const MOVE_PROGRESS_MS = 350;
 
-const FILTERS: { id: Filter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "todo", label: "Pending" },
-  { id: "done", label: "Completed" },
-];
+/** Phone tabs: tasks grouped by status. */
+const FILTERS: { id: Filter; label: string }[] = STATUSES.map((s) => ({ id: s.id, label: s.label }));
 
 /** Droppable ids for the columns themselves (tasks use their own ids). */
-const COLUMN_DROP: Record<ColumnId, string> = { todo: "col-todo", done: "col-done" };
+const COLUMN_DROP: Record<ColumnId, string> = { todo: "col-todo", pending: "col-pending", done: "col-done" };
 
 /**
  * Drop on the task under the pointer if there is one, else on the column
@@ -239,7 +240,8 @@ export function BoardApp() {
 
   // Ticked tasks pause where they are for a moment ("Moving to Completed"),
   // then move into the Completed group and get a brief highlight there.
-  const [moving, setMoving] = useState<ReadonlySet<string>>(() => new Set());
+  // Maps each pausing task to the column it's pausing in (Todo or Pending).
+  const [moving, setMoving] = useState<ReadonlyMap<string, ColumnId>>(() => new Map());
   const [landed, setLanded] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const moveTimers = useRef(new Map<string, number>());
@@ -253,7 +255,7 @@ export function BoardApp() {
     window.clearTimeout(moveTimers.current.get(id));
     moveTimers.current.delete(id);
     setMoving((s) => {
-      const next = new Set(s);
+      const next = new Map(s);
       next.delete(id);
       return next;
     });
@@ -314,7 +316,8 @@ export function BoardApp() {
     if (nowDone && origin) flyToCompleted(origin);
     if (!nowDone) return stopMoving(task.id); // unticked during the pause: stay put
     if (!columnsLayout && filter === "done") return; // already looking at Completed: nothing moves
-    setMoving((s) => new Set(s).add(task.id));
+    const from = statusOf(task);
+    setMoving((s) => new Map(s).set(task.id, from));
     moveTimers.current.set(
       task.id,
       window.setTimeout(() => {
@@ -386,12 +389,14 @@ export function BoardApp() {
   const askDeleteAll = (list: DeleteAllList, tasks: Task[]) =>
     askDelete({ kind: "all", ids: tasks.map((t) => t.id), list, narrowed });
 
-  // Tasks that are mid-move stay in the Pending column until their pause ends.
-  const done = scoped.filter((t) => t.done && !moving.has(t.id));
-  const todo = scoped.filter((t) => !t.done || moving.has(t.id));
+  // Tasks that are mid-move stay in their column (Todo or Pending) until their pause ends.
+  const shownIn = (t: Task) => moving.get(t.id) ?? statusOf(t);
+  const todo = scoped.filter((t) => shownIn(t) === "todo");
+  const pendingTasks = scoped.filter((t) => shownIn(t) === "pending");
+  const done = scoped.filter((t) => shownIn(t) === "done");
   // Counts change as soon as a task is ticked, before it slides across.
-  const doneCount = scoped.filter((t) => t.done).length;
-  const todoCount = scoped.length - doneCount;
+  const counts: Record<ColumnId, number> = { todo: 0, pending: 0, done: 0 };
+  scoped.forEach((t) => counts[statusOf(t)]++);
 
   // My board: each column in the order the user dragged it into.
   // Today/Upcoming: soonest start first, and not draggable.
@@ -399,6 +404,7 @@ export function BoardApp() {
   const byStart = (a: Task, b: Task) => (a.start ?? "").localeCompare(b.start ?? "") || byOrder(a, b);
   const sortable = view === "board";
   todo.sort(sortable ? byOrder : byStart);
+  pendingTasks.sort(sortable ? byOrder : byStart);
   done.sort(sortable ? byOrder : byStart);
 
   function navigate(target: NavTarget) {
@@ -418,13 +424,13 @@ export function BoardApp() {
         return;
       }
       case "board":
-        // "My board" is the reset: everything, unfiltered.
+        // "My board" is the reset: unfiltered, back on the Pending tab.
         clearFilters();
         setQuery("");
-        setFilter("all");
+        setFilter("todo");
         return setView("board");
       default:
-        setFilter("all");
+        setFilter("todo");
         return setView(target);
     }
   }
@@ -486,24 +492,21 @@ export function BoardApp() {
   );
   const titleOf = (id: UniqueIdentifier) => `"${all.find((t) => t.id === id)?.title ?? "task"}"`;
 
-  const columns: Record<ColumnId, Task[]> = { todo, done };
+  const columns: Record<ColumnId, Task[]> = { todo, pending: pendingTasks, done };
   const columnOf = (id: UniqueIdentifier): ColumnId | null => {
     const key = String(id);
-    if (key === COLUMN_DROP.todo || todo.some((t) => t.id === key)) return "todo";
-    if (key === COLUMN_DROP.done || done.some((t) => t.id === key)) return "done";
-    return null;
+    return COLUMN_IDS.find((c) => key === COLUMN_DROP[c] || columns[c].some((t) => t.id === key)) ?? null;
   };
   const activeTask = activeId ? all.find((t) => t.id === activeId) ?? null : null;
 
-  // Phones: one list, pending first then completed (or just one of them, per tab).
-  const groups = filter === "all" ? [todo, done] : filter === "todo" ? [todo] : [done];
-  const listCount = groups.reduce((n, g) => n + g.length, 0);
-  const listCounts: Record<Filter, number> = { all: scoped.length, todo: todoCount, done: doneCount };
+  // Phones: one list per status, picked with the Todo / Pending / Completed tabs.
+  const list = columns[filter];
+  const listCount = list.length;
 
-  /** Phones: reorder within pending or within completed; never across the two. */
+  /** Phones: reorder within one status; never across them. */
   function handleListDragEnd({ active, over }: DragEndEvent) {
     if (!over || active.id === over.id) return;
-    const group = [todo, done].find((g) => g.some((t) => t.id === active.id));
+    const group = COLUMN_IDS.map((c) => columns[c]).find((g) => g.some((t) => t.id === active.id));
     if (!group || !group.some((t) => t.id === over.id)) return;
     const ids = group.map((t) => t.id);
     taskActions.reorder(arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id))));
@@ -540,14 +543,14 @@ export function BoardApp() {
       return;
     }
 
-    // Across columns: complete it (or reopen it), placed where it was dropped.
+    // Across columns: give it that column's status, placed where it was dropped.
     const ids = columns[to].map((t) => t.id);
     const at = overTask ? ids.indexOf(overTask) : -1;
     ids.splice(at === -1 ? ids.length : at, 0, id);
-    taskActions.toggle(id);
+    taskActions.setStatus(id, to);
     taskActions.reorder(ids);
     const title = all.find((t) => t.id === id)?.title ?? "Task";
-    setAnnouncement(`"${title}" moved to ${to === "done" ? "Completed" : "Pending"}.`);
+    setAnnouncement(`"${title}" moved to ${COLUMN_META[to].title}.`);
     if (to === "done") {
       setLanded(id);
       window.setTimeout(() => setLanded((l) => (l === id ? null : l)), 1100);
@@ -667,17 +670,17 @@ export function BoardApp() {
                             filter === f.id ? "bg-white/15" : "bg-ink/5"
                           }`}
                         >
-                          {loaded ? listCounts[f.id] : "–"}
+                          {loaded ? counts[f.id] : "–"}
                         </span>
                       </button>
                     ))}
                   </div>
 
-                  {/* Empties the tab you're on: All, Pending or Completed (only the tasks shown). */}
+                  {/* Empties the tab you're on: Todo, Pending or Completed (only the tasks shown). */}
                   {listCount > 0 && (
                     <button
                       type="button"
-                      onClick={() => askDeleteAll(filter, groups.flat())}
+                      onClick={() => askDeleteAll(filter, list)}
                       className="text-sm font-medium text-ink/55 underline-offset-4 transition-colors hover:text-coral hover:underline"
                     >
                       Delete all ({listCount})
@@ -715,7 +718,7 @@ export function BoardApp() {
             ) : (columnsLayout ? scoped.length : listCount) === 0 ? (
               <div>
                 <EmptyState
-                  filter={columnsLayout ? "all" : filter}
+                  filter={columnsLayout ? null : filter}
                   total={all.length}
                   view={view}
                   narrowed={narrowed}
@@ -747,36 +750,23 @@ export function BoardApp() {
                 }}
               >
                 <ul className="space-y-3" data-tour="tasks-list" aria-live="polite">
-                  {groups.map((group, i) => (
-                    <SortableContext key={i} items={group.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                      {/* In "All", label where completed tasks go (also the target while one is moving). */}
-                      {filter === "all" && group === done && (done.length > 0 || moving.size > 0) && (
-                        <li aria-hidden className="flex items-center gap-3 pt-3">
-                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-success">
-                            <Check className="size-3.5" strokeWidth={3} />
-                            Completed
-                          </span>
-                          <span className="h-px flex-1 bg-success/20" />
-                          <span className="text-xs font-semibold tabular-nums text-ink/40">{doneCount}</span>
-                        </li>
-                      )}
-                      {group.map((t) => (
-                        <SortableTaskRow
-                          key={t.id}
-                          task={t}
-                          tag={findTag(tags, t.tag)}
-                          leaving={removingId === t.id}
-                          moving={moving.has(t.id)}
-                          landed={landed === t.id}
-                          onToggle={(origin) => toggleTask(t, origin)}
-                          sortable={sortable && !moving.has(t.id)}
-                          onOpen={() => openDetails(t.id)}
-                          onDelete={() => askDelete({ kind: "task", id: t.id, title: t.title })}
-                          inPlace
-                        />
-                      ))}
-                    </SortableContext>
-                  ))}
+                  <SortableContext items={list.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                    {list.map((t) => (
+                      <SortableTaskRow
+                        key={t.id}
+                        task={t}
+                        tag={findTag(tags, t.tag)}
+                        leaving={removingId === t.id}
+                        moving={moving.has(t.id)}
+                        landed={landed === t.id}
+                        onToggle={(origin) => toggleTask(t, origin)}
+                        sortable={sortable && !moving.has(t.id)}
+                        onOpen={() => openDetails(t.id)}
+                        onDelete={() => askDelete({ kind: "task", id: t.id, title: t.title })}
+                        inPlace
+                      />
+                    ))}
+                  </SortableContext>
                 </ul>
               </DndContext>
             ) : (
@@ -792,14 +782,14 @@ export function BoardApp() {
                 accessibility={{
                   screenReaderInstructions: {
                     draggable:
-                      "To move a task, press space or enter to pick it up, use the arrow keys to move it within or between the Pending and Completed columns, then space or enter to drop it. Press escape to cancel.",
+                      "To move a task, press space or enter to pick it up, use the arrow keys to move it within or between the Todo, Pending and Completed columns, then space or enter to drop it. Press escape to cancel.",
                   },
                   announcements: {
                     onDragStart: ({ active }) => `Picked up ${titleOf(active.id)}.`,
                     onDragOver: ({ active, over }) =>
                       over
                         ? String(over.id).startsWith("col-")
-                          ? `${titleOf(active.id)} is over the ${over.id === COLUMN_DROP.done ? "Completed" : "Pending"} column.`
+                          ? `${titleOf(active.id)} is over the ${COLUMN_META[columnOf(over.id) ?? "todo"].title} column.`
                           : `${titleOf(active.id)} is over ${titleOf(over.id)}.`
                         : `${titleOf(active.id)} is not over a column.`,
                     onDragEnd: ({ active, over }) =>
@@ -810,14 +800,14 @@ export function BoardApp() {
               >
                 <div
                   data-tour="columns"
-                  // Two open columns under a horizontal line, split by a vertical line that meets it (no cards).
-                  className="grid grid-cols-2 divide-x divide-ink/15 border-t border-ink/15"
+                  // Three open columns under a horizontal line, split by vertical lines that meet it (no cards).
+                  className="grid grid-cols-3 divide-x divide-ink/15 border-t border-ink/15"
                 >
-                  {(["todo", "done"] as const).map((col) => (
+                  {COLUMN_IDS.map((col) => (
                     <BoardColumn
                       key={col}
                       id={col}
-                      count={col === "todo" ? todoCount : doneCount}
+                      count={counts[col]}
                       countRef={col === "done" ? completedCountRef : undefined}
                       columnRef={col === "done" ? doneColumnRef : undefined}
                       highlight={(activeTask !== null && overColumn === col && columnOf(activeTask.id) !== col) || flash === col}
@@ -828,7 +818,7 @@ export function BoardApp() {
                           <button
                             type="button"
                             onClick={() => askDeleteAll(col, columns[col])}
-                            aria-label={`Delete all ${col === "todo" ? "pending" : "completed"} tasks`}
+                            aria-label={`Delete all ${COLUMN_META[col].title.toLowerCase()} tasks`}
                             className="rounded-lg px-2 py-1 text-xs font-semibold text-ink/50 transition-colors hover:bg-coral/10 hover:text-coral"
                           >
                             Delete all
@@ -1103,10 +1093,16 @@ function Composer() {
 
 const COLUMN_META: Record<ColumnId, { title: string; dot: string; emptyTitle: string; emptyBody: string }> = {
   todo: {
-    title: "Pending",
+    title: "Todo",
     dot: "bg-iris",
-    emptyTitle: "Nothing left to do 🎉",
-    emptyBody: "Every task here is ticked off. Add a new one above.",
+    emptyTitle: "Nothing waiting 🎉",
+    emptyBody: "New tasks start here. Add one above.",
+  },
+  pending: {
+    title: "Pending",
+    dot: "bg-peach",
+    emptyTitle: "Nothing in progress",
+    emptyBody: "Drag a task here, or set its status to Pending, when you start on it.",
   },
   done: {
     title: "Completed",
@@ -1165,24 +1161,28 @@ function BoardColumn({
         </span>
         <span className="ml-auto">{action}</span>
       </div>
-      {/* The drop zone: outlined (without shifting anything) while a task is dragged over from the other column. */}
-      <ul
-        className={`flex min-h-[132px] flex-1 flex-col gap-3 rounded-2xl outline-2 outline-offset-[6px] transition-[outline-color,background-color] duration-200 ${
-          highlight ? "bg-iris/5 outline-dashed outline-iris/50" : "outline-transparent"
-        }`}
-      >
-        {children}
-        {empty && (
-          <li
-            className={`flex flex-1 flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-8 text-center transition-colors ${
-              highlight ? "border-iris/50" : "border-ink/10"
-            }`}
-          >
-            <p className="font-display font-bold">{dragging ? "Drop it here" : meta.emptyTitle}</p>
-            {!dragging && <p className="mt-1 max-w-[16rem] text-sm text-ink/55">{meta.emptyBody}</p>}
-          </li>
-        )}
-      </ul>
+      {/* Each column scrolls on its own once its tasks outgrow the screen, so the headers stay put.
+          The padding (taken back by the negative margin) leaves room for the drop outline. */}
+      <div className="gb-column-scroll -m-2 flex max-h-[calc(100dvh-11rem)] flex-1 flex-col overflow-y-auto overscroll-contain p-2">
+        {/* The drop zone: outlined (without shifting anything) while a task is dragged over from the other column. */}
+        <ul
+          className={`flex min-h-[132px] flex-1 flex-col gap-3 rounded-2xl outline-2 outline-offset-[6px] transition-[outline-color,background-color] duration-200 ${
+            highlight ? "bg-iris/5 outline-dashed outline-iris/50" : "outline-transparent"
+          }`}
+        >
+          {children}
+          {empty && (
+            <li
+              className={`flex flex-1 flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-8 text-center transition-colors ${
+                highlight ? "border-iris/50" : "border-ink/10"
+              }`}
+            >
+              <p className="font-display font-bold">{dragging ? "Drop it here" : meta.emptyTitle}</p>
+              {!dragging && <p className="mt-1 max-w-[16rem] text-sm text-ink/55">{meta.emptyBody}</p>}
+            </li>
+          )}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -1435,8 +1435,8 @@ function EmptyState({
   narrowed,
   onClear,
 }: {
-  /** The phone tab (always "all" in the columns). */
-  filter: Filter;
+  /** The phone tab (null in the columns, which show both). */
+  filter: Filter | null;
   total: number;
   view: View;
   narrowed: boolean;
@@ -1450,10 +1450,12 @@ function EmptyState({
           ? { emoji: "🗓️", title: "Nothing upcoming", body: "Tasks with a timeline starting tomorrow or later show up here." }
           : { emoji: "🔍", title: "No matching tasks", body: "Try a different search or tag." }
       : total > 0 && filter === "todo"
-        ? { emoji: "🎉", title: "Nothing left to do", body: "Every task is ticked off. Enjoy the calm." }
-        : total > 0 && filter === "done"
-          ? { emoji: "✅", title: "Nothing ticked yet", body: "Go on, tick your first task off." }
-          : { emoji: "🌱", title: "Your board is empty", body: "Type a task above and hit Enter to plant your first one." };
+        ? { emoji: "🎉", title: "Nothing waiting", body: "Every task is started or ticked off. New tasks start here." }
+        : total > 0 && filter === "pending"
+          ? { emoji: "⏳", title: "Nothing in progress", body: "Open a task and set its status to Pending when you start on it." }
+          : total > 0 && filter === "done"
+            ? { emoji: "✅", title: "Nothing ticked yet", body: "Go on, tick your first task off." }
+            : { emoji: "🌱", title: "Your board is empty", body: "Type a task above and hit Enter to plant your first one." };
 
   return (
     <div className="gb-pop flex flex-col items-center rounded-[28px] border-2 border-dashed border-ink/10 px-6 py-14 text-center">

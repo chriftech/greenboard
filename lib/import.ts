@@ -38,7 +38,9 @@ const HEADINGS: Record<Field, string[]> = {
 };
 
 const DONE_WORDS = new Set(["completed", "complete", "done", "yes", "y", "true", "1", "x", "✓", "✔"]);
-const PENDING_WORDS = new Set(["", "pending", "todo", "to do", "open", "not done", "no", "n", "false", "0"]);
+/** Started but not finished. */
+const PENDING_WORDS = new Set(["pending", "in progress", "in-progress", "doing", "started", "ongoing", "wip"]);
+const TODO_WORDS = new Set(["", "todo", "to do", "to-do", "not started", "open", "not done", "no", "n", "false", "0"]);
 
 /** Where a draft task's tag or person comes from: one that exists, or one to create. */
 type Ref = { id: string } | { create: string };
@@ -46,6 +48,8 @@ type Ref = { id: string } | { create: string };
 export type DraftTask = {
   title: string;
   done: boolean;
+  /** Pending (started, not finished). */
+  inProgress?: boolean;
   tag: Ref;
   priority?: PriorityId;
   assignee?: Ref;
@@ -166,10 +170,10 @@ export function previewRows(rows: string[][]): ImportPreview {
 
     // Status
     const status = key(get("status"));
-    let done = DONE_WORDS.has(status);
-    if (!done && !PENDING_WORDS.has(status)) {
-      warn(`Status “${get("status")}” isn’t Pending or Completed, so it’s Pending.`);
-      done = false;
+    const done = DONE_WORDS.has(status);
+    const inProgress = PENDING_WORDS.has(status);
+    if (!done && !inProgress && !TODO_WORDS.has(status)) {
+      warn(`Status “${get("status")}” isn’t Todo, Pending or Completed, so it’s Todo.`);
     }
 
     // Tag: an existing one, a new one (if there's room), or Default.
@@ -228,7 +232,18 @@ export function previewRows(rows: string[][]): ImportPreview {
     const createdAt = parseMoment(get("created")) ?? now;
     const doneAt = done ? (parseMoment(get("completed")) ?? now) : undefined;
 
-    preview.tasks.push({ title, done, tag, priority, assignee, schedule, descriptionText, createdAt, doneAt });
+    preview.tasks.push({
+      title,
+      done,
+      ...(inProgress ? { inProgress } : {}),
+      tag,
+      priority,
+      assignee,
+      schedule,
+      descriptionText,
+      createdAt,
+      doneAt,
+    });
   });
 
   return preview;
@@ -264,6 +279,7 @@ export function applyImport(preview: ImportPreview): number {
   const tasks: Omit<Task, "id" | "order">[] = preview.tasks.map((d) => ({
     title: d.title,
     done: d.done,
+    ...(d.inProgress ? { inProgress: true } : {}),
     tag: resolve(d.tag, createdTags) ?? DEFAULT_TAG,
     ...(d.priority ? { priority: d.priority } : {}),
     ...(() => {

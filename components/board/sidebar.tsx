@@ -39,15 +39,17 @@ import { UserAvatar } from "@/components/auth/user-avatar";
 import { authActions, useAuth } from "@/lib/auth";
 import { FileDown } from "lucide-react";
 import { downloadTasksCsv } from "@/lib/export";
+import type { NavTarget } from "@/lib/workspace";
 
 /* ───────────────────────── Types ───────────────────────── */
 
-/** Sidebar destinations. "completed" and "trash" are shortcuts handled by the board. */
-export type NavTarget = "board" | "today" | "upcoming" | "completed" | "trash";
+export type { NavTarget } from "@/lib/workspace";
 
 export type SidebarProps = {
-  /** Which workspace option is highlighted. */
-  active: Exclude<NavTarget, "trash">;
+  /** Which workspace option is highlighted (none on the Settings and Help pages). */
+  active: Exclude<NavTarget, "trash"> | null;
+  /** The page showing, so Settings or Help can be highlighted. */
+  page: "board" | "settings" | "help" | null;
   onNavigate: (target: NavTarget) => void;
   tag: TagId | null;
   onTag: (tag: TagId | null) => void;
@@ -313,6 +315,7 @@ function SidebarBody({
   onEditTag,
   onDeleteTag,
   onStartTour,
+  page,
   collapsed,
   topRight,
   searchRef,
@@ -462,12 +465,12 @@ function SidebarBody({
         })()}
       </nav>
 
-      {/* Settings opens /settings; Help opens /help. */}
+      {/* Settings opens /settings; Help opens /help (highlighted while open). */}
       <div className="space-y-0.5 border-t border-ink/10 px-3 py-3">
-        <SidebarItem icon={<Settings className="size-4" />} label="Settings" href="/settings" collapsed={collapsed} />
+        <SidebarItem icon={<Settings className="size-4" />} label="Settings" href="/settings" active={page === "settings"} collapsed={collapsed} />
         {/* The tour's last stop points here. */}
         <div data-tour="help" className="space-y-0.5">
-          <SidebarItem icon={<LifeBuoy className="size-4" />} label="Help & feedback" href="/help" collapsed={collapsed} />
+          <SidebarItem icon={<LifeBuoy className="size-4" />} label="Help & feedback" href="/help" active={page === "help"} collapsed={collapsed} />
           <SidebarItem icon={<Compass className="size-4" />} label="Take the tour" onClick={onStartTour} collapsed={collapsed} />
         </div>
         <SidebarItem icon={<FileDown className="size-4" />} label="Export as CSV" onClick={downloadTasksCsv} collapsed={collapsed} />
@@ -617,7 +620,7 @@ function SidebarItem({
   );
 
   return href ? (
-    <Link href={href} className={className} {...a11y}>
+    <Link href={href} className={className} aria-current={active ? "page" : undefined} {...a11y}>
       {content}
     </Link>
   ) : (

@@ -104,7 +104,7 @@ export function TaskBoardSkeleton() {
 export function BoardPageSkeleton() {
   return (
     <div className="relative min-w-0 flex-1 overflow-x-clip">
-      <header className="relative mx-auto flex max-w-5xl items-center justify-between px-4 pt-6 lg:justify-end">
+      <header className="relative mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 lg:justify-end">
         <Link href="/" className="flex shrink-0 items-center gap-2 lg:hidden">
           <Logo />
           <span className="font-display text-xl font-bold tracking-tight">greenboard</span>
@@ -116,11 +116,11 @@ export function BoardPageSkeleton() {
         </div>
       </header>
       <main className="relative pb-24 pt-8">
-        <div className="mx-auto max-w-5xl px-4">
+        <div className="mx-auto max-w-7xl px-4">
           <GreetingSkeleton />
           <ComposerSkeleton />
         </div>
-        <section className="mx-auto mt-10 max-w-5xl px-4">
+        <section className="mx-auto mt-10 max-w-7xl px-4">
           <TaskBoardSkeleton />
         </section>
       </main>

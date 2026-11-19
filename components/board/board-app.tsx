@@ -68,10 +68,10 @@ import { hasSeenTour, tourActions } from "@/lib/tour";
 import { useSettings } from "@/lib/settings";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProfileMenu } from "./profile-menu";
-import { BoardToolbar, type AssigneeFilter, type PriorityFilter } from "./board-toolbar";
+import { BoardToolbar } from "./board-toolbar";
 import { ImportDialog } from "./import-dialog";
 import { usePeople } from "@/lib/people";
-import { MobileSidebar, Sidebar, type NavTarget, type SidebarProps } from "./sidebar";
+import { registerBoard, useColumns, useWorkspace, workspace, type Filter, type NavTarget, type View } from "@/lib/workspace";
 import {
   ScheduleFields,
   draftsToSchedule,
@@ -95,10 +95,6 @@ import {
 
 /** The board's two columns (wider screens). */
 type ColumnId = "todo" | "done";
-/** The tabs above the single list (phones). */
-type Filter = "all" | "todo" | "done";
-/** Which slice of the board is shown, chosen from the sidebar. */
-type View = "board" | "today" | "upcoming";
 /** Destructive actions waiting for confirmation. */
 type PendingDelete =
   | { kind: "task"; id: string; title: string } // move one task to Trash
@@ -166,21 +162,6 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "done", label: "Completed" },
 ];
 
-/** Phones get the tabbed list; columns start at Tailwind's md breakpoint. */
-const COLUMNS_QUERY = "(min-width: 768px)";
-function subscribeColumns(onChange: () => void) {
-  const mq = window.matchMedia(COLUMNS_QUERY);
-  mq.addEventListener("change", onChange);
-  return () => mq.removeEventListener("change", onChange);
-}
-function useColumns() {
-  return useSyncExternalStore(
-    subscribeColumns,
-    () => window.matchMedia(COLUMNS_QUERY).matches,
-    () => true,
-  );
-}
-
 /** Droppable ids for the columns themselves (tasks use their own ids). */
 const COLUMN_DROP: Record<ColumnId, string> = { todo: "col-todo", done: "col-done" };
 
@@ -199,17 +180,13 @@ const collision: CollisionDetection = (args) => {
 export function BoardApp() {
   const { showGreeting } = useSettings();
   const tasks = useSyncExternalStore(subscribeTasks, getTasks, getServerTasks);
-  const [view, setView] = useState<View>("board");
-  const [filter, setFilter] = useState<Filter>("all");
+  // View, tag, search and filters live in the workspace store, shared with the sidebar
+  // (which stays on screen across /board, /settings and /help).
+  const { view, filter, tag, query, priority, assignee: assigneeFilter } = useWorkspace();
+  const { setView, setFilter, setTag, setQuery, setPriority, setAssignee: setAssigneeFilter } = workspace;
   const columnsLayout = useColumns();
-  const [tag, setTag] = useState<TagId | null>(null);
-  const [query, setQuery] = useState("");
-  // The filter bar above the columns: tag (shared with the sidebar), priority and assignee.
-  const [priority, setPriority] = useState<PriorityFilter>("any");
-  const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>("any");
   const people = usePeople();
   const [importOpen, setImportOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const tags = useTags();
   // Tag editor: null = creating a new tag. Kept after closing so the dialog can animate out.
   const [editingTag, setEditingTag] = useState<CustomTag | null>(null);
@@ -454,19 +431,22 @@ export function BoardApp() {
     clearFilters();
   }
 
-  // Sidebar state and counts (pending tasks, so the numbers mean "still to do").
+  // Pending tasks, for the greeting card.
   const pendingAll = all.filter((t) => !t.done);
-  const sidebar: SidebarProps = {
-    active: view !== "board" ? view : !columnsLayout && filter === "done" ? "completed" : "board",
-    onNavigate: navigate,
-    tag: activeTag,
-    onTag: setTag,
-    tags,
-    onEditTag: (t) => {
+  // The sidebar (in the workspace layout) sends its board actions here, including
+  // ones asked for on another page before the board opened.
+  const actions = useRef<{
+    navigate: (target: NavTarget) => void;
+    editTag: (tag: CustomTag | null) => void;
+    deleteTag: (tag: TagView) => void;
+  } | null>(null);
+  actions.current = {
+    navigate,
+    editTag: (t) => {
       setEditingTag(t);
       setTagEditorOpen(true);
     },
-    onDeleteTag: (t) =>
+    deleteTag: (t) =>
       askDelete({
         kind: "tag",
         id: t.id,
@@ -474,26 +454,18 @@ export function BoardApp() {
         // Every task (Trash included) carrying the tag moves to Default.
         count: (tasks ?? []).filter((x) => x.tag === t.id).length,
       }),
-    query,
-    onQuery: setQuery,
-    onStartTour: () => {
-      // From the phone menu: let the drawer close first, so the tour can see the board.
-      if (menuOpen) {
-        setMenuOpen(false);
-        window.setTimeout(tourActions.start, 350);
-      } else tourActions.start();
-    },
-    counts: {
-      board: pendingAll.length,
-      today: pendingAll.filter((t) => inView(t, "today")).length,
-      upcoming: pendingAll.filter((t) => inView(t, "upcoming")).length,
-      completed: all.length - pendingAll.length,
-      trash: trashed.length,
-      tags: Object.fromEntries(
-        tags.map((t) => [t.id, pendingAll.filter((x) => findTag(tags, x.tag).id === t.id).length]),
-      ),
-    },
   };
+  useEffect(
+    () =>
+      registerBoard((action) => {
+        const run = actions.current;
+        if (!run) return;
+        if (action.type === "navigate") run.navigate(action.target);
+        else if (action.type === "editTag") run.editTag(action.tag);
+        else run.deleteTag(action.tag);
+      }),
+    [],
+  );
 
   // Drag starts after a small move (mouse) or a short press (touch), so clicks
   // and scrolling still work; the grip handle supports keyboard reordering.
@@ -573,10 +545,7 @@ export function BoardApp() {
   }
 
   return (
-    <div className="flex min-h-full flex-1 bg-paper text-ink">
-      <Sidebar {...sidebar} />
-      <MobileSidebar {...sidebar} open={menuOpen} onOpenChange={setMenuOpen} />
-
+    <>
       {/* `isolate` lets the grid below sit behind the content (-z-10) without dropping under the page background. */}
       <div className="relative isolate min-w-0 flex-1 overflow-x-clip">
         {/*
@@ -604,7 +573,7 @@ export function BoardApp() {
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setMenuOpen(true)}
+              onClick={() => workspace.setMenuOpen(true)}
               aria-label="Open menu"
               data-tour="menu"
               className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-surface hover:text-ink sm:px-3 lg:hidden"
@@ -615,7 +584,7 @@ export function BoardApp() {
             <span data-tour="theme" className="inline-flex">
               <ThemeToggle />
             </span>
-            <ProfileMenu onStartTour={sidebar.onStartTour} />
+            <ProfileMenu onStartTour={tourActions.start} />
           </div>
         </header>
   
@@ -938,7 +907,7 @@ export function BoardApp() {
         onConfirm={confirmDelete}
         {...confirmCopy(pending)}
       />
-    </div>
+    </>
   );
 }
 

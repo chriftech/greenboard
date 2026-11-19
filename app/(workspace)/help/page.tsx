@@ -146,7 +146,7 @@ export default function HelpPage() {
         />
       </div>
 
-      <header className="relative mx-auto flex max-w-5xl items-center justify-between px-4 pt-6 lg:justify-end">
+      <header className="relative mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 lg:justify-end">
         {/* From lg up the sidebar shows the logo. */}
         <Link href="/" className="flex shrink-0 items-center gap-2 lg:hidden" aria-label="Greenboard home">
           <Logo />
@@ -166,7 +166,7 @@ export default function HelpPage() {
         </div>
       </header>
 
-      <main className="relative mx-auto max-w-5xl px-4 pb-24 pt-8">
+      <main className="relative mx-auto max-w-7xl px-4 pb-24 pt-8">
         {/* Intro */}
         <section className="gb-rise relative overflow-hidden rounded-[28px] bg-deep p-6 text-white shadow-[0_30px_80px_-30px_rgb(46_51_73/0.7)] sm:p-8">
           <div aria-hidden className="gb-blob absolute -right-16 -top-24 size-72 rounded-full bg-iris/40 blur-3xl" />

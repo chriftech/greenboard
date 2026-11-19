@@ -301,10 +301,11 @@ export const taskActions = {
     const now = Date.now();
     save(getTasks().map((t) => (t.id === id ? { ...t, deletedAt: now } : t)));
   },
-  /** Move every completed task (not already in Trash) to Trash. */
-  trashDone() {
+  /** Move several tasks to Trash at once (a column's or tab's "Delete all"). */
+  trashMany(ids: readonly string[]) {
     const now = Date.now();
-    save(getTasks().map((t) => (t.done && t.deletedAt === undefined ? { ...t, deletedAt: now } : t)));
+    const picked = new Set(ids);
+    save(getTasks().map((t) => (picked.has(t.id) && t.deletedAt === undefined ? { ...t, deletedAt: now } : t)));
   },
   /** Bring a task back from Trash to the board. */
   restore(id: string) {

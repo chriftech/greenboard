@@ -26,10 +26,11 @@ const FAQ: { q: string; a: ReactNode }[] = [
     q: "How do I tick a task off, or undo it?",
     a: (
       <>
-        Click the circle on the left of a task. It turns green and the text is struck through. Click it again to
-        mark the task as not done. On a wider screen, tasks sit in two columns, <b>Pending</b> and <b>Completed</b>, and
-        you can also drag a task from one column to the other. On a phone, the <b>Pending</b> and <b>Completed</b> tabs
-        split the two.
+        Click the circle on the left of a task. It turns green, the text is struck through and it moves to{" "}
+        <b>Completed</b>. Click it again to put it back in <b>Todo</b>. On a wider screen, tasks sit in three columns,{" "}
+        <b>Todo</b>, <b>Pending</b> (started, not finished) and <b>Completed</b>, and you can drag a task between them.
+        On a phone, the <b>Todo</b>, <b>Pending</b> and <b>Completed</b> tabs split them; to move a task to{" "}
+        <b>Pending</b>, open it and pick a <b>Status</b>.
       </>
     ),
   },
@@ -144,7 +145,7 @@ export default function HelpPage() {
         />
       </div>
 
-      <header className="relative mx-auto flex max-w-3xl items-center justify-between px-4 pt-6 lg:justify-end">
+      <header className="relative mx-auto flex max-w-5xl items-center justify-between px-4 pt-6 lg:justify-end">
         {/* From lg up the sidebar shows the logo. */}
         <Link href="/" className="flex shrink-0 items-center gap-2 lg:hidden" aria-label="Greenboard home">
           <Logo />
@@ -164,7 +165,7 @@ export default function HelpPage() {
         </div>
       </header>
 
-      <main className="relative mx-auto max-w-3xl px-4 pb-24 pt-8">
+      <main className="relative mx-auto max-w-5xl px-4 pb-24 pt-8">
         {/* Intro */}
         <section className="gb-rise relative overflow-hidden rounded-[28px] bg-deep p-6 text-white shadow-[0_30px_80px_-30px_rgb(46_51_73/0.7)] sm:p-8">
           <div aria-hidden className="gb-blob absolute -right-16 -top-24 size-72 rounded-full bg-iris/40 blur-3xl" />

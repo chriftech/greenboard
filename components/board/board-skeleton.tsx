@@ -64,10 +64,11 @@ function TaskCardSkeleton({ title }: { title: string }) {
 
 const TITLES = [
   ["70%", "52%", "62%"],
-  ["58%", "74%", "46%"],
+  ["58%", "74%"],
+  ["64%", "48%", "56%"],
 ];
 
-/** The Pending and Completed columns (on phones, just the list). */
+/** The Todo, Pending and Completed columns (on phones, just the list). */
 export function TaskBoardSkeleton() {
   return (
     <SkeletonRegion label="Loading your tasks…">
@@ -82,7 +83,7 @@ export function TaskBoardSkeleton() {
           <Skeleton className="h-8 w-20 rounded-xl" />
         </div>
       </div>
-      <div className="grid divide-ink/15 border-ink/15 md:grid-cols-2 md:divide-x md:border-t">
+      <div className="grid divide-ink/15 border-ink/15 md:grid-cols-3 md:divide-x md:border-t">
         {TITLES.map((titles, c) => (
           <div key={c} className={`space-y-3 md:px-5 md:pt-4 md:first:pl-0 md:last:pr-0 ${c ? "hidden md:block" : ""}`}>
             <div className="flex items-center gap-2 pb-1">

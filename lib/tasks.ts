@@ -59,7 +59,31 @@ export type Task = {
   priority?: PriorityId;
   /** Person the task is assigned to: an id from lib/people.ts ("me" or "person-…"). */
   assignee?: string;
+  /** Started but not finished (the Pending status). Only kept while the task isn't done. */
+  inProgress?: boolean;
 };
+
+/** Where a task is on the board: not started, in progress, or done. */
+export type TaskStatus = "todo" | "pending" | "done";
+
+export const STATUSES: readonly { id: TaskStatus; label: string }[] = [
+  { id: "todo", label: "Todo" },
+  { id: "pending", label: "Pending" },
+  { id: "done", label: "Completed" },
+];
+
+export function statusOf(t: Pick<Task, "done" | "inProgress">): TaskStatus {
+  return t.done ? "done" : t.inProgress ? "pending" : "todo";
+}
+
+/** The fields that store a status (done tasks drop the in-progress flag). */
+function withStatus<T extends Task>(t: T, status: TaskStatus): T {
+  const { inProgress: _p, doneAt: _d, ...rest } = t;
+  void _p;
+  void _d;
+  if (status === "done") return { ...rest, done: true, doneAt: t.done ? t.doneAt : Date.now() } as T;
+  return { ...rest, done: false, ...(status === "pending" ? { inProgress: true } : {}) } as T;
+}
 
 export type TaskPatch = Partial<
   Pick<Task, "title" | "tag" | "description" | "descriptionText" | "priority" | "assignee">
@@ -116,7 +140,8 @@ function isTask(v: unknown): v is Task {
     (t.description === undefined || typeof t.description === "string") &&
     (t.descriptionText === undefined || typeof t.descriptionText === "string") &&
     (t.priority === undefined || (typeof t.priority === "string" && PRIORITY_IDS.has(t.priority))) &&
-    (t.assignee === undefined || typeof t.assignee === "string")
+    (t.assignee === undefined || typeof t.assignee === "string") &&
+    (t.inProgress === undefined || typeof t.inProgress === "boolean")
   );
 }
 
@@ -216,12 +241,13 @@ export const taskActions = {
     };
     save([task, ...getTasks()]);
   },
+  /** Tick a task off, or untick it (back to Todo). */
   toggle(id: string) {
-    save(
-      getTasks().map((t) =>
-        t.id === id ? { ...t, done: !t.done, doneAt: t.done ? undefined : Date.now() } : t,
-      ),
-    );
+    save(getTasks().map((t) => (t.id === id ? withStatus(t, t.done ? "todo" : "done") : t)));
+  },
+  /** Move a task to Todo, Pending (in progress) or Completed. */
+  setStatus(id: string, status: TaskStatus) {
+    save(getTasks().map((t) => (t.id === id && statusOf(t) !== status ? withStatus(t, status) : t)));
   },
   rename(id: string, title: string) {
     const clean = title.trim();
@@ -301,10 +327,11 @@ export const taskActions = {
     const now = Date.now();
     save(getTasks().map((t) => (t.id === id ? { ...t, deletedAt: now } : t)));
   },
-  /** Move every completed task (not already in Trash) to Trash. */
-  trashDone() {
+  /** Move several tasks to Trash at once (a column's or tab's "Delete all"). */
+  trashMany(ids: readonly string[]) {
     const now = Date.now();
-    save(getTasks().map((t) => (t.done && t.deletedAt === undefined ? { ...t, deletedAt: now } : t)));
+    const picked = new Set(ids);
+    save(getTasks().map((t) => (picked.has(t.id) && t.deletedAt === undefined ? { ...t, deletedAt: now } : t)));
   },
   /** Bring a task back from Trash to the board. */
   restore(id: string) {

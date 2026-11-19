@@ -3,6 +3,8 @@
 import { useId, type ReactNode } from "react";
 import { Hand } from "lucide-react";
 import { setSetting, useSettings } from "@/lib/settings";
+import { useHydrated } from "@/lib/hydrated";
+import { SwitchSkeleton } from "./settings-skeleton";
 
 /** The board preferences. Changes save straight away, in this browser. */
 export function SettingsForm() {
@@ -41,6 +43,7 @@ function ToggleRow({
   onChange: (checked: boolean) => void;
 }) {
   const id = useId();
+  const hydrated = useHydrated();
   return (
     <div className="flex items-start gap-4 p-5">
       <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-mist text-iris">{icon}</span>
@@ -52,24 +55,29 @@ function ToggleRow({
           {description}
         </p>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-labelledby={`${id}-title`}
-        aria-describedby={`${id}-desc`}
-        onClick={() => onChange(!checked)}
-        className={`relative mt-1 inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris ${
-          checked ? "bg-success" : "bg-ink/20"
-        }`}
-      >
-        <span
-          aria-hidden
-          className={`inline-block size-5 rounded-full bg-white shadow transition-transform duration-200 ${
-            checked ? "translate-x-6" : "translate-x-1"
+      {/* The saved value lives in this browser, so the prerendered page can't know it yet. */}
+      {!hydrated ? (
+        <SwitchSkeleton />
+      ) : (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          aria-labelledby={`${id}-title`}
+          aria-describedby={`${id}-desc`}
+          onClick={() => onChange(!checked)}
+          className={`relative mt-1 inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris ${
+            checked ? "bg-success" : "bg-ink/20"
           }`}
-        />
-      </button>
+        >
+          <span
+            aria-hidden
+            className={`inline-block size-5 rounded-full bg-white shadow transition-transform duration-200 ${
+              checked ? "translate-x-6" : "translate-x-1"
+            }`}
+          />
+        </button>
+      )}
     </div>
   );
 }

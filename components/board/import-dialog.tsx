@@ -211,6 +211,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 function PreviewSummary({ fileName, preview }: { fileName: string; preview: ImportPreview }) {
   const total = preview.tasks.length;
   const completed = preview.tasks.filter((t) => t.done).length;
+  const inProgress = preview.tasks.filter((t) => !t.done && t.inProgress).length;
 
   return (
     <div className="space-y-4">
@@ -223,7 +224,8 @@ function PreviewSummary({ fileName, preview }: { fileName: string; preview: Impo
         </p>
         {total > 0 && (
           <p className="text-sm text-ink/60">
-            {total - completed} pending, {completed} completed. They&rsquo;ll go at the top of your board.
+            {total - completed - inProgress} todo, {inProgress} pending, {completed} completed. They&rsquo;ll go at the
+            top of your board.
           </p>
         )}
       </div>

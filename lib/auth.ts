@@ -28,6 +28,8 @@ export type AuthUser = {
   email: string | null;
   photoURL: string | null;
   emailVerified: boolean;
+  /** How this account signs in: "password" (email and password) and/or "google.com". */
+  providers: string[];
 };
 
 export type AuthState =
@@ -52,7 +54,14 @@ function set(next: AuthState) {
 }
 
 function toAuthUser(u: User): AuthUser {
-  return { uid: u.uid, name: u.displayName, email: u.email, photoURL: u.photoURL, emailVerified: u.emailVerified };
+  return {
+    uid: u.uid,
+    name: u.displayName,
+    email: u.email,
+    photoURL: u.photoURL,
+    emailVerified: u.emailVerified,
+    providers: u.providerData.map((p) => p.providerId),
+  };
 }
 
 /** Re-read the current user (needed after profile changes, which onAuthStateChanged doesn't report). */
@@ -122,6 +131,8 @@ function friendly(error: unknown): AuthActionError {
       return new AuthActionError("This email already has an account with a different sign-in method.");
     case "auth/operation-not-allowed":
       return new AuthActionError("This sign-in method isn't turned on for greenboard yet.");
+    case "auth/requires-recent-login":
+      return new AuthActionError("For your security, log out and back in, then try again.");
     case "auth/unauthorized-domain":
       return new AuthActionError("Sign-in isn't allowed from this address. Add it to Firebase's authorized domains.");
     default:
@@ -148,18 +159,27 @@ async function attempt<T>(run: () => Promise<T>): Promise<T> {
  * Send the verification email: greenboard's own branded one (via the server
  * route) when that's set up, else Firebase's built-in email, so it always goes out.
  */
-async function sendVerification(user: User) {
+async function sendVerification(user: User): Promise<"sent" | "too-soon"> {
   try {
     const response = await fetch("/api/auth/send-verification", {
       method: "POST",
       headers: { Authorization: `Bearer ${await user.getIdToken()}` },
     });
-    // Sent, already verified, or asked again too soon: nothing more to do.
-    if (response.ok || response.status === 429) return;
+    // Sent, or already verified: nothing more to do.
+    if (response.ok) return "sent";
+    // Asked again within a minute of the last one.
+    if (response.status === 429) return "too-soon";
   } catch {
     // Network trouble reaching our server: fall through to Firebase's email.
   }
   await sendEmailVerification(user);
+  return "sent";
+}
+
+function requireUser() {
+  const user = requireAuth().currentUser;
+  if (!user) throw new AuthActionError("You're signed out. Log in and try again.");
+  return user;
 }
 
 /* ───────────────────────── Actions ───────────────────────── */
@@ -190,6 +210,25 @@ export const authActions = {
   resetPassword: (email: string) =>
     attempt(async () => {
       await sendPasswordResetEmail(requireAuth(), email.trim());
+    }),
+
+  /** Change the name shown on the board and in the profile menu. */
+  updateName: (name: string) =>
+    attempt(async () => {
+      const trimmed = name.trim();
+      if (!trimmed) throw new AuthActionError("Enter your name.", "name");
+      await updateProfile(requireUser(), { displayName: trimmed });
+      refresh();
+    }),
+
+  /** Send the verification email again. "too-soon" when one went out in the last minute. */
+  resendVerification: () => attempt(() => sendVerification(requireUser())),
+
+  /** Ask Firebase for the latest account details (e.g. after confirming the email in another tab). */
+  reloadUser: () =>
+    attempt(async () => {
+      await requireUser().reload();
+      refresh();
     }),
 
   logOut: () =>

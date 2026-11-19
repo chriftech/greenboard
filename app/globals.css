@@ -473,3 +473,9 @@ html[data-auth-pending] body > * {
   .gb-tour-spot, .gb-tour-card, .gb-tour-caret { transition: none; }
   .gb-tour-card, .gb-tour-text, .gb-tour-icon, .gb-tour-spot::after { animation: none; }
 }
+
+/* A task column's own scroll area: a thin, quiet scrollbar that matches the theme. */
+.gb-column-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-ink) 20%, transparent) transparent;
+}

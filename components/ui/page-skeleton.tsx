@@ -19,7 +19,7 @@ export function PageSkeleton({ label, children }: { label: string; children: Rea
         />
       </div>
 
-      <header className="relative mx-auto flex max-w-3xl items-center justify-between px-4 pt-6 lg:justify-end">
+      <header className="relative mx-auto flex max-w-5xl items-center justify-between px-4 pt-6 lg:justify-end">
         <Link href="/" className="flex shrink-0 items-center gap-2 lg:hidden" aria-label="Greenboard home">
           <Logo />
           <span className="font-display text-xl font-bold tracking-tight">greenboard</span>
@@ -31,7 +31,7 @@ export function PageSkeleton({ label, children }: { label: string; children: Rea
         </div>
       </header>
 
-      <main role="status" aria-busy="true" className="relative mx-auto max-w-3xl px-4 pb-24 pt-8">
+      <main role="status" aria-busy="true" className="relative mx-auto max-w-5xl px-4 pb-24 pt-8">
         <span className="sr-only">{label}</span>
         <div className="relative overflow-hidden rounded-[28px] bg-deep p-6 shadow-[0_30px_80px_-30px_rgb(46_51_73/0.7)] sm:p-8">
           <Skeleton className="size-12 rounded-2xl bg-white/15" />

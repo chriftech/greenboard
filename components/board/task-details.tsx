@@ -13,7 +13,7 @@ import {
 import { CheckBox } from "@/components/landing/check-box";
 import { RichTextEditor } from "./rich-text-editor";
 import { ScheduleFields, draftsToSchedule, toDraft, type DateTimeDraft } from "./schedule";
-import { taskActions, type Task } from "@/lib/tasks";
+import { STATUSES, statusOf, taskActions, type Task } from "@/lib/tasks";
 import { findTag, useTags } from "@/lib/tags";
 import { TagRadio } from "./tag-chip";
 import { AssigneePicker, PriorityPicker } from "./task-meta";
@@ -158,6 +158,12 @@ function DetailsBody({ task, parts, onDelete }: { task: Task; parts: Parts; onDe
           </label>
         </div>
 
+        {/* Status: the column (or phone tab) the task sits in */}
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink/50">Status</p>
+          <StatusPicker task={task} />
+        </div>
+
         {/* Tag */}
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink/50">Tag</p>
@@ -291,6 +297,37 @@ function ScheduleEditor({ task }: { task: Task }) {
           Remove timeline
         </button>
       </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── Status ───────────────────────── */
+
+const STATUS_DOT = { todo: "bg-iris", pending: "bg-peach", done: "bg-success" } as const;
+
+/** Todo, Pending (in progress) or Completed, as one row of buttons. */
+function StatusPicker({ task }: { task: Task }) {
+  const current = statusOf(task);
+  return (
+    <div role="radiogroup" aria-label="Status" className="grid grid-cols-3 gap-1 rounded-2xl border border-ink/10 bg-surface p-1">
+      {STATUSES.map((s) => {
+        const checked = s.id === current;
+        return (
+          <button
+            key={s.id}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            onClick={() => taskActions.setStatus(task.id, s.id)}
+            className={`flex items-center justify-center gap-2 rounded-xl px-2 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris ${
+              checked ? "bg-deep text-peach" : "text-ink/60 hover:bg-mist hover:text-ink"
+            }`}
+          >
+            <span aria-hidden className={`size-2 shrink-0 rounded-full ${STATUS_DOT[s.id]}`} />
+            {s.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -602,7 +602,7 @@ export function BoardApp() {
           />
         </div>
   
-        <header className="relative mx-auto flex max-w-5xl items-center justify-between px-4 pt-6 lg:justify-end">
+        <header className="relative mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 lg:justify-end">
           {/* The sidebar shows the logo from md up. */}
           <Link href="/" className="flex shrink-0 items-center gap-2 lg:hidden">
             <Logo />
@@ -633,7 +633,7 @@ export function BoardApp() {
               time the task columns start (it reaches up past the header and down to the board).
             */}
             <div aria-hidden className="gb-grid-bg gb-grid-fade pointer-events-none absolute inset-x-0 -top-40 -bottom-10 -z-10" />
-            <div className="mx-auto max-w-5xl px-4">
+            <div className="mx-auto max-w-7xl px-4">
               {/* The greeting card can be turned off in Settings (which, like the tasks, is only known once loaded). */}
               {!loaded ? (
                 <GreetingSkeleton />
@@ -729,7 +729,7 @@ export function BoardApp() {
           {/* The board: Pending and Completed columns side by side, as wide as the section above. Phones get the tabbed list. */}
           <section
             aria-label="Task board"
-            className={`mx-auto max-w-5xl px-4 ${columnsLayout ? (sidebarNarrowed ? "mt-5" : "mt-10") : "mt-5"}`}
+            className={`mx-auto max-w-7xl px-4 ${columnsLayout ? (sidebarNarrowed ? "mt-5" : "mt-10") : "mt-5"}`}
           >
             {/* Filters on the left, Export on the far right, above the columns. */}
             {loaded && (
@@ -835,7 +835,7 @@ export function BoardApp() {
               >
                 {workflowNotice}
                 {/* Open columns under a horizontal line, split by vertical lines that meet it (no cards).
-                    Three fit the page; more scroll sideways. Only sideways: a vertical scroll here could hide the top line. */}
+                    Four fit a wide screen; more scroll sideways. Only sideways: a vertical scroll here could hide the top line. */}
                 <div className="gb-column-scroll -mx-2 overflow-x-auto overflow-y-hidden px-2">
                 <div
                   data-tour="columns"

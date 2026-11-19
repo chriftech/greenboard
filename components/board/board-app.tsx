@@ -96,10 +96,12 @@ import {
 
 /** The board's two columns (wider screens). */
 type ColumnId = "todo" | "done";
+/** Which column or tab a "Delete all" empties. */
+type DeleteAllList = "all" | "todo" | "done";
 /** Destructive actions waiting for confirmation. */
 type PendingDelete =
   | { kind: "task"; id: string; title: string } // move one task to Trash
-  | { kind: "done"; count: number } // move all completed tasks to Trash
+  | { kind: "all"; ids: string[]; list: DeleteAllList; narrowed: boolean } // move every task shown in a column or tab to Trash
   | { kind: "forever"; id: string; title: string } // delete one trashed task for good
   | { kind: "empty"; count: number } // delete everything in Trash for good
   | { kind: "tag"; id: string; label: string; count: number }; // delete a custom tag
@@ -107,12 +109,15 @@ type PendingDelete =
 function confirmCopy(p: PendingDelete | null) {
   const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
   switch (p?.kind) {
-    case "done":
+    case "all": {
+      const n = p.ids.length;
+      const kind = p.list === "todo" ? "pending task" : p.list === "done" ? "completed task" : "task";
       return {
-        title: `Move ${plural(p.count, "completed task")} to Trash?`,
-        description: `You can restore ${p.count === 1 ? "it" : "them"} from Trash for ${TRASH_DAYS} days. After that ${p.count === 1 ? "it's" : "they're"} deleted for good.`,
+        title: n === 1 ? `Move 1 ${kind} to Trash?` : `Move all ${plural(n, kind)} to Trash?`,
+        description: `${p.narrowed ? "Only the tasks shown with your current filters are included. " : ""}You can restore ${n === 1 ? "it" : "them"} from Trash for ${TRASH_DAYS} days. After that ${n === 1 ? "it's" : "they're"} deleted for good.`,
         confirmLabel: "Move to Trash",
       };
+    }
     case "forever":
       return {
         title: "Delete forever?",
@@ -334,8 +339,9 @@ export function BoardApp() {
   function confirmDelete() {
     if (!pending) return;
     switch (pending.kind) {
-      case "done":
-        return taskActions.trashDone();
+      case "all":
+        if (selectedId && pending.ids.includes(selectedId)) setDetailsOpen(false);
+        return taskActions.trashMany(pending.ids);
       case "forever":
         return taskActions.deleteForever(pending.id);
       case "empty":
@@ -376,6 +382,9 @@ export function BoardApp() {
   // What the sidebar narrowed (shown as chips), and everything that narrows the board.
   const sidebarNarrowed = view !== "board" || activeTag !== null || q !== "";
   const narrowed = sidebarNarrowed || priority !== "any" || activeAssignee !== "any";
+  /** Ask to move every task shown in a column or tab to Trash. */
+  const askDeleteAll = (list: DeleteAllList, tasks: Task[]) =>
+    askDelete({ kind: "all", ids: tasks.map((t) => t.id), list, narrowed });
 
   // Tasks that are mid-move stay in the Pending column until their pause ends.
   const done = scoped.filter((t) => t.done && !moving.has(t.id));
@@ -664,13 +673,14 @@ export function BoardApp() {
                     ))}
                   </div>
 
-                  {done.length > 0 && (
+                  {/* Empties the tab you're on: All, Pending or Completed (only the tasks shown). */}
+                  {listCount > 0 && (
                     <button
                       type="button"
-                      onClick={() => askDelete({ kind: "done", count: done.length })}
+                      onClick={() => askDeleteAll(filter, groups.flat())}
                       className="text-sm font-medium text-ink/55 underline-offset-4 transition-colors hover:text-coral hover:underline"
                     >
-                      Clear completed ({done.length})
+                      Delete all ({listCount})
                     </button>
                   )}
                 </div>
@@ -814,13 +824,14 @@ export function BoardApp() {
                       empty={columns[col].length === 0}
                       dragging={activeTask !== null}
                       action={
-                        col === "done" && done.length > 0 ? (
+                        columns[col].length > 0 ? (
                           <button
                             type="button"
-                            onClick={() => askDelete({ kind: "done", count: done.length })}
+                            onClick={() => askDeleteAll(col, columns[col])}
+                            aria-label={`Delete all ${col === "todo" ? "pending" : "completed"} tasks`}
                             className="rounded-lg px-2 py-1 text-xs font-semibold text-ink/50 transition-colors hover:bg-coral/10 hover:text-coral"
                           >
-                            Clear
+                            Delete all
                           </button>
                         ) : null
                       }

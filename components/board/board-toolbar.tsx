@@ -3,16 +3,13 @@
 import type { ReactNode } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Check, ChevronDown, FileDown, FileUp, SlidersHorizontal } from "lucide-react";
-import { PRIORITIES, type PriorityId, type TagId } from "@/lib/tasks";
+import { PRIORITIES, type TagId } from "@/lib/tasks";
 import type { TagView } from "@/lib/tags";
 import { ME, type Person } from "@/lib/people";
 import { downloadTasksCsv } from "@/lib/export";
 import { TagDot } from "./tag-chip";
 
-/** "any" shows every task; "none" only tasks without one. */
-export type PriorityFilter = "any" | "none" | PriorityId;
-/** "any", "none" (unassigned), or a person's id ("me", "person-…"). */
-export type AssigneeFilter = string;
+import type { AssigneeFilter, PriorityFilter } from "@/lib/workspace";
 
 const ANY = "any";
 const NONE = "none";
@@ -108,31 +105,33 @@ export function BoardToolbar({
         </>
       )}
 
-      {/* Import and Export sit together at the far right. Icons only on phones, so the row fits. */}
-      <button
-        type="button"
-        onClick={onImport}
-        title="Add tasks from a CSV file"
-        aria-label="Import from CSV"
-        className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-ink/15 bg-surface px-2.5 py-1.5 text-sm font-semibold text-ink transition-colors hover:border-ink/30 sm:px-3.5"
-      >
-        <FileUp className="size-4" />
-        <span className="hidden sm:inline">Import</span>
-      </button>
-
-      {/* Same as "Export tasks as CSV" in the profile menu: the whole board, whatever the filters. */}
-      {!empty && (
+      {/* Import and Export stay together at the far right (and wrap together on narrow screens). Icons only on phones. */}
+      <div className="ml-auto flex items-center gap-2">
         <button
           type="button"
-          onClick={() => downloadTasksCsv()}
-          title="Download every task on your board as a CSV file"
-          aria-label="Export as CSV"
-          className="inline-flex items-center gap-1.5 rounded-xl bg-deep px-2.5 py-1.5 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5 sm:px-3.5"
+          onClick={onImport}
+          title="Add tasks from a CSV file"
+          aria-label="Import from CSV"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-ink/15 bg-surface px-2.5 py-1.5 text-sm font-semibold text-ink transition-colors hover:border-ink/30 sm:px-3.5"
         >
-          <FileDown className="size-4" />
-          <span className="hidden sm:inline">Export</span>
+          <FileUp className="size-4" />
+          <span className="hidden sm:inline">Import</span>
         </button>
-      )}
+
+        {/* Same as "Export tasks as CSV" in the profile menu: the whole board, whatever the filters. */}
+        {!empty && (
+          <button
+            type="button"
+            onClick={() => downloadTasksCsv()}
+            title="Download every task on your board as a CSV file"
+            aria-label="Export as CSV"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-deep px-2.5 py-1.5 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5 sm:px-3.5"
+          >
+            <FileDown className="size-4" />
+            <span className="hidden sm:inline">Export</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

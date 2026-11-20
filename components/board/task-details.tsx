@@ -13,8 +13,8 @@ import {
 import { CheckBox } from "@/components/landing/check-box";
 import { RichTextEditor } from "./rich-text-editor";
 import { ScheduleFields, draftsToSchedule, toDraft, type DateTimeDraft } from "./schedule";
-import { statusOf, taskActions, type Task } from "@/lib/tasks";
-import { DONE_COLUMN, TODO_COLUMN, canMove, useBoardColumns, useWorkflow } from "@/lib/columns";
+import { isTicked, statusOf, taskActions, tickTarget, type Task } from "@/lib/tasks";
+import { canMove, useBoardColumns, useTickColumn, useWorkflow } from "@/lib/columns";
 import { findTag, useTags } from "@/lib/tags";
 import { TagRadio } from "./tag-chip";
 import { AssigneePicker, PriorityPicker } from "./task-meta";
@@ -100,10 +100,12 @@ function DetailsBody({ task, parts, onDelete }: { task: Task; parts: Parts; onDe
   const { Title, Description, Close } = parts;
   const tags = useTags();
   const [title, setTitle] = useState(task.title);
-  // Ticking is a move to Completed (unticking, back to the first column), so it follows the workflow too.
+  // Ticking is a move to the tick column (unticking, back to Todo), so it follows the workflow too.
   const workflow = useWorkflow();
-  const tickTo = task.done ? TODO_COLUMN : DONE_COLUMN;
-  const canTick = canMove(statusOf(task), tickTo, workflow);
+  const tickColumn = useTickColumn();
+  const ticked = isTicked(task, tickColumn);
+  const boardColumns = useBoardColumns();
+  const canTick = canMove(statusOf(task), tickTarget(task, tickColumn, boardColumns), workflow);
 
   function commitTitle() {
     if (title.trim() && title.trim() !== task.title) taskActions.update(task.id, { title });
@@ -136,12 +138,12 @@ function DetailsBody({ task, parts, onDelete }: { task: Task; parts: Parts; onDe
             type="button"
             onClick={() => taskActions.toggle(task.id)}
             disabled={!canTick}
-            title={canTick ? undefined : `Your workflow doesn't allow ${task.done ? "unticking" : "ticking"} this task from here`}
-            aria-label={task.done ? "Mark as not done" : "Mark as done"}
-            aria-pressed={task.done}
+            title={canTick ? undefined : `Your workflow doesn't allow ${ticked ? "unticking" : "ticking"} this task from here`}
+            aria-label={ticked ? "Untick" : "Tick"}
+            aria-pressed={ticked}
             className="mt-1.5 rounded-full disabled:opacity-40"
           >
-            <CheckBox done={task.done} size={28} />
+            <CheckBox done={ticked} size={28} />
           </button>
           <label className="min-w-0 flex-1">
             <span className="sr-only">Task title</span>
@@ -159,7 +161,7 @@ function DetailsBody({ task, parts, onDelete }: { task: Task; parts: Parts; onDe
                 if (e.key === "Escape") setTitle(task.title);
               }}
               className={`field-sizing-content w-full resize-none rounded-xl bg-transparent px-2 py-1 font-display text-2xl font-bold leading-snug transition-colors hover:bg-surface focus:bg-surface focus:outline-2 focus:outline-iris ${
-                task.done ? "text-ink/50 line-through" : ""
+                ticked ? "text-ink/50 line-through" : ""
               }`}
             />
           </label>

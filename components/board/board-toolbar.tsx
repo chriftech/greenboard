@@ -25,6 +25,8 @@ type Props = {
   onAssigneeChange: (assignee: AssigneeFilter) => void;
   onClear: () => void;
   onImport: () => void;
+  /** The "Add column" button, shown with Import and Export. */
+  addColumn?: ReactNode;
   /** No tasks yet: just Import (filters and Export have nothing to work on). */
   empty: boolean;
 };
@@ -41,6 +43,7 @@ export function BoardToolbar({
   onAssigneeChange,
   onClear,
   onImport,
+  addColumn,
   empty,
 }: Props) {
   const activeTag = tag ? tags.find((t) => t.id === tag) : undefined;
@@ -50,7 +53,7 @@ export function BoardToolbar({
   const anyActive = Boolean(activeTag) || priority !== ANY || assignee !== ANY;
 
   return (
-    <div role="toolbar" aria-label="Filter, import and export tasks" className="mb-4 flex flex-wrap items-center gap-2">
+    <div role="toolbar" aria-label="Filter, add columns, import and export tasks" className="mb-4 flex flex-wrap items-center gap-2">
       {!empty && (
         <>
           <span className="mr-1 hidden items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-ink/45 sm:inline-flex">
@@ -105,8 +108,9 @@ export function BoardToolbar({
         </>
       )}
 
-      {/* Import and Export stay together at the far right (and wrap together on narrow screens). Icons only on phones. */}
+      {/* Add column, Import and Export stay together at the far right (and wrap together on narrow screens). Icons only on phones. */}
       <div className="ml-auto flex items-center gap-2">
+        {addColumn}
         <button
           type="button"
           onClick={onImport}

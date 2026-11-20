@@ -1,7 +1,8 @@
 /**
  * Export the board's tasks as a CSV file (opens in Excel, Numbers or Google Sheets).
  * Everything on the board is included, column by column (left to right), in board
- * order; tasks in Trash are left out. Browser only: it reads this browser's tasks.
+ * order, or just one status (column); tasks in Trash are left out. Browser only: it
+ * reads this browser's tasks.
  *
  * The columns match what import reads (lib/import.ts), so an export can be imported again.
  */
@@ -59,9 +60,22 @@ export function tasksToCsv(tasks: Task[]): string {
   return toCsv([TASK_COLUMNS, ...rows]);
 }
 
-/** Download this browser's tasks as greenboard-tasks-<date>.csv. Returns how many tasks were exported. */
-export function downloadTasksCsv(): number {
-  const tasks = getTasks();
-  downloadCsv(`greenboard-tasks-${fileDate()}.csv`, tasksToCsv(tasks));
+/** A column's label as a file-name part: "In review" → "in-review". */
+const slug = (label: string) =>
+  label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "status";
+
+/**
+ * Download this browser's tasks as greenboard-tasks-<date>.csv, or only one status
+ * (a column id) as greenboard-tasks-<status>-<date>.csv. Returns how many tasks were exported.
+ */
+export function downloadTasksCsv(status?: string): number {
+  const all = getTasks();
+  const tasks = status ? all.filter((t) => statusOf(t) === status) : all;
+  const label = status ? getColumns().find((c) => c.id === status)?.label : undefined;
+  const name = label ? `greenboard-tasks-${slug(label)}-${fileDate()}.csv` : `greenboard-tasks-${fileDate()}.csv`;
+  downloadCsv(name, tasksToCsv(tasks));
   return tasks.filter((t) => !t.deletedAt).length;
 }

@@ -473,7 +473,7 @@ function SidebarBody({
           <SidebarItem icon={<LifeBuoy className="size-4" />} label="Help & feedback" href="/help" active={page === "help"} collapsed={collapsed} />
           <SidebarItem icon={<Compass className="size-4" />} label="Take the tour" onClick={onStartTour} collapsed={collapsed} />
         </div>
-        <SidebarItem icon={<FileDown className="size-4" />} label="Export as CSV" onClick={downloadTasksCsv} collapsed={collapsed} />
+        <SidebarItem icon={<FileDown className="size-4" />} label="Export as CSV" onClick={() => downloadTasksCsv()} collapsed={collapsed} />
         <AccountChip collapsed={collapsed} />
       </div>
     </>

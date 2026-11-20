@@ -1,9 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Check, ChevronDown, FileDown, FileUp, SlidersHorizontal } from "lucide-react";
-import { PRIORITIES, type TagId } from "@/lib/tasks";
+import { PRIORITIES, getServerTasks, getTasks, statusOf, subscribeTasks, type TagId } from "@/lib/tasks";
+import { useBoardColumns } from "@/lib/columns";
 import type { TagView } from "@/lib/tags";
 import { ME, type Person } from "@/lib/people";
 import { downloadTasksCsv } from "@/lib/export";
@@ -25,6 +26,8 @@ type Props = {
   onAssigneeChange: (assignee: AssigneeFilter) => void;
   onClear: () => void;
   onImport: () => void;
+  /** The "Add column" button, shown with Import and Export. */
+  addColumn?: ReactNode;
   /** No tasks yet: just Import (filters and Export have nothing to work on). */
   empty: boolean;
 };
@@ -41,6 +44,7 @@ export function BoardToolbar({
   onAssigneeChange,
   onClear,
   onImport,
+  addColumn,
   empty,
 }: Props) {
   const activeTag = tag ? tags.find((t) => t.id === tag) : undefined;
@@ -50,7 +54,7 @@ export function BoardToolbar({
   const anyActive = Boolean(activeTag) || priority !== ANY || assignee !== ANY;
 
   return (
-    <div role="toolbar" aria-label="Filter, import and export tasks" className="mb-4 flex flex-wrap items-center gap-2">
+    <div role="toolbar" aria-label="Filter, add columns, import and export tasks" className="mb-4 flex flex-wrap items-center gap-2">
       {!empty && (
         <>
           <span className="mr-1 hidden items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-ink/45 sm:inline-flex">
@@ -105,8 +109,9 @@ export function BoardToolbar({
         </>
       )}
 
-      {/* Import and Export stay together at the far right (and wrap together on narrow screens). Icons only on phones. */}
+      {/* Add column, Import and Export stay together at the far right (and wrap together on narrow screens). Icons only on phones. */}
       <div className="ml-auto flex items-center gap-2">
+        {addColumn}
         <button
           type="button"
           onClick={onImport}
@@ -118,21 +123,64 @@ export function BoardToolbar({
           <span className="hidden sm:inline">Import</span>
         </button>
 
-        {/* Same as "Export tasks as CSV" in the profile menu: the whole board, whatever the filters. */}
-        {!empty && (
-          <button
-            type="button"
-            onClick={() => downloadTasksCsv()}
-            title="Download every task on your board as a CSV file"
-            aria-label="Export as CSV"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-deep px-2.5 py-1.5 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5 sm:px-3.5"
-          >
-            <FileDown className="size-4" />
-            <span className="hidden sm:inline">Export</span>
-          </button>
-        )}
+        {/* All tasks (like "Export tasks as CSV" in the profile menu) or one status, whatever the filters. */}
+        {!empty && <ExportMenu />}
       </div>
     </div>
+  );
+}
+
+/** Export as CSV: every task first, then one status (column) at a time. */
+function ExportMenu() {
+  const columns = useBoardColumns();
+  const tasks = useSyncExternalStore(subscribeTasks, getTasks, getServerTasks);
+  const onBoard = (tasks ?? []).filter((t) => !t.deletedAt);
+  const countOf = (id: string) => onBoard.filter((t) => statusOf(t) === id).length;
+  const item =
+    "flex w-full cursor-pointer select-none items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-medium text-ink/80 outline-none transition-colors data-highlighted:bg-mist data-highlighted:text-ink data-disabled:cursor-default data-disabled:opacity-40";
+  const count = "rounded-full bg-ink/8 px-2 py-0.5 text-xs font-semibold tabular-nums text-ink/55";
+
+  return (
+    <Menu.Root>
+      <Menu.Trigger
+        title="Download tasks as a CSV file"
+        aria-label="Export as CSV"
+        className="inline-flex items-center gap-1.5 rounded-xl bg-deep px-2.5 py-1.5 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris sm:px-3.5"
+      >
+        <FileDown className="size-4" />
+        <span className="hidden sm:inline">Export</span>
+        <ChevronDown className="hidden size-3.5 opacity-70 sm:block" />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner sideOffset={6} align="end" className="z-40">
+          <Menu.Popup className="max-h-[min(24rem,var(--available-height))] w-60 origin-(--transform-origin) overflow-y-auto rounded-2xl border border-ink/10 bg-surface p-1.5 text-ink shadow-[0_20px_50px_-15px_rgb(46_51_73/0.4)] outline-none transition-[opacity,transform] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
+            <Menu.Item className={item} onClick={() => downloadTasksCsv()}>
+              <FileDown className="size-4 shrink-0 text-ink/50" />
+              <span className="min-w-0 flex-1 truncate font-semibold">All tasks</span>
+              <span className={count}>{onBoard.length}</span>
+            </Menu.Item>
+            <Menu.Separator className="mx-2 my-1 h-px bg-ink/10" />
+            <Menu.Group>
+              <Menu.GroupLabel className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-widest text-ink/45">
+                By status
+              </Menu.GroupLabel>
+              {columns.map((c) => {
+                const n = countOf(c.id);
+                return (
+                  <Menu.Item key={c.id} className={item} disabled={n === 0} onClick={() => downloadTasksCsv(c.id)}>
+                    <span aria-hidden className="grid size-4 shrink-0 place-items-center">
+                      <span className={`size-2.5 rounded-full ${c.dot}`} />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{c.label}</span>
+                    <span className={count}>{n}</span>
+                  </Menu.Item>
+                );
+              })}
+            </Menu.Group>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
   );
 }
 

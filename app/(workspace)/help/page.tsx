@@ -30,8 +30,10 @@ const FAQ: { q: string; a: ReactNode }[] = [
         <b>Completed</b>. Click it again to put it back in <b>Todo</b>. On a wider screen, tasks sit in three columns,{" "}
         <b>Todo</b>, <b>Pending</b> (started, not finished) and <b>Completed</b>, and you can drag a task between them.
         On a phone, the <b>Todo</b>, <b>Pending</b> and <b>Completed</b> tabs split them; to move a task to{" "}
-        <b>Pending</b>, open it and pick a <b>Status</b>. You can add your own columns, and limit which moves are
-        allowed with a workflow, in <b>Settings</b>.
+        <b>Pending</b>, open it and pick a <b>Status</b>. You can add your own columns (in <b>Settings</b>, or with{" "}
+        <b>Add column</b> on the board), choose where ticking sends a task, for the whole board or per column (say{" "}
+        <b>In review</b> → <b>QA</b> → <b>Completed</b>), and limit which moves are allowed with a workflow, in{" "}
+        <b>Settings</b>.
       </>
     ),
   },

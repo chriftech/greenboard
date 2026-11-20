@@ -1,7 +1,26 @@
 "use client";
 
 import { useId, useState, useSyncExternalStore, type FormEvent } from "react";
-import { ArrowDown, ArrowUp, CircleCheck, Columns3, GitBranch, Lock, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, CircleCheck, Columns3, GitBranch, GripVertical, Lock, Plus, Trash2 } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { restrictToHorizontalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
+import { CSS } from "@dnd-kit/utilities";
 import {
   COLUMN_COLORS,
   DONE_COLUMN,
@@ -68,6 +87,8 @@ export function ColumnsSettings() {
             </div>
           </div>
 
+          <ColumnOrderStrip columns={columns} />
+
           <ol aria-label="Columns" className="divide-y divide-ink/10">
             {columns.map((c, i) => (
               <ColumnRow
@@ -109,6 +130,101 @@ export function ColumnsSettings() {
         }}
       />
     </section>
+  );
+}
+
+/**
+ * Wider screens: the columns in a row, as on the board. Drag one left or right to reorder
+ * (or focus its handle and use the arrow keys). Todo and Completed are locked at the ends.
+ * Phones use the arrows on each row instead.
+ */
+function ColumnOrderStrip({ columns }: { columns: BoardColumn[] }) {
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const movable = columns.filter((c) => !c.fixed);
+  const ids = movable.map((c) => c.id);
+  const first = columns[0];
+  const last = columns[columns.length - 1];
+  const labelOf = (id: unknown) => columns.find((c) => c.id === id)?.label ?? "Column";
+
+  function onDragEnd({ active, over }: DragEndEvent) {
+    if (!over || active.id === over.id) return;
+    const from = ids.indexOf(String(active.id));
+    const to = ids.indexOf(String(over.id));
+    if (from === -1 || to === -1) return;
+    columnActions.reorder(arrayMove(ids, from, to));
+  }
+
+  return (
+    <div className="hidden bg-paper/50 px-5 py-4 md:block">
+      <p className="text-sm font-semibold">Board order</p>
+      <p className="mt-0.5 text-xs text-ink/50">
+        Drag a column left or right to move it on your board. {first?.label} and {last?.label} stay at the ends.
+      </p>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        modifiers={[restrictToHorizontalAxis, restrictToParentElement]}
+        onDragEnd={onDragEnd}
+        accessibility={{
+          screenReaderInstructions: {
+            draggable: "To move a column, press space or enter, use the left and right arrow keys, then press space or enter again to drop it.",
+          },
+          announcements: {
+            onDragStart: ({ active }) => `Picked up ${labelOf(active.id)}.`,
+            onDragOver: ({ active, over }) => (over ? `${labelOf(active.id)} is over ${labelOf(over.id)}.` : `${labelOf(active.id)} is not over a column.`),
+            onDragEnd: ({ active, over }) => (over ? `${labelOf(active.id)} dropped.` : `${labelOf(active.id)} was not moved.`),
+            onDragCancel: ({ active }) => `Moving ${labelOf(active.id)} was cancelled.`,
+          },
+        }}
+      >
+        <ol aria-label="Board order" className="mt-3 flex items-stretch gap-2 overflow-x-auto pb-1">
+          {first && <OrderChip column={first} />}
+          <SortableContext items={ids} strategy={horizontalListSortingStrategy}>
+            {movable.map((c) => (
+              <SortableOrderChip key={c.id} column={c} />
+            ))}
+          </SortableContext>
+          {last && last !== first && <OrderChip column={last} />}
+        </ol>
+      </DndContext>
+    </div>
+  );
+}
+
+const chip = "flex min-w-[8.5rem] flex-1 items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold";
+
+/** Todo or Completed: shown in place, not draggable. */
+function OrderChip({ column }: { column: BoardColumn }) {
+  return (
+    <li className={`${chip} border-ink/10 bg-surface/60 text-ink/60`} title={`${column.label} stays ${column.fixed === "first" ? "first" : "last"}`}>
+      <Lock aria-hidden className="size-3.5 shrink-0 text-ink/35" />
+      <span aria-hidden className={`size-2.5 shrink-0 rounded-full ${column.dot}`} />
+      <span className="truncate">{column.label}</span>
+    </li>
+  );
+}
+
+function SortableOrderChip({ column }: { column: BoardColumn }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: column.id });
+  return (
+    <li
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform), transition }}
+      {...attributes}
+      {...listeners}
+      aria-label={`Move ${column.label}`}
+      className={`${chip} cursor-grab touch-none border-ink/15 bg-surface outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-iris ${
+        isDragging ? "relative z-10 cursor-grabbing shadow-lg ring-2 ring-iris/50" : "hover:border-ink/30"
+      }`}
+    >
+      <GripVertical aria-hidden className="size-4 shrink-0 text-ink/35" />
+      <span aria-hidden className={`size-2.5 shrink-0 rounded-full ${column.dot}`} />
+      <span className="truncate">{column.label}</span>
+    </li>
   );
 }
 
@@ -200,10 +316,10 @@ function ColumnRow({
           </span>
         ) : column.fixed ? null : (
           <div className="flex items-center">
-            <button type="button" disabled={!canMoveUp} onClick={() => columnActions.move(column.id, -1)} aria-label={`Move ${column.label} earlier`} title="Move earlier (left on the board)" className={iconButton}>
+            <button type="button" disabled={!canMoveUp} onClick={() => columnActions.move(column.id, -1)} aria-label={`Move ${column.label} earlier`} title="Move earlier (left on the board)" className={`${iconButton} md:hidden`}>
               <ArrowUp className="size-4" />
             </button>
-            <button type="button" disabled={!canMoveDown} onClick={() => columnActions.move(column.id, 1)} aria-label={`Move ${column.label} later`} title="Move later (right on the board)" className={iconButton}>
+            <button type="button" disabled={!canMoveDown} onClick={() => columnActions.move(column.id, 1)} aria-label={`Move ${column.label} later`} title="Move later (right on the board)" className={`${iconButton} md:hidden`}>
               <ArrowDown className="size-4" />
             </button>
             <button
@@ -319,7 +435,7 @@ function AddColumn() {
       </div>
       <ColorPicker value={color} onChange={setColor} />
       <TickToSelect columns={columns} value={tickTo} onChange={setTickTo} />
-      <p className="text-xs text-ink/50">New columns go just before Completed. Reorder them with the arrows.</p>
+      <p className="text-xs text-ink/50">New columns go just before Completed. Drag them in Board order to reorder (on a phone, use the arrows).</p>
     </form>
   );
 }

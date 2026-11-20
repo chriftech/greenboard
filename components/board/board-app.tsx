@@ -69,6 +69,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { ProfileMenu } from "./profile-menu";
 import { BoardToolbar } from "./board-toolbar";
 import { ImportDialog } from "./import-dialog";
+import { AddColumnButton } from "./add-column";
 import { usePeople } from "@/lib/people";
 import { registerBoard, useColumns, useWorkspace, workspace, type Filter, type NavTarget, type View } from "@/lib/workspace";
 import { GreetingSkeleton, TaskBoardSkeleton } from "./board-skeleton";
@@ -86,8 +87,10 @@ import {
   TRASH_DAYS,
   getServerTasks,
   getTasks,
+  isTicked,
   statusOf,
   subscribeTasks,
+  tickTarget,
   taskActions,
   type PriorityId,
   type TagId,
@@ -99,6 +102,7 @@ import {
   TODO_COLUMN,
   canMove,
   useBoardColumns,
+  useTickColumn,
   useWorkflow,
   type BoardColumn as ColumnDef,
 } from "@/lib/columns";
@@ -197,6 +201,7 @@ export function BoardApp() {
   // The user's columns (Settings), and which moves between them the workflow allows.
   const boardColumns = useBoardColumns();
   const workflow = useWorkflow();
+  const tickColumn = useTickColumn();
   const columnIds = boardColumns.map((c) => c.id);
   const labelOf = (col: ColumnId) => boardColumns.find((c) => c.id === col)?.label ?? "Todo";
   // A phone tab for a column that was since deleted falls back to the first one.
@@ -329,22 +334,23 @@ export function BoardApp() {
     flight.oncancel = () => bubble.remove();
   }
 
+  // Ticking sends a task to its column's destination (Completed unless changed in Settings); unticking, back to Todo.
   function toggleTask(task: Task, origin?: DOMRect) {
-    const nowDone = !task.done;
+    const nowTicked = !isTicked(task, tickColumn);
     const from = statusOf(task);
-    const to = nowDone ? DONE_COLUMN : TODO_COLUMN;
+    const to = tickTarget(task, tickColumn, boardColumns);
     if (!canMove(from, to, workflow)) return blockMove(from, to);
     taskActions.toggle(task.id);
-    if (nowDone && origin) flyToCompleted(origin);
-    if (!nowDone) return stopMoving(task.id); // unticked during the pause: stay put
-    if (!columnsLayout && tab === DONE_COLUMN) return; // already looking at Completed: nothing moves
+    if (nowTicked && to === DONE_COLUMN && origin) flyToCompleted(origin);
+    if (!nowTicked) return stopMoving(task.id); // unticked during the pause: stay put
+    if (!columnsLayout && tab === to) return; // already looking at that column: nothing moves
     setMoving((s) => new Map(s).set(task.id, from));
     moveTimers.current.set(
       task.id,
       window.setTimeout(() => {
         stopMoving(task.id);
         setLanded(task.id);
-        setAnnouncement(`"${task.title}" moved to Completed.`);
+        setAnnouncement(`"${task.title}" moved to ${labelOf(to)}.`);
         window.setTimeout(() => setLanded((l) => (l === task.id ? null : l)), 1100);
       }, MOVE_DELAY_MS),
     );
@@ -582,6 +588,19 @@ export function BoardApp() {
     </p>
   ) : null;
 
+  // A column just added from the board: show it (phones switch to its tab).
+  function showNewColumn(id: string) {
+    if (!columnsLayout) {
+      setFilter(id);
+      return;
+    }
+    setFlash(id);
+    window.setTimeout(() => setFlash((f) => (f === id ? null : f)), 1400);
+    window.requestAnimationFrame(() =>
+      document.querySelector(`[data-column="${id}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" }),
+    );
+  }
+
   return (
     <>
       {/* `isolate` lets the grid below sit behind the content (-z-10) without dropping under the page background. */}
@@ -736,6 +755,7 @@ export function BoardApp() {
               <BoardToolbar
                 empty={all.length === 0}
                 onImport={() => setImportOpen(true)}
+                addColumn={<AddColumnButton onAdded={showNewColumn} />}
                 tags={tags}
                 people={people}
                 tag={activeTag}
@@ -1184,6 +1204,7 @@ function BoardColumn({
       role="group"
       aria-label={`${meta.title}, ${count} ${count === 1 ? "task" : "tasks"}`}
       data-tour={id === TODO_COLUMN ? "tasks" : undefined}
+      data-column={id}
       // Open columns: spacing either side of the dividing line, none at the outer edges.
       // pb-2 holds the scroll area's negative bottom margin, so nothing spills below the board.
       className="flex min-w-0 flex-col px-5 pb-2 pt-4 first:pl-0 last:pr-0"
@@ -1314,12 +1335,14 @@ function TaskCard({
   overlay?: boolean;
 }) {
   const [burst, setBurst] = useState(0);
+  // Done, or in the column ticking sends tasks to (e.g. "In review"): shown ticked either way.
+  const ticked = isTicked(task, useTickColumn());
   const schedule = task.start && task.end ? { start: task.start, end: task.end } : null;
   const status = schedule ? scheduleStatus(schedule, task.done) : null;
   const preview = task.descriptionText?.replace(/\s+/g, " ").trim();
 
   function toggle(e: MouseEvent<HTMLButtonElement>) {
-    if (!task.done) setBurst((b) => b + 1);
+    if (!ticked) setBurst((b) => b + 1);
     onToggle(e.currentTarget.getBoundingClientRect());
   }
 
@@ -1328,7 +1351,7 @@ function TaskCard({
     <div
       className={`group relative flex items-center gap-2 rounded-2xl border py-3.5 pl-1.5 pr-3 transition-[box-shadow,transform,opacity,background-color,border-color] duration-300 ${
         overlay ? "" : "gb-rise"
-      } ${task.done ? "border-success/25 bg-success-soft" : "border-ink/10 bg-surface hover:shadow-md"} ${
+      } ${ticked ? "border-success/25 bg-success-soft" : "border-ink/10 bg-surface hover:shadow-md"} ${
         leaving ? "scale-95 opacity-0" : ""
       } ${
         overlay
@@ -1363,12 +1386,12 @@ function TaskCard({
         <button
           type="button"
           onClick={toggle}
-          aria-label={task.done ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
-          aria-pressed={task.done}
+          aria-label={ticked ? `Untick "${task.title}"` : `Tick "${task.title}"`}
+          aria-pressed={ticked}
           className="relative rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris"
         >
-          <CheckBox done={task.done} size={28} />
-          {burst > 0 && task.done && <ConfettiBurst key={burst} />}
+          <CheckBox done={ticked} size={28} />
+          {burst > 0 && ticked && <ConfettiBurst key={burst} />}
         </button>
   
         <button
@@ -1378,7 +1401,7 @@ function TaskCard({
           className="min-w-0 flex-1 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-iris"
         >
           <p className="truncate">
-            <span className="gb-strike text-base font-medium" data-done={task.done || undefined}>
+            <span className="gb-strike text-base font-medium" data-done={ticked || undefined}>
               {task.title}
             </span>
           </p>

@@ -1,4 +1,4 @@
-import { DONE_COLUMN, TODO_COLUMN, knownColumn } from "./columns";
+import { DONE_COLUMN, TODO_COLUMN, getColumns, getTickColumn, knownColumn, tickDestination, type BoardColumn } from "./columns";
 
 /**
  * Client-side task store backed by localStorage.
@@ -77,6 +77,18 @@ export type TaskStatus = string;
 export function statusOf(t: Pick<Task, "done" | "column" | "inProgress">): TaskStatus {
   if (t.done) return DONE_COLUMN;
   return knownColumn(t.column ?? (t.inProgress ? "pending" : TODO_COLUMN));
+}
+
+type StatusFields = Pick<Task, "done" | "column" | "inProgress">;
+
+/** Whether a task shows as ticked: it's done, or it's in the column ticking sends tasks to. */
+export function isTicked(t: StatusFields, tickColumn: string = getTickColumn()): boolean {
+  return t.done || statusOf(t) === tickColumn;
+}
+
+/** Where ticking a task sends it (its column's destination, else the tick column), or unticking it (back to Todo). */
+export function tickTarget(t: StatusFields, tickColumn: string = getTickColumn(), columns: BoardColumn[] = getColumns()): TaskStatus {
+  return isTicked(t, tickColumn) ? TODO_COLUMN : tickDestination(statusOf(t), columns, tickColumn);
 }
 
 /** The fields that store a status: done tasks keep doneAt; others keep their column (none for Todo). */
@@ -246,9 +258,9 @@ export const taskActions = {
     };
     save([task, ...getTasks()]);
   },
-  /** Tick a task off, or untick it (back to Todo). */
+  /** Tick a task (to its column's destination, Completed by default), or untick it (back to Todo). */
   toggle(id: string) {
-    save(getTasks().map((t) => (t.id === id ? withStatus(t, t.done ? "todo" : "done") : t)));
+    save(getTasks().map((t) => (t.id === id ? withStatus(t, tickTarget(t)) : t)));
   },
   /** Move a task to a column (Completed ticks it off). */
   setStatus(id: string, status: TaskStatus) {

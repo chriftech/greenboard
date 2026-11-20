@@ -9,6 +9,13 @@
  *
  * The workflow says which columns a task may move to from each column. Off by
  * default (any move is allowed); turned on, only the ticked moves are.
+ *
+ * The tick column is where ticking a task's circle sends it: Completed by default
+ * (the task is done), or any other column but Todo, e.g. "In review". Tasks in it
+ * show as ticked; unticking sends them back to Todo.
+ *
+ * A column can also have its own tick destination (`tickTo`): ticking a task in it
+ * sends the task there instead, e.g. In review → QA → Completed.
  */
 
 import { useSyncExternalStore } from "react";
@@ -30,7 +37,13 @@ export const COLUMN_COLORS = [
 export type ColumnColor = (typeof COLUMN_COLORS)[number]["id"];
 const COLOR_IDS = new Set<string>(COLUMN_COLORS.map((c) => c.id));
 
-export type Column = { id: string; label: string; color: ColumnColor };
+export type Column = {
+  id: string;
+  label: string;
+  color: ColumnColor;
+  /** Where ticking a task in this column sends it. Unset: the board's tick column. */
+  tickTo?: string;
+};
 /** A column as the board shows it, with its dot class and whether it's fixed. */
 export type BoardColumn = Column & { dot: string; fixed: "first" | "last" | null };
 
@@ -41,7 +54,7 @@ export type Workflow = {
   moves: Record<string, string[]>;
 };
 
-type Saved = { columns: Column[]; workflow: Workflow };
+type Saved = { columns: Column[]; workflow: Workflow; tickColumn: string };
 
 /** Columns the user can add, besides Todo and Completed. */
 export const MAX_EXTRA_COLUMNS = 6;
@@ -55,6 +68,7 @@ const DEFAULTS: Saved = {
     { id: "pending", label: "Pending", color: "peach" },
   ],
   workflow: { enabled: false, moves: {} },
+  tickColumn: DONE_COLUMN,
 };
 
 const KEY = "greenboard.columns.v1";
@@ -73,7 +87,12 @@ function clean(raw: unknown): Saved {
       const label = c.label.trim().slice(0, MAX_COLUMN_LABEL);
       if (!label) continue;
       seen.add(c.id);
-      columns.push({ id: c.id, label, color: COLOR_IDS.has(c.color) ? c.color : "iris" });
+      columns.push({
+        id: c.id,
+        label,
+        color: COLOR_IDS.has(c.color) ? c.color : "iris",
+        ...(typeof c.tickTo === "string" ? { tickTo: c.tickTo } : {}),
+      });
     }
   }
   // Todo always exists, and always comes first.
@@ -83,6 +102,11 @@ function clean(raw: unknown): Saved {
   if (!Array.isArray(r.columns)) list.splice(1, 0, ...DEFAULTS.columns.slice(1));
 
   const ids = new Set([...list.map((c) => c.id), DONE_COLUMN]);
+  // A column's own tick destination must be another column, not Todo (a deleted one is dropped).
+  for (let i = 0; i < list.length; i++) {
+    const { tickTo, ...rest } = list[i];
+    list[i] = tickTo && ids.has(tickTo) && tickTo !== rest.id && tickTo !== TODO_COLUMN ? { ...rest, tickTo } : rest;
+  }
   const moves: Record<string, string[]> = {};
   const w = (r.workflow ?? {}) as Partial<Workflow>;
   if (w.moves && typeof w.moves === "object") {
@@ -90,7 +114,9 @@ function clean(raw: unknown): Saved {
       if (ids.has(from) && Array.isArray(to)) moves[from] = to.filter((id) => typeof id === "string" && ids.has(id) && id !== from);
     }
   }
-  return { columns: list, workflow: { enabled: w.enabled === true, moves } };
+  // Ticking can send tasks to any column but Todo (a column that's gone falls back to Completed).
+  const tickColumn = typeof r.tickColumn === "string" && ids.has(r.tickColumn) && r.tickColumn !== TODO_COLUMN ? r.tickColumn : DONE_COLUMN;
+  return { columns: list, workflow: { enabled: w.enabled === true, moves }, tickColumn };
 }
 
 function read(): Saved {
@@ -140,6 +166,11 @@ export function getWorkflow(): Workflow {
   return read().workflow;
 }
 
+/** The column ticking a task sends it to (Completed unless the user picked another). */
+export function getTickColumn(): string {
+  return read().tickColumn;
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
   const onStorage = (e: StorageEvent) => {
@@ -163,6 +194,15 @@ export function useBoardColumns(): BoardColumn[] {
 const SERVER_WORKFLOW = DEFAULTS.workflow;
 export function useWorkflow(): Workflow {
   return useSyncExternalStore(subscribe, getWorkflow, () => SERVER_WORKFLOW);
+}
+
+export function useTickColumn(): string {
+  return useSyncExternalStore(subscribe, getTickColumn, () => DONE_COLUMN);
+}
+
+/** Where ticking a task in this column sends it: its own destination, or the board's tick column. */
+export function tickDestination(columnId: string, columns: BoardColumn[] = getColumns(), tickColumn: string = getTickColumn()): string {
+  return columns.find((c) => c.id === columnId)?.tickTo ?? tickColumn;
 }
 
 /** Whether the workflow lets a task move from one column to another. */
@@ -191,8 +231,8 @@ function newId() {
 }
 
 export const columnActions = {
-  /** Add a column just before Completed. Returns its id, or null when full or unnamed. */
-  add(label: string, color: ColumnColor): string | null {
+  /** Add a column just before Completed (optionally with where ticking a task in it sends it). Returns its id, or null when full or unnamed. */
+  add(label: string, color: ColumnColor, { tickTo }: { tickTo?: string } = {}): string | null {
     const s = read();
     const name = label.trim().slice(0, MAX_COLUMN_LABEL);
     if (!name || s.columns.length - 1 >= MAX_EXTRA_COLUMNS) return null;
@@ -204,22 +244,25 @@ export const columnActions = {
       for (const from of others) moves[from] = [...(moves[from] ?? []), id];
       moves[id] = others;
     }
-    write({ columns: [...s.columns, { id, label: name, color }], workflow: { ...s.workflow, moves } });
+    write({ ...s, columns: [...s.columns, { id, label: name, color, ...(tickTo ? { tickTo } : {}) }], workflow: { ...s.workflow, moves } });
     return id;
   },
-  update(id: string, patch: Partial<Pick<Column, "label" | "color">>) {
+  /** Rename or recolour a column, or set where ticking sends its tasks (tickTo: null for the board's default). */
+  update(id: string, patch: Partial<Pick<Column, "label" | "color">> & { tickTo?: string | null }) {
     const s = read();
     write({
       ...s,
-      columns: s.columns.map((c) =>
-        c.id !== id
-          ? c
-          : {
-              ...c,
-              ...(patch.label !== undefined && patch.label.trim() ? { label: patch.label.trim().slice(0, MAX_COLUMN_LABEL) } : {}),
-              ...(patch.color ? { color: patch.color } : {}),
-            },
-      ),
+      columns: s.columns.map((c) => {
+        if (c.id !== id) return c;
+        const next: Column = {
+          ...c,
+          ...(patch.label !== undefined && patch.label.trim() ? { label: patch.label.trim().slice(0, MAX_COLUMN_LABEL) } : {}),
+          ...(patch.color ? { color: patch.color } : {}),
+        };
+        if (patch.tickTo === null) delete next.tickTo;
+        else if (patch.tickTo) next.tickTo = patch.tickTo;
+        return next;
+      }),
     });
   },
   /** Move one of the user's columns left (-1) or right (+1). Todo stays first, Completed last. */
@@ -240,7 +283,8 @@ export const columnActions = {
     for (const [from, to] of Object.entries(s.workflow.moves)) {
       if (from !== id) moves[from] = to.filter((x) => x !== id);
     }
-    write({ columns: s.columns.filter((c) => c.id !== id), workflow: { ...s.workflow, moves } });
+    // If ticked tasks went here, they go to Completed again (clean() sees the column is gone).
+    write({ ...s, columns: s.columns.filter((c) => c.id !== id), workflow: { ...s.workflow, moves } });
   },
   /** Turn the workflow on (starting with every move allowed) or off (keeping the moves for next time). */
   setWorkflowEnabled(enabled: boolean) {
@@ -259,6 +303,10 @@ export const columnActions = {
     if (allowed) current.add(to);
     else current.delete(to);
     write({ ...s, workflow: { ...s.workflow, moves: { ...s.workflow.moves, [from]: [...current] } } });
+  },
+  /** Choose where ticking a task sends it (any column but Todo). */
+  setTickColumn(id: string) {
+    write({ ...read(), tickColumn: id });
   },
   /** Back to Todo → Pending → Completed with no workflow. Tasks in removed columns should be moved first. */
   reset() {

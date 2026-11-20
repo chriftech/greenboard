@@ -275,6 +275,15 @@ export const columnActions = {
     [columns[i], columns[j]] = [columns[j], columns[i]];
     write({ ...s, columns });
   },
+  /** Put the user's columns in this order (Todo stays first, Completed last; unknown ids are ignored). */
+  reorder(ids: string[]) {
+    const s = read();
+    const byId = new Map(s.columns.map((c) => [c.id, c]));
+    const middle = ids.filter((id) => id !== TODO_COLUMN && byId.has(id)).map((id) => byId.get(id)!);
+    // Any column missing from `ids` keeps its place at the end, so nothing is lost.
+    const rest = s.columns.slice(1).filter((c) => !middle.includes(c));
+    write({ ...s, columns: [s.columns[0], ...middle, ...rest] });
+  },
   /** Delete one of the user's columns (not Todo or Completed). Its tasks should be moved first. */
   remove(id: string) {
     if (id === TODO_COLUMN || id === DONE_COLUMN) return;

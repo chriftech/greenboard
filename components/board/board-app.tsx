@@ -859,7 +859,7 @@ export function BoardApp() {
                 <div className="gb-column-scroll -mx-2 overflow-x-auto overflow-y-hidden px-2">
                 <div
                   data-tour="columns"
-                  className="grid divide-x divide-ink/15 border-t border-ink/15"
+                  className="grid divide-x divide-ink/8 border-t border-ink/10"
                   style={{ gridTemplateColumns: `repeat(${boardColumns.length}, minmax(19rem, 1fr))` }}
                 >
                   {boardColumns.map(({ id: col }) => {
@@ -1207,7 +1207,7 @@ function BoardColumn({
       data-column={id}
       // Open columns: spacing either side of the dividing line, none at the outer edges.
       // pb-2 holds the scroll area's negative bottom margin, so nothing spills below the board.
-      className="flex min-w-0 flex-col px-5 pb-2 pt-4 first:pl-0 last:pr-0"
+      className="flex min-w-0 flex-col px-7 pb-2 pt-5 first:pl-0 last:pr-0"
     >
       <div className="flex items-center gap-2 px-1 pb-3 pt-1">
         <span aria-hidden className={`size-2.5 shrink-0 rounded-full ${meta.dot}`} />
@@ -1228,21 +1228,28 @@ function BoardColumn({
         {/* The drop zone: outlined (without shifting anything) while a task is dragged over from another column;
             coral when the workflow doesn't allow the move. */}
         <ul
-          className={`flex min-h-[132px] flex-1 flex-col gap-3 rounded-2xl outline-2 outline-offset-[6px] transition-[outline-color,background-color] duration-200 ${
+          className={`flex flex-1 flex-col gap-3 rounded-2xl ${dragging ? "min-h-[132px]" : "min-h-16"} outline-2 outline-offset-[6px] transition-[outline-color,background-color] duration-200 ${
             highlight ? "bg-iris/5 outline-dashed outline-iris/50" : blocked ? "bg-coral/5 outline-dashed outline-coral/50" : "outline-transparent"
           }`}
         >
           {children}
-          {empty && (
-            <li
-              className={`flex flex-1 flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-8 text-center transition-colors ${
-                highlight ? "border-iris/50" : "border-ink/10"
-              }`}
-            >
-              <p className="font-display font-bold">{blocked ? "Not allowed by your workflow" : dragging ? "Drop it here" : meta.emptyTitle}</p>
-              {!dragging && <p className="mt-1 max-w-[16rem] text-sm text-ink/55">{meta.emptyBody}</p>}
-            </li>
-          )}
+          {/* Empty: a quiet line rather than a card, so a board with few tasks doesn't look like a wall of boxes.
+              The dashed drop target appears only while a task is being dragged. */}
+          {empty &&
+            (dragging ? (
+              <li
+                className={`flex flex-1 items-center justify-center rounded-2xl border-2 border-dashed px-4 py-6 text-center text-sm font-semibold transition-colors ${
+                  blocked ? "border-coral/40 text-coral" : highlight ? "border-iris/50 text-iris" : "border-ink/10 text-ink/45"
+                }`}
+              >
+                {blocked ? "Not allowed by your workflow" : "Drop it here"}
+              </li>
+            ) : (
+              <li className="px-1 pt-1 text-sm text-ink/40">
+                <span className="font-medium text-ink/55">{meta.emptyTitle}</span>
+                <span className="mt-0.5 block text-xs leading-relaxed">{meta.emptyBody}</span>
+              </li>
+            ))}
         </ul>
       </div>
     </div>

@@ -243,7 +243,8 @@ html[data-auth-pending] body > * {
 }
 
 .gb-float { animation: gb-float 6s ease-in-out infinite; }
-.gb-blob { animation: gb-blob 18s ease-in-out infinite; }
+/* Its own compositor layer: the blur is painted once and only moved, not repainted every frame. */
+.gb-blob { animation: gb-blob 18s ease-in-out infinite; will-change: transform; }
 .gb-marquee { animation: gb-marquee 32s linear infinite; }
 .gb-pop { animation: gb-pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.4) both; }
 .gb-rise { animation: gb-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }

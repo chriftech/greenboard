@@ -55,7 +55,7 @@ import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifi
 import { CSS } from "@dnd-kit/utilities";
 import { Logo } from "@/components/landing/logo";
 import { CheckBox, ConfettiBurst } from "@/components/landing/check-box";
-import { TaskDetails } from "./task-details";
+import { TaskDetails, preloadTaskEditor } from "./task-details";
 import { ConfirmDialog } from "./confirm-dialog";
 import { TagEditor } from "./tag-editor";
 import { TagChip, TagDot, TagRadio } from "./tag-chip";
@@ -248,6 +248,17 @@ export function BoardApp() {
     if (!asked && hasSeenTour()) return;
     // Let the board's entrance animation settle first, so the spotlight lands in the right place.
     const timer = window.setTimeout(tourActions.start, 900);
+    return () => window.clearTimeout(timer);
+  }, [loaded]);
+
+  // Fetch the description editor once the board is idle, so opening a task doesn't wait for it.
+  useEffect(() => {
+    if (!loaded) return;
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(preloadTaskEditor, { timeout: 4000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const timer = window.setTimeout(preloadTaskEditor, 2000);
     return () => window.clearTimeout(timer);
   }, [loaded]);
 

@@ -7,7 +7,6 @@ import {
   ArrowRight,
   LifeBuoy,
   ListChecks,
-  Kanban,
   ListFilter,
   PanelLeft,
   PenLine,
@@ -63,23 +62,16 @@ const STEPS: Step[] = [
     body: "Optionally give it a start and end time, a priority, and someone to do it, before you add it.",
   },
   {
-    // Columns on wider screens, tabs on phones.
-    targets: ["columns", "filters"],
-    icon: Kanban,
-    title: "Your board, in columns",
-    body: "Todo, Pending and Completed to start, each with its own count. Add your own columns in Settings.",
-    titleFor: { filters: "Switch between views" },
-    iconFor: { filters: ListFilter },
-    bodyFor: { filters: "One tab per column: Todo, Pending, Completed and any you add in Settings. The numbers keep count." },
+    targets: ["filters"],
+    icon: ListFilter,
+    title: "Filter by status",
+    body: "All shows every task. Pick Todo, Pending, Completed or any status you add to see just those. The numbers keep count.",
   },
   {
-    targets: ["tasks", "tasks-list"],
+    targets: ["tasks-list"],
     icon: ListChecks,
     title: "Work through your tasks",
-    body: "Tick the circle, or drag a task across to Completed, to finish it. Drag it to Pending when you start it. Click a task to edit it.",
-    bodyFor: {
-      "tasks-list": "Tick the circle to complete a task. Click a task to edit its details and description, and drag to reorder.",
-    },
+    body: "Tick the circle to complete a task. Click a task to change its status, details and description, and drag to reorder.",
   },
   {
     targets: ["sidebar", "menu"],

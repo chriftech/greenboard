@@ -306,17 +306,19 @@ html[data-auth-pending] body > * {
 }
 .gb-reveal[data-shown] { opacity: 1; transform: none; }
 
+/* A faint background texture: barely there, so the content holds the eye. */
 .gb-grid-bg {
+  --gb-grid-line: color-mix(in srgb, var(--color-ink) 2.5%, transparent);
   background-image:
-    linear-gradient(color-mix(in srgb, var(--color-ink) 5%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--color-ink) 5%, transparent) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 75%);
+    linear-gradient(var(--gb-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--gb-grid-line) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at 50% 20%, black 10%, transparent 60%);
 }
 
-/* The board's grid: strong at the top of the page, gone by the task columns. */
+/* The board's grid: a hint behind the header, gone before the task columns. */
 .gb-grid-fade {
-  mask-image: linear-gradient(to bottom, black 0%, black 30%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 0%, transparent 45%);
 }
 
 @media (prefers-reduced-motion: reduce) {

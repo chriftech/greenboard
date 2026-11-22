@@ -37,7 +37,7 @@ export type WorkspaceState = {
 
 const INITIAL: WorkspaceState = {
   view: "board",
-  filter: "todo",
+  filter: "all",
   tag: null,
   query: "",
   priority: "any",
@@ -60,18 +60,6 @@ function subscribe(listener: () => void) {
 
 export function useWorkspace(): WorkspaceState {
   return useSyncExternalStore(subscribe, () => state, () => INITIAL);
-}
-
-/** Phones get the board's tabbed list; columns start at Tailwind's md breakpoint (768px). */
-const COLUMNS_QUERY = "(min-width: 768px)";
-function subscribeColumns(onChange: () => void) {
-  const mq = window.matchMedia(COLUMNS_QUERY);
-  mq.addEventListener("change", onChange);
-  return () => mq.removeEventListener("change", onChange);
-}
-/** True when the board shows two columns (the server assumes it does). */
-export function useColumns() {
-  return useSyncExternalStore(subscribeColumns, () => window.matchMedia(COLUMNS_QUERY).matches, () => true);
 }
 
 export const workspace = {

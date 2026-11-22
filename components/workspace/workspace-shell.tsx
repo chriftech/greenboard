@@ -7,7 +7,7 @@ import { isScheduledToday, isUpcoming } from "@/components/board/schedule";
 import { getServerTasks, getTasks, subscribeTasks, type Task } from "@/lib/tasks";
 import { findTag, useTags } from "@/lib/tags";
 import { tourActions } from "@/lib/tour";
-import { requestBoard, useColumns, useWorkspace, workspace, type NavTarget, type View } from "@/lib/workspace";
+import { requestBoard, useWorkspace, workspace, type NavTarget, type View } from "@/lib/workspace";
 
 const PAGES = { "/board": "board", "/settings": "settings", "/help": "help" } as const;
 
@@ -39,7 +39,6 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const tasks = useSyncExternalStore(subscribeTasks, getTasks, getServerTasks);
   const tags = useTags();
   const { view, filter, tag, query, menuOpen } = useWorkspace();
-  const columnsLayout = useColumns();
 
   const all = (tasks ?? []).filter((t) => t.deletedAt === undefined);
   const pending = all.filter((t) => !t.done);
@@ -54,7 +53,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const sidebar: SidebarProps = {
     page,
     // Settings and Help aren't board views, so nothing in the workspace list is highlighted there.
-    active: !onBoard ? null : view !== "board" ? view : !columnsLayout && filter === "done" ? "completed" : "board",
+    active: !onBoard ? null : view !== "board" ? view : filter === "done" ? "completed" : "board",
     onNavigate: (target: NavTarget) => {
       if (!requestBoard({ type: "navigate", target })) toBoard();
     },

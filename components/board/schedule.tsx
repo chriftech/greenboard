@@ -1,10 +1,20 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
+import dynamic from "next/dynamic";
 import { Popover } from "@base-ui/react/popover";
 import { CalendarDays, ChevronDown, Clock } from "lucide-react";
-import { Calendar } from "@/components/ui/calendar";
 import type { Schedule } from "@/lib/tasks";
+
+/**
+ * The calendar (react-day-picker and date-fns) is only needed once a date picker opens, so it
+ * loads then, not with the board. Pointing at or focusing the date button starts the download early.
+ */
+const loadCalendar = () => import("@/components/ui/calendar");
+const Calendar = dynamic(() => loadCalendar().then((m) => m.Calendar), {
+  ssr: false,
+  loading: () => <div aria-hidden className="h-[19rem] w-[16.5rem]" />,
+});
 
 /* ───────────────────────── Draft helpers ───────────────────────── */
 
@@ -134,6 +144,8 @@ function DateTimeField({
       <Popover.Root open={open} onOpenChange={setOpen}>
         <Popover.Trigger
           aria-label={`${name} date`}
+          onPointerEnter={loadCalendar}
+          onFocus={loadCalendar}
           className={`inline-flex min-w-36 items-center gap-2 rounded-xl border bg-surface px-3 py-2 text-sm font-medium transition-colors hover:border-iris focus-visible:border-iris focus-visible:outline-none ${ring} ${
             value.date ? "text-ink" : "text-ink/40"
           }`}

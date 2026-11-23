@@ -24,39 +24,14 @@ export function GreetingSkeleton() {
   );
 }
 
-/** The new-task form: tag chips, the task box, and the row of extras. */
-export function ComposerSkeleton() {
-  return (
-    <div className="mt-6 first:mt-0 rounded-[28px] border border-ink/10 bg-surface p-4 shadow-[0_20px_60px_-30px_rgb(46_51_73/0.4)] sm:p-5">
-      <div className="flex flex-wrap gap-1.5 border-b border-ink/5 pb-4">
-        {[20, 16, 20, 16, 18, 16].map((w, i) => (
-          <Skeleton key={i} className="h-8" style={{ width: `${w * 4}px` }} />
-        ))}
-      </div>
-      <div className="mt-4 flex items-center gap-3">
-        <Skeleton className="size-10 shrink-0 rounded-2xl" />
-        <Skeleton className="h-5 w-44" />
-      </div>
-      <div className="mt-4 flex items-center justify-between gap-2">
-        <div className="flex gap-2">
-          <Skeleton className="h-8 w-28" />
-          <Skeleton className="hidden h-8 w-20 sm:block" />
-          <Skeleton className="hidden h-8 w-24 sm:block" />
-        </div>
-        <Skeleton className="h-9 w-24 rounded-xl" />
-      </div>
-    </div>
-  );
-}
-
 /** One task card: tick circle, title and tag. */
 function TaskCardSkeleton({ title }: { title: string }) {
   return (
-    <div className="flex h-[68px] items-center gap-3 rounded-2xl border border-ink/10 bg-surface px-4">
-      <Skeleton className="size-6 shrink-0" />
-      <div className="min-w-0 flex-1 space-y-2">
+    <div className="flex h-[78px] items-start gap-2.5 rounded-xl border border-ink/10 bg-white p-3 dark:bg-surface">
+      <Skeleton className="size-5 shrink-0" />
+      <div className="min-w-0 flex-1 space-y-3">
         <Skeleton className="h-3.5 max-w-full" style={{ width: title }} />
-        <Skeleton className="h-2.5 w-16" />
+        <Skeleton className="h-4 w-16 rounded-full" />
       </div>
     </div>
   );
@@ -68,7 +43,7 @@ const TITLES = [
   ["64%", "48%", "56%"],
 ];
 
-/** The task list, filtered by status. */
+/** The board: Todo, Pending and Completed columns side by side (phones see the first, and the next peeking in). */
 export function TaskBoardSkeleton() {
   return (
     <SkeletonRegion label="Loading your tasks…">
@@ -83,9 +58,17 @@ export function TaskBoardSkeleton() {
           <Skeleton className="h-8 w-20 rounded-xl" />
         </div>
       </div>
-      <div className="space-y-3">
-        {TITLES.flat().slice(0, 5).map((title, i) => (
-          <TaskCardSkeleton key={i} title={title} />
+      <div className="-mx-4 flex items-start gap-3 overflow-hidden px-4">
+        {TITLES.map((titles, c) => (
+          <div key={c} className="w-[min(18rem,calc(100vw-4rem))] shrink-0 space-y-2 rounded-2xl bg-ink/[0.04] p-2">
+            <div className="flex items-center gap-2 pb-1">
+              <Skeleton className="h-6 w-20 rounded-md" />
+              <Skeleton className="h-3 w-4" />
+            </div>
+            {titles.map((title, i) => (
+              <TaskCardSkeleton key={i} title={title} />
+            ))}
+          </div>
         ))}
       </div>
     </SkeletonRegion>
@@ -110,7 +93,6 @@ export function BoardPageSkeleton() {
       <main className="relative pb-24 pt-8">
         <div className="mx-auto max-w-7xl px-4">
           <GreetingSkeleton />
-          <ComposerSkeleton />
         </div>
         <section className="mx-auto mt-10 max-w-7xl px-4">
           <TaskBoardSkeleton />

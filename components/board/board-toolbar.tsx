@@ -54,7 +54,7 @@ export function BoardToolbar({
   const anyActive = Boolean(activeTag) || priority !== ANY || assignee !== ANY;
 
   return (
-    <div role="toolbar" aria-label="Filter, add columns, import and export tasks" className="mb-4 flex flex-wrap items-center gap-2">
+    <div role="toolbar" aria-label="Filter, add columns, import and export tasks" className="flex flex-wrap items-center gap-2">
       {!empty && (
         <>
           <span className="mr-1 hidden items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-ink/45 sm:inline-flex">

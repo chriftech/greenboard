@@ -39,7 +39,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 
   const tasks = useSyncExternalStore(subscribeTasks, getTasks, getServerTasks);
   const tags = useTags();
-  const { view, filter, tag, query, menuOpen } = useWorkspace();
+  const { view, tag, query, menuOpen } = useWorkspace();
 
   const all = (tasks ?? []).filter((t) => t.deletedAt === undefined);
   const pending = all.filter((t) => !t.done);
@@ -54,7 +54,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const sidebar: SidebarProps = {
     page,
     // Settings and Help aren't board views, so nothing in the workspace list is highlighted there.
-    active: !onBoard ? null : view !== "board" ? view : filter === "done" ? "completed" : "board",
+    active: !onBoard ? null : view !== "board" ? view : "board",
     onNavigate: (target: NavTarget) => {
       if (!requestBoard({ type: "navigate", target })) toBoard();
     },

@@ -7,13 +7,12 @@ import {
   ArrowRight,
   LifeBuoy,
   ListChecks,
-  ListFilter,
+  Kanban,
   PanelLeft,
   PenLine,
   SlidersHorizontal,
   Sparkles,
   SunMoon,
-  Tag,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -44,34 +43,28 @@ const STEPS: Step[] = [
     body: "A quick look around: it takes under a minute. Use the arrow keys or the buttons below, and press Esc to skip.",
   },
   {
-    targets: ["tags"],
-    icon: Tag,
-    title: "Pick a tag first",
-    body: "Every new task gets the tag selected here. Default is preselected, and you can make up to 5 tags of your own.",
-  },
-  {
     targets: ["new-task"],
     icon: PenLine,
-    title: "Write a task",
-    body: "Type what needs doing and press Enter. It lands at the top of your board.",
+    title: "Create a task",
+    body: "Click Task, or press T, to write one with every detail: status, description, who's doing it, a timeline, a priority and a tag.",
   },
   {
-    targets: ["task-extras"],
+    targets: ["columns"],
+    icon: Kanban,
+    title: "Your board, in columns",
+    body: "One column per status: Todo, Pending and Completed to start, each with its own count. Add column makes more, and Settings lets you rename and reorder them.",
+  },
+  {
+    targets: ["add-task"],
     icon: SlidersHorizontal,
-    title: "Add the details up front",
-    body: "Optionally give it a start and end time, a priority, and someone to do it, before you add it.",
+    title: "Or add one right in a column",
+    body: "Add task opens a card in that column. Type a name, pick the assignee, timeline, priority or tag from the icons, and press Enter. It stays open for the next one.",
   },
   {
-    targets: ["filters"],
-    icon: ListFilter,
-    title: "Filter by status",
-    body: "All shows every task. Pick Todo, Pending, Completed or any status you add to see just those. The numbers keep count.",
-  },
-  {
-    targets: ["tasks-list"],
+    targets: ["tasks"],
     icon: ListChecks,
     title: "Work through your tasks",
-    body: "Tick the circle to complete a task. Click a task to change its status, details and description, and drag to reorder.",
+    body: "Tick the circle, or drag a task across to Completed, to finish it. Drag it to Pending when you start it. Click a task to edit it.",
   },
   {
     targets: ["sidebar", "menu"],
@@ -205,10 +198,8 @@ function TourRun() {
     restoreFocus.current = document.activeElement;
     return () => {
       const el = restoreFocus.current;
-      // Started by itself (nothing focused yet): hand focus to the new-task box, ready to type.
-      const target =
-        el instanceof HTMLElement && el.isConnected && el !== document.body ? el : document.getElementById("new-task");
-      target?.focus({ preventScroll: true });
+      // Give focus back to whatever had it (started by itself, nothing had it: leave it).
+      if (el instanceof HTMLElement && el.isConnected && el !== document.body) el.focus({ preventScroll: true });
     };
   }, []);
 

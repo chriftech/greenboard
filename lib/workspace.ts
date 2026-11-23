@@ -77,7 +77,9 @@ export const workspace = {
 export type BoardAction =
   | { type: "navigate"; target: NavTarget }
   | { type: "editTag"; tag: CustomTag | null }
-  | { type: "deleteTag"; tag: TagView };
+  | { type: "deleteTag"; tag: TagView }
+  /** Open a task's details (e.g. from a reminder notification). */
+  | { type: "openTask"; id: string };
 
 type BoardHandler = (action: BoardAction) => void;
 

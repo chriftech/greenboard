@@ -452,9 +452,11 @@ export function BoardApp() {
     navigate: (target: NavTarget) => void;
     editTag: (tag: CustomTag | null) => void;
     deleteTag: (tag: TagView) => void;
+    openTask: (id: string) => void;
   } | null>(null);
   actions.current = {
     navigate,
+    openTask: openDetails,
     editTag: (t) => {
       setEditingTag(t);
       setTagEditorOpen(true);
@@ -475,6 +477,7 @@ export function BoardApp() {
         if (!run) return;
         if (action.type === "navigate") run.navigate(action.target);
         else if (action.type === "editTag") run.editTag(action.tag);
+        else if (action.type === "openTask") run.openTask(action.id);
         else run.deleteTag(action.tag);
       }),
     [],

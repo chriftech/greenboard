@@ -58,6 +58,17 @@ const FAQ: { q: string; a: ReactNode }[] = [
     ),
   },
   {
+    q: "Can I get a reminder before a task starts?",
+    a: (
+      <>
+        Yes. In <b>Settings</b> → <b>Notifications</b>, turn on <b>Task reminders</b> and allow notifications when your
+        browser asks. Then pick how early to be reminded, from when it starts to an hour before. Any task with a{" "}
+        <b>timeline</b> gets one reminder, and clicking it opens the task. Reminders come from your browser, so they
+        only arrive while Greenboard is open in a tab. One missed by up to 15 minutes still shows when you come back.
+      </>
+    ),
+  },
+  {
     q: "How do custom tags work?",
     a: (
       <>

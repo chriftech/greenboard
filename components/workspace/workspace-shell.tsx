@@ -7,6 +7,7 @@ import { isScheduledToday, isUpcoming } from "@/components/board/schedule";
 import { getServerTasks, getTasks, subscribeTasks, type Task } from "@/lib/tasks";
 import { findTag, useTags } from "@/lib/tags";
 import { tourActions } from "@/lib/tour";
+import { ReminderScheduler } from "./reminder-scheduler";
 import { requestBoard, useWorkspace, workspace, type NavTarget, type View } from "@/lib/workspace";
 
 const PAGES = { "/board": "board", "/settings": "settings", "/help": "help" } as const;
@@ -99,6 +100,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       <Sidebar {...sidebar} />
       <MobileSidebar {...sidebar} open={menuOpen} onOpenChange={workspace.setMenuOpen} />
       <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      <ReminderScheduler />
     </div>
   );
 }

@@ -5,12 +5,19 @@
 
 import { useSyncExternalStore } from "react";
 
+/** How many minutes before a task starts its reminder shows (0 = when it starts). */
+export const REMINDER_LEADS = [0, 5, 10, 15, 30, 60] as const;
+export type ReminderLead = (typeof REMINDER_LEADS)[number];
+
 export type Settings = {
   /** The "Good morning" card at the top of the board, with the date and progress ring. */
   showGreeting: boolean;
+  /** Browser notifications before scheduled tasks start (also needs the browser's permission). */
+  reminders: boolean;
+  reminderLead: ReminderLead;
 };
 
-export const DEFAULT_SETTINGS: Settings = { showGreeting: true };
+export const DEFAULT_SETTINGS: Settings = { showGreeting: true, reminders: false, reminderLead: 10 };
 
 const SETTINGS_KEY = "greenboard.settings.v1";
 
@@ -28,6 +35,10 @@ function read(): Settings {
   }
   cached = {
     showGreeting: typeof saved.showGreeting === "boolean" ? saved.showGreeting : DEFAULT_SETTINGS.showGreeting,
+    reminders: typeof saved.reminders === "boolean" ? saved.reminders : DEFAULT_SETTINGS.reminders,
+    reminderLead: (REMINDER_LEADS as readonly number[]).includes(saved.reminderLead as number)
+      ? (saved.reminderLead as ReminderLead)
+      : DEFAULT_SETTINGS.reminderLead,
   };
   return cached;
 }
@@ -55,6 +66,11 @@ function subscribe(listener: () => void) {
     listeners.delete(listener);
     window.removeEventListener("storage", onStorage);
   };
+}
+
+/** The current settings, outside React (e.g. in timers). */
+export function getSettings(): Settings {
+  return read();
 }
 
 /** The current settings. The server (and the first render) uses the defaults. */

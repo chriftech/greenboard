@@ -665,7 +665,7 @@ export function BoardApp() {
           </div>
         </header>
   
-        <main className="relative pb-24 pt-8">
+        <main className="relative pb-24 pt-8 md:pb-8">
           <div className="relative">
             {/*
               The grid scrolls with the page: full strength behind the header, fading out by the
@@ -710,8 +710,10 @@ export function BoardApp() {
             aria-label="Task board"
             className={`mx-auto max-w-7xl px-4 ${sidebarNarrowed ? "mt-5" : "mt-10"}`}
           >
-            {/* Filters on the left, Export on the far right, above the columns. */}
+            {/* Filters on the left, Export on the far right, above the columns.
+                On wider screens they stay pinned to the top while a long column scrolls the page. */}
             {loaded && (
+              <div className="z-20 -mx-4 mb-4 bg-paper/85 px-4 py-3 backdrop-blur-xl md:sticky md:top-0">
               <BoardToolbar
                 empty={all.length === 0}
                 onImport={() => setImportOpen(true)}
@@ -731,6 +733,7 @@ export function BoardApp() {
                 onAssigneeChange={setAssigneeFilter}
                 onClear={clearFilters}
               />
+              </div>
             )}
             {!loaded ? (
               <TaskBoardSkeleton />

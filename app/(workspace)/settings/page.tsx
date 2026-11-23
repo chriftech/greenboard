@@ -6,11 +6,12 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { MenuButton } from "@/components/workspace/menu-button";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { ProfileSettings } from "@/components/settings/profile-settings";
+import { NotificationSettings } from "@/components/settings/notification-settings";
 import { ColumnsSettings, WorkflowSettings } from "@/components/settings/columns-settings";
 
 export const metadata: Metadata = {
   title: "Settings — Greenboard",
-  description: "Your Greenboard profile, how your board looks, and its columns and workflow.",
+  description: "Your Greenboard profile, how your board looks, reminders, and its columns and workflow.",
 };
 
 export default function SettingsPage() {
@@ -53,13 +54,14 @@ export default function SettingsPage() {
               <Settings className="size-6" />
             </span>
             <h1 className="mt-4 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">Settings</h1>
-            <p className="mt-2 max-w-lg text-white/75">Your profile, how your board looks, and its columns and workflow.</p>
+            <p className="mt-2 max-w-lg text-white/75">Your profile, how your board looks, reminders, and its columns and workflow.</p>
           </div>
         </section>
 
         <div className="mt-10 space-y-10">
           <ProfileSettings />
           <SettingsForm />
+          <NotificationSettings />
           <ColumnsSettings />
           <WorkflowSettings />
         </div>

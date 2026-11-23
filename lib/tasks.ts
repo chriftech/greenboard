@@ -240,7 +240,20 @@ function newId() {
 }
 
 export const taskActions = {
-  add(input: { title: string; tag: TagId; schedule?: Schedule; priority?: PriorityId; assignee?: string }) {
+  /**
+   * Add a task, in Todo unless `status` names another column (e.g. from a board column's "Add task").
+   * It goes above every other task, or below them with `position: "bottom"` (a column's bottom "Add task").
+   */
+  add(input: {
+    title: string;
+    tag: TagId;
+    schedule?: Schedule;
+    priority?: PriorityId;
+    assignee?: string;
+    status?: TaskStatus;
+    description?: { html: string; text: string };
+    position?: "top" | "bottom";
+  }) {
     const title = input.title.trim();
     if (!title) return;
     if (input.schedule && !isValidSchedule(input.schedule)) return;
@@ -251,12 +264,16 @@ export const taskActions = {
       ...(input.schedule ?? {}),
       ...(input.priority ? { priority: input.priority } : {}),
       ...(input.assignee ? { assignee: input.assignee } : {}),
+      ...(input.description?.text ? { description: input.description.html, descriptionText: input.description.text } : {}),
       done: false,
       createdAt: Date.now(),
-      // Ahead of every existing task, so new tasks appear at the top.
-      order: Math.min(-Date.now(), ...getTasks().map((t) => t.order - 1)),
+      // Ahead of every existing task, so new tasks appear at the top (or after them all, at the bottom).
+      order:
+        input.position === "bottom"
+          ? Math.max(0, ...getTasks().map((t) => t.order + 1))
+          : Math.min(-Date.now(), ...getTasks().map((t) => t.order - 1)),
     };
-    save([task, ...getTasks()]);
+    save([input.status ? withStatus(task, input.status) : task, ...getTasks()]);
   },
   /** Tick a task (to its column's destination, Completed by default), or untick it (back to Todo). */
   toggle(id: string) {

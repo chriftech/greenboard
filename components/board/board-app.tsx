@@ -7,15 +7,18 @@ import {
   useState,
   useSyncExternalStore,
   type CSSProperties,
-  type FormEvent,
   type KeyboardEventHandler,
   type MouseEvent,
+  type ReactNode,
+  type RefObject,
 } from "react";
 import {
   ArrowRight,
   Menu,
   CalendarClock,
-  ChevronRight,
+  CircleCheck,
+  CircleDashed,
+  CircleDot,
   ClipboardCheck,
   GripVertical,
   X,
@@ -26,14 +29,20 @@ import {
 } from "lucide-react";
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
   MouseSensor,
   TouchSensor,
   closestCenter,
+  pointerWithin,
+  useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DraggableAttributes,
   type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
   type UniqueIdentifier,
 } from "@dnd-kit/core";
 import {
@@ -43,15 +52,15 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { CSS } from "@dnd-kit/utilities";
 import { Logo } from "@/components/landing/logo";
 import { CheckBox, ConfettiBurst } from "@/components/landing/check-box";
 import { TaskDetails, preloadTaskEditor } from "./task-details";
+import { CreateTaskDialog, InlineAddTask, NewTaskButton, useStartColumns } from "./add-task";
 import { ConfirmDialog } from "./confirm-dialog";
 import { TagEditor } from "./tag-editor";
-import { TagChip, TagDot, TagRadio } from "./tag-chip";
-import { AssigneeBadge, AssigneePicker, PriorityChip, PriorityPicker } from "./task-meta";
+import { TagChip, TagDot } from "./tag-chip";
+import { AssigneeBadge, PriorityChip } from "./task-meta";
 import { findTag, tagActions, useTags, type CustomTag, type TagView } from "@/lib/tags";
 import { TrashPanel } from "./trash-panel";
 import { Tour } from "./tour";
@@ -66,16 +75,12 @@ import { usePeople } from "@/lib/people";
 import { registerBoard, useWorkspace, workspace, type Filter, type NavTarget, type View } from "@/lib/workspace";
 import { GreetingSkeleton, TaskBoardSkeleton } from "./board-skeleton";
 import {
-  ScheduleFields,
-  draftsToSchedule,
   formatSchedule,
   isScheduledToday,
   isUpcoming,
   scheduleStatus,
-  type DateTimeDraft,
 } from "./schedule";
 import {
-  DEFAULT_TAG,
   TRASH_DAYS,
   getServerTasks,
   getTasks,
@@ -84,7 +89,6 @@ import {
   subscribeTasks,
   tickTarget,
   taskActions,
-  type PriorityId,
   type TagId,
   type Task,
   type TaskStatus,
@@ -96,15 +100,13 @@ import {
   useBoardColumns,
   useTickColumn,
   useWorkflow,
+  type BoardColumn as ColumnDef,
 } from "@/lib/columns";
 
-/** The board's columns (and phone tabs): Todo, the user's columns, Completed (see lib/columns.ts). */
+/** The board's columns: Todo, the user's columns, Completed (see lib/columns.ts). */
 type ColumnId = TaskStatus;
-/** Which column or tab a "Delete all" empties. */
-/** The status filter's "every status" option, listed first. */
-const ALL_TASKS = "all";
-type StatusFilter = ColumnId | typeof ALL_TASKS;
-type DeleteAllList = StatusFilter;
+/** Which column a "Delete all" empties. */
+type DeleteAllList = ColumnId;
 /** Destructive actions waiting for confirmation. */
 type PendingDelete =
   | { kind: "task"; id: string; title: string } // move one task to Trash
@@ -169,21 +171,55 @@ const MOVE_DELAY_MS = 50;
 /** The progress bar fills faster than the pause, so it's full just before the task moves. */
 const MOVE_PROGRESS_MS = 350;
 
+/** Droppable id for a column itself (tasks use their own ids). */
+const dropId = (col: ColumnId) => `col-${col}`;
+
+/**
+ * Drop on the task under the pointer if there is one, else on the column
+ * under it (so empty columns and the space below the last task accept drops).
+ * Keyboard drags have no pointer, so they fall back to the nearest target.
+ */
+const collision: CollisionDetection = (args) => {
+  const hits = pointerWithin(args);
+  const onTasks = hits.filter((h) => !String(h.id).startsWith("col-"));
+  if (onTasks.length) return onTasks;
+  return hits.length ? hits : closestCenter(args);
+};
+
+/**
+ * Each column's colours: a solid status pill in its header and a faint wash behind its tasks.
+ * Literal classes so Tailwind keeps them. Completed always uses the success green.
+ */
+const COLUMN_STYLES: Record<string, { pill: string; wash: string; ring: string }> = {
+  iris: { pill: "bg-iris text-white", wash: "bg-iris/[0.06]", ring: "outline-iris/50" },
+  peach: { pill: "bg-peach text-on-accent", wash: "bg-peach/[0.14]", ring: "outline-peach" },
+  sky: { pill: "bg-skyblue text-on-accent", wash: "bg-skyblue/[0.08]", ring: "outline-skyblue/60" },
+  grape: { pill: "bg-grape text-white", wash: "bg-grape/[0.07]", ring: "outline-grape/50" },
+  sunny: { pill: "bg-sunny text-on-accent", wash: "bg-sunny/[0.12]", ring: "outline-sunny" },
+  coral: { pill: "bg-coral text-on-accent", wash: "bg-coral/[0.07]", ring: "outline-coral/50" },
+  teal: { pill: "bg-[#14b8a6] text-white", wash: "bg-[#14b8a6]/[0.07]", ring: "outline-[#14b8a6]/50" },
+  done: { pill: "bg-success text-white", wash: "bg-success/[0.07]", ring: "outline-success/50" },
+};
+const columnStyle = (c: ColumnDef) => COLUMN_STYLES[c.id === DONE_COLUMN ? "done" : c.color] ?? COLUMN_STYLES.iris;
+/** Todo is waiting, Completed is done, anything between is in progress. */
+const ColumnIcon = ({ c }: { c: ColumnDef }) => {
+  const Icon = c.id === TODO_COLUMN ? CircleDashed : c.id === DONE_COLUMN ? CircleCheck : CircleDot;
+  return <Icon aria-hidden className="size-3.5" strokeWidth={2.5} />;
+};
+
 export function BoardApp() {
   const { showGreeting } = useSettings();
   const tasks = useSyncExternalStore(subscribeTasks, getTasks, getServerTasks);
   // View, tag, search and filters live in the workspace store, shared with the sidebar
   // (which stays on screen across /board, /settings and /help).
-  const { view, filter, tag, query, priority, assignee: assigneeFilter } = useWorkspace();
-  const { setView, setFilter, setTag, setQuery, setPriority, setAssignee: setAssigneeFilter } = workspace;
+  const { view, tag, query, priority, assignee: assigneeFilter } = useWorkspace();
+  const { setView, setTag, setQuery, setPriority, setAssignee: setAssigneeFilter } = workspace;
   // The user's columns (Settings), and which moves between them the workflow allows.
   const boardColumns = useBoardColumns();
   const workflow = useWorkflow();
   const tickColumn = useTickColumn();
   const columnIds = boardColumns.map((c) => c.id);
   const labelOf = (col: ColumnId) => boardColumns.find((c) => c.id === col)?.label ?? "Todo";
-  // The status the list is filtered to. One for a column that was since deleted falls back to All.
-  const tab: StatusFilter = filter !== ALL_TASKS && columnIds.includes(filter) ? filter : ALL_TASKS;
   // A short visible note when the workflow blocks a move.
   const [notice, setNotice] = useState<string | null>(null);
   const noticeTimer = useRef<number | undefined>(undefined);
@@ -196,6 +232,22 @@ export function BoardApp() {
   }
   const people = usePeople();
   const [importOpen, setImportOpen] = useState(false);
+  // The "Create task" window (the Task button, or T).
+  const [createOpen, setCreateOpen] = useState(false);
+  const startColumns = useStartColumns();
+  useEffect(() => {
+    function onKey(e: globalThis.KeyboardEvent) {
+      if (e.key !== "t" || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+      const el = e.target instanceof Element ? e.target : null;
+      // Not while typing, or while a dialog or menu is open.
+      if (el?.closest("input, textarea, select, [contenteditable=true], [role=dialog], [role=menu]")) return;
+      if (document.querySelector("[role=dialog][data-open], [role=alertdialog][data-open]")) return;
+      e.preventDefault();
+      setCreateOpen(true);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const tags = useTags();
   // Tag editor: null = creating a new tag. Kept after closing so the dialog can animate out.
   const [editingTag, setEditingTag] = useState<CustomTag | null>(null);
@@ -274,8 +326,25 @@ export function BoardApp() {
     });
   }
 
-  // The Completed tab's count: where the "done" bubble flies to.
+  // The Completed column's count: where the "done" bubble flies to.
   const completedCountRef = useRef<HTMLSpanElement>(null);
+  // A column briefly highlighted after the sidebar points at it, or just after it's added.
+  const [flash, setFlash] = useState<ColumnId | null>(null);
+  // While dragging: which task, and which column it's over.
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [overColumn, setOverColumn] = useState<ColumnId | null>(null);
+
+  /** Scroll a column into view and highlight it for a moment. */
+  function showColumn(id: ColumnId) {
+    setFlash(id);
+    window.setTimeout(() => setFlash((f) => (f === id ? null : f)), 1400);
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.requestAnimationFrame(() =>
+      document
+        .querySelector(`[data-column="${window.CSS.escape(id)}"]`)
+        ?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "nearest", inline: "nearest" }),
+    );
+  }
 
   /** A small ✓ bubble arcs from the ticked checkbox into the Completed column's count, which bumps. */
   function flyToCompleted(from: DOMRect) {
@@ -325,7 +394,6 @@ export function BoardApp() {
     taskActions.toggle(task.id);
     if (nowTicked && to === DONE_COLUMN && origin) flyToCompleted(origin);
     if (!nowTicked) return stopMoving(task.id); // unticked during the pause: stay put
-    if (tab === to) return; // already looking at that status: nothing moves
     setMoving((s) => new Map(s).set(task.id, from));
     moveTimers.current.set(
       task.id,
@@ -396,7 +464,7 @@ export function BoardApp() {
   const narrowed = sidebarNarrowed || priority !== "any" || activeAssignee !== "any";
   /** Ask to move every task shown in a column or tab to Trash. */
   const askDeleteAll = (list: DeleteAllList, tasks: Task[]) =>
-    askDelete({ kind: "all", ids: tasks.map((t) => t.id), list, label: list === ALL_TASKS ? "" : labelOf(list), narrowed });
+    askDelete({ kind: "all", ids: tasks.map((t) => t.id), list, label: labelOf(list), narrowed });
 
   // Tasks that are mid-move stay in the column they were ticked in until their pause ends.
   const shownIn = (t: Task) => moving.get(t.id) ?? statusOf(t);
@@ -418,16 +486,15 @@ export function BoardApp() {
       case "trash":
         return openTrash();
       case "completed":
+        // Bring the Completed column into view and highlight it.
         setView("board");
-        return setFilter(DONE_COLUMN);
+        return showColumn(DONE_COLUMN);
       case "board":
-        // "My board" is the reset: unfiltered, back on the first tab.
+        // "My board" is the reset: unfiltered.
         clearFilters();
         setQuery("");
-        setFilter(ALL_TASKS);
         return setView("board");
       default:
-        setFilter(ALL_TASKS);
         return setView(target);
     }
   }
@@ -492,25 +559,56 @@ export function BoardApp() {
   );
   const titleOf = (id: UniqueIdentifier) => `"${all.find((t) => t.id === id)?.title ?? "task"}"`;
 
-  // The list: every status in board order (All), or just the one picked.
-  const list = tab === ALL_TASKS ? columnIds.flatMap((c) => columns[c]) : columns[tab];
-  const columnMeta = (t: Task) => {
-    const c = boardColumns.find((x) => x.id === shownIn(t)) ?? boardColumns[0];
-    return { label: c.label, dot: c.dot };
+  const columnOf = (id: UniqueIdentifier): ColumnId | null => {
+    const key = String(id);
+    return columnIds.find((c) => key === dropId(c) || columns[c].some((t) => t.id === key)) ?? null;
   };
-  const listCount = list.length;
-  const statusTabs: { id: StatusFilter; label: string; dot?: string; count: number }[] = [
-    { id: ALL_TASKS, label: "All", count: scoped.length },
-    ...boardColumns.map((c) => ({ id: c.id, label: c.label, dot: c.dot, count: counts[c.id] ?? 0 })),
-  ];
+  const activeTask = activeId ? all.find((t) => t.id === activeId) ?? null : null;
 
-  /** Reorder within one status; never across them. */
-  function handleListDragEnd({ active, over }: DragEndEvent) {
-    if (!over || active.id === over.id) return;
-    const group = columnIds.map((c) => columns[c]).find((g) => g.some((t) => t.id === active.id));
-    if (!group || !group.some((t) => t.id === over.id)) return;
-    const ids = group.map((t) => t.id);
-    taskActions.reorder(arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id))));
+  function handleDragStart({ active }: DragStartEvent) {
+    setActiveId(String(active.id));
+  }
+
+  function handleDragOver({ over }: DragOverEvent) {
+    setOverColumn(over ? columnOf(over.id) : null);
+  }
+
+  function endDrag() {
+    setActiveId(null);
+    setOverColumn(null);
+  }
+
+  function handleDragEnd({ active, over }: DragEndEvent) {
+    endDrag();
+    if (!over) return;
+    const id = String(active.id);
+    const from = columnOf(active.id);
+    const to = columnOf(over.id);
+    if (!from || !to) return;
+    const overTask = String(over.id) !== dropId(to) ? String(over.id) : null;
+
+    if (from === to) {
+      // Reorder within the column; dropping on the column's empty space moves it to the end.
+      const ids = columns[from].map((t) => t.id);
+      const target = overTask ? ids.indexOf(overTask) : ids.length - 1;
+      if (target === -1 || target === ids.indexOf(id)) return;
+      taskActions.reorder(arrayMove(ids, ids.indexOf(id), target));
+      return;
+    }
+
+    // Across columns: give it that column's status, placed where it was dropped (if the workflow allows it).
+    if (!canMove(from, to, workflow)) return blockMove(from, to);
+    const ids = columns[to].map((t) => t.id);
+    const at = overTask ? ids.indexOf(overTask) : -1;
+    ids.splice(at === -1 ? ids.length : at, 0, id);
+    taskActions.setStatus(id, to);
+    taskActions.reorder(ids);
+    const title = all.find((t) => t.id === id)?.title ?? "Task";
+    setAnnouncement(`"${title}" moved to ${labelOf(to)}.`);
+    if (to === DONE_COLUMN) {
+      setLanded(id);
+      window.setTimeout(() => setLanded((l) => (l === id ? null : l)), 1100);
+    }
   }
 
   const workflowNotice = notice ? (
@@ -520,10 +618,8 @@ export function BoardApp() {
     </p>
   ) : null;
 
-  // A column just added from the board: switch the list to it.
-  function showNewColumn(id: string) {
-    setFilter(id);
-  }
+  // A column just added from the board: bring it into view.
+  const showNewColumn = (id: string) => showColumn(id);
 
   return (
     <>
@@ -583,7 +679,6 @@ export function BoardApp() {
               ) : (
                 showGreeting && <Summary total={all.length} doneCount={all.length - pendingAll.length} />
               )}
-              <Composer />
 
               {/* What the sidebar has narrowed the board to */}
               {sidebarNarrowed && (
@@ -606,79 +701,26 @@ export function BoardApp() {
                 </div>
               )}
 
-              {/* The status filter: All first, then one tab per column. */}
-              <div className={`${sidebarNarrowed ? "mt-4" : "mt-10"} flex flex-wrap items-center justify-between gap-3`}>
-                  {/* Up to four options share the width with a sliding highlight; more scroll sideways. */}
-                  <div
-                    role="tablist"
-                    aria-label="Filter tasks by status"
-                    data-tour="filters"
-                    className={`relative w-full rounded-2xl border border-ink/10 bg-surface p-1 sm:w-auto ${
-                      statusTabs.length <= 4 ? "grid" : "gb-column-scroll flex gap-1 overflow-x-auto"
-                    }`}
-                    style={statusTabs.length <= 4 ? { gridTemplateColumns: `repeat(${statusTabs.length}, minmax(0, 1fr))` } : undefined}
-                  >
-                    {statusTabs.length <= 4 && (
-                      <span
-                        aria-hidden
-                        className="absolute inset-y-1 left-1 rounded-xl bg-deep transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
-                        style={{
-                          width: `calc((100% - 0.5rem) / ${statusTabs.length})`,
-                          transform: `translateX(${statusTabs.findIndex((f) => f.id === tab) * 100}%)`,
-                        }}
-                      />
-                    )}
-                    {statusTabs.map((f) => (
-                      <button
-                        key={f.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={tab === f.id}
-                        onClick={() => setFilter(f.id)}
-                        className={`relative z-10 flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl px-2 py-2 text-[13px] font-semibold transition-colors sm:gap-1.5 sm:px-4 sm:text-sm ${
-                          tab === f.id ? "text-peach" : "text-ink/60 hover:text-ink"
-                        } ${tab === f.id && statusTabs.length > 4 ? "bg-deep" : ""}`}
-                      >
-                        {f.dot && <span aria-hidden className={`hidden size-2 shrink-0 rounded-full sm:inline-block ${f.dot}`} />}
-                        {f.label}
-                        <span
-                          ref={f.id === DONE_COLUMN ? completedCountRef : undefined}
-                          className={`inline-block rounded-full px-1.5 text-[11px] tabular-nums ${
-                            tab === f.id ? "bg-white/15" : "bg-ink/5"
-                          }`}
-                        >
-                          {loaded ? f.count : "–"}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Empties the tab you're on (only the tasks shown). */}
-                  {listCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => askDeleteAll(tab, list)}
-                      className="text-sm font-medium text-ink/55 underline-offset-4 transition-colors hover:text-coral hover:underline"
-                    >
-                      Delete all ({listCount})
-                    </button>
-                  )}
-                </div>
             </div>
 
           </div>
 
-          {/* The board: Pending and Completed columns side by side, as wide as the section above. Phones get the tabbed list. */}
+          {/* The board: one column per status, side by side. More than fit scroll sideways (one at a time on phones). */}
           <section
             aria-label="Task board"
-            className="mx-auto mt-5 max-w-7xl px-4"
+            className={`mx-auto max-w-7xl px-4 ${sidebarNarrowed ? "mt-5" : "mt-10"}`}
           >
             {/* Filters on the left, Export on the far right, above the columns. */}
             {loaded && (
               <BoardToolbar
                 empty={all.length === 0}
                 onImport={() => setImportOpen(true)}
-                addColumn={<AddColumnButton onAdded={showNewColumn} />}
+                addColumn={
+                  <>
+                    <AddColumnButton onAdded={showNewColumn} />
+                    <NewTaskButton onClick={() => setCreateOpen(true)} />
+                  </>
+                }
                 tags={tags}
                 people={people}
                 tag={activeTag}
@@ -692,11 +734,11 @@ export function BoardApp() {
             )}
             {!loaded ? (
               <TaskBoardSkeleton />
-            ) : listCount === 0 ? (
+            ) : scoped.length === 0 && narrowed ? (
               <div>
                 <EmptyState
-                  filter={tab === ALL_TASKS ? null : tab}
-                  filterLabel={labelOf(tab)}
+                  filter={null}
+                  filterLabel=""
                   total={all.length}
                   view={view}
                   narrowed={narrowed}
@@ -705,51 +747,99 @@ export function BoardApp() {
               </div>
             ) : (
               <DndContext
-                // Separate keys: switching layouts (crossing 768px) must remount, not reuse, the drag context.
-                key="task-list"
-                id="task-list"
+                id="task-board"
                 sensors={sensors}
-                collisionDetection={closestCenter}
-                modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-                onDragEnd={handleListDragEnd}
+                collisionDetection={collision}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragEnd={handleDragEnd}
+                onDragCancel={endDrag}
                 accessibility={{
                   screenReaderInstructions: {
                     draggable:
-                      "To reorder, press space or enter to pick up the task, use the up and down arrow keys to move it, then space or enter to drop it. Press escape to cancel.",
+                      "To move a task, press space or enter to pick it up, use the arrow keys to move it within or between the columns, then space or enter to drop it. Press escape to cancel.",
                   },
                   announcements: {
                     onDragStart: ({ active }) => `Picked up ${titleOf(active.id)}.`,
                     onDragOver: ({ active, over }) =>
-                      over ? `${titleOf(active.id)} is over ${titleOf(over.id)}.` : `${titleOf(active.id)} is not over a task.`,
+                      over
+                        ? String(over.id).startsWith("col-")
+                          ? `${titleOf(active.id)} is over the ${labelOf(columnOf(over.id) ?? TODO_COLUMN)} column.`
+                          : `${titleOf(active.id)} is over ${titleOf(over.id)}.`
+                        : `${titleOf(active.id)} is not over a column.`,
                     onDragEnd: ({ active, over }) =>
-                      over ? `${titleOf(active.id)} moved to the position of ${titleOf(over.id)}.` : `${titleOf(active.id)} dropped.`,
+                      over ? `${titleOf(active.id)} dropped.` : `${titleOf(active.id)} was not moved.`,
                     onDragCancel: ({ active }) => `Moving ${titleOf(active.id)} was cancelled.`,
                   },
                 }}
               >
-                <ul className="space-y-3" data-tour="tasks-list" aria-live="polite">
-                  <SortableContext items={list.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                    {list.map((t) => (
-                      <SortableTaskRow
-                        key={t.id}
-                        task={t}
-                        tag={findTag(tags, t.tag)}
-                        leaving={removingId === t.id}
-                        moving={moving.has(t.id)}
-                        landed={landed === t.id}
-                        onToggle={(origin) => toggleTask(t, origin)}
-                        sortable={sortable && !moving.has(t.id)}
-                        onOpen={() => openDetails(t.id)}
-                        onDelete={() => askDelete({ kind: "task", id: t.id, title: t.title })}
-                        column={tab === ALL_TASKS ? columnMeta(t) : undefined}
-                        inPlace
-                      />
-                    ))}
-                  </SortableContext>
-                </ul>
+                {workflowNotice}
+                {/* Fixed-width columns in a row: the page never squeezes them, it scrolls sideways instead.
+                    Phones snap one column at a time, with the next one peeking in. */}
+                <div
+                  data-tour="columns"
+                  className="gb-column-scroll -mx-4 flex snap-x snap-mandatory scroll-px-4 items-start gap-3 overflow-x-auto px-4 pb-3 md:snap-none"
+                >
+                  {boardColumns.map((c) => {
+                    const col = c.id;
+                    const dragFrom = activeTask ? columnOf(activeTask.id) : null;
+                    const draggedOver = activeTask !== null && overColumn === col && dragFrom !== col;
+                    const blocked = draggedOver && dragFrom !== null && !canMove(dragFrom, col, workflow);
+                    return (
+                      <BoardColumn
+                        key={col}
+                        column={c}
+                        count={counts[col] ?? 0}
+                        countRef={col === DONE_COLUMN ? completedCountRef : undefined}
+                        highlight={(draggedOver && !blocked) || flash === col}
+                        blocked={blocked}
+                        empty={columns[col].length === 0}
+                        dragging={activeTask !== null}
+                        // New tasks can start in any column a task may move to from Todo, except Completed.
+                        canAdd={startColumns.some((x) => x.id === col)}
+                        defaultTag={activeTag ?? undefined}
+                        onDeleteAll={columns[col].length > 0 ? () => askDeleteAll(col, columns[col]) : undefined}
+                      >
+                        <SortableContext items={columns[col].map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                          {columns[col].map((t) => (
+                            <SortableTaskRow
+                              key={t.id}
+                              task={t}
+                              tag={findTag(tags, t.tag)}
+                              leaving={removingId === t.id}
+                              moving={moving.has(t.id)}
+                              landed={landed === t.id}
+                              onToggle={(origin) => toggleTask(t, origin)}
+                              sortable={sortable && !moving.has(t.id)}
+                              onOpen={() => openDetails(t.id)}
+                              onDelete={() => askDelete({ kind: "task", id: t.id, title: t.title })}
+                            />
+                          ))}
+                        </SortableContext>
+                      </BoardColumn>
+                    );
+                  })}
+                </div>
+
+                {/* The card that follows the pointer while dragging (the original stays behind as a placeholder). */}
+                <DragOverlay dropAnimation={{ duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }}>
+                  {activeTask ? (
+                    <TaskCard
+                      task={activeTask}
+                      tag={findTag(tags, activeTask.tag)}
+                      leaving={false}
+                      moving={false}
+                      landed={false}
+                      onToggle={() => {}}
+                      sortable
+                      onOpen={() => {}}
+                      onDelete={() => {}}
+                      overlay
+                    />
+                  ) : null}
+                </DragOverlay>
               </DndContext>
             )}
-            {workflowNotice}
             <p className="sr-only" aria-live="polite">
               {announcement}
             </p>
@@ -772,6 +862,7 @@ export function BoardApp() {
       />
 
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
+      <CreateTaskDialog open={createOpen} onOpenChange={setCreateOpen} defaultTag={activeTag ?? undefined} />
       <TrashPanel
         open={trashOpen}
         onOpenChange={setTrashOpen}
@@ -809,7 +900,7 @@ function Summary({ total, doneCount }: { total: number; doneCount: number }) {
 
   const message =
     total === 0
-      ? "Nothing here yet. Add your first task below."
+      ? "Nothing here yet. Click Task to add your first one."
       : allDone
         ? "Every task is ticked. Your board is all clear!"
         : `${left} ${left === 1 ? "task" : "tasks"} left — you've got this.`;
@@ -860,128 +951,145 @@ function Summary({ total, doneCount }: { total: number; doneCount: number }) {
   );
 }
 
-/* ───────────────────────── Composer ───────────────────────── */
+/* ───────────────────────── Board column ───────────────────────── */
 
-function Composer() {
-  const [title, setTitle] = useState("");
-  const tags = useTags();
-  const [pickedTag, setTag] = useState<TagId>(DEFAULT_TAG);
-  // Fall back to Default if the picked custom tag was deleted.
-  const tag = tags.some((t) => t.id === pickedTag) ? pickedTag : DEFAULT_TAG;
-  const [scheduling, setScheduling] = useState(false);
-  const [start, setStart] = useState<DateTimeDraft>({});
-  const [end, setEnd] = useState<DateTimeDraft>({});
-  const [priority, setPriority] = useState<PriorityId | undefined>();
-  const [assignee, setAssignee] = useState<string | undefined>();
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const schedule = scheduling ? draftsToSchedule(start, end) : null;
-  const canSubmit = !!title.trim() && schedule !== "invalid";
-
-  function closeSchedule() {
-    setScheduling(false);
-    setStart({});
-    setEnd({});
-  }
-
-  function submit(e: FormEvent) {
-    e.preventDefault();
-    if (!canSubmit) return;
-    taskActions.add({ title, tag, schedule: schedule ?? undefined, priority, assignee });
-    setTitle("");
-    setPriority(undefined);
-    setAssignee(undefined);
-    closeSchedule();
-    inputRef.current?.focus();
-  }
+function BoardColumn({
+  column,
+  count,
+  countRef,
+  highlight,
+  blocked = false,
+  empty,
+  dragging,
+  canAdd,
+  defaultTag,
+  onDeleteAll,
+  children,
+}: {
+  column: ColumnDef;
+  count: number;
+  /** The count (Completed's is where the ✓ bubble lands). */
+  countRef?: RefObject<HTMLSpanElement | null>;
+  /** A task is being dragged over from another column, or the sidebar pointed here. */
+  highlight: boolean;
+  /** A task is dragged over, but the workflow doesn't allow the move. */
+  blocked?: boolean;
+  empty: boolean;
+  dragging: boolean;
+  /** New tasks can start in this column (not Completed, nor one the workflow keeps them out of). */
+  canAdd: boolean;
+  /** The board's tag filter, given to new tasks so they stay in view. */
+  defaultTag?: TagId;
+  /** Move every task shown in this column to Trash (unset when it's empty). */
+  onDeleteAll?: () => void;
+  children: ReactNode;
+}) {
+  const id = column.id;
+  const { setNodeRef } = useDroppable({ id: dropId(id) });
+  const style = columnStyle(column);
+  // Where the "Add task" card is open: the top (header's +), the bottom (under the tasks), or nowhere.
+  const [adding, setAdding] = useState<"top" | "bottom" | null>(null);
+  const addCard = (at: "top" | "bottom") =>
+    canAdd && adding === at ? (
+      <InlineAddTask status={id} label={label} at={at} defaultTag={defaultTag} onClose={() => setAdding(null)} />
+    ) : null;
+  const label = column.label;
 
   return (
-    <form
-      onSubmit={submit}
-      className="gb-rise mt-6 first:mt-0 rounded-[28px] border border-ink/10 bg-surface p-4 shadow-[0_20px_60px_-30px_rgb(46_51_73/0.4)] sm:p-5"
-      style={{ animationDelay: "120ms" }}
+    <div
+      ref={setNodeRef}
+      role="group"
+      aria-label={`${label}, ${count} ${count === 1 ? "task" : "tasks"}`}
+      data-tour={id === TODO_COLUMN ? "tasks" : undefined}
+      data-column={id}
+      // A fixed width, so more columns scroll sideways rather than squeezing. The outline marks a drop target.
+      className={`flex w-[min(18rem,calc(100vw-4rem))] shrink-0 snap-start flex-col rounded-2xl p-2 outline-2 outline-offset-2 transition-[outline-color] duration-200 ${style.wash} ${
+        blocked ? "outline-dashed outline-coral/60" : highlight ? `outline-dashed ${style.ring}` : "outline-transparent"
+      }`}
     >
-      {/* Tag first, so it's chosen before typing the task. */}
-      <div className="border-b border-ink/5 pb-4">
-        <div role="radiogroup" aria-label="Tag" data-tour="tags" className="flex flex-wrap gap-1.5">
-          {tags.map((t) => (
-            <TagRadio key={t.id} tag={t} checked={tag === t.id} onSelect={() => setTag(t.id)} checkedClassName="scale-105" />
-          ))}
+      {/* Header: a solid status pill and the count, with the column's actions on the right. */}
+      <div className="flex items-center gap-2 py-0.5 pl-0.5 pr-0">
+        <h2
+          className={`inline-flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wider ${style.pill}`}
+        >
+          <ColumnIcon c={column} />
+          <span className="truncate">{label}</span>
+        </h2>
+        <span ref={countRef} className="inline-block text-xs font-semibold tabular-nums text-ink/50">
+          {count}
+        </span>
+        <div className="ml-auto flex shrink-0 items-center">
+          {onDeleteAll && (
+            <button
+              type="button"
+              onClick={onDeleteAll}
+              aria-label={`Delete all ${label.toLowerCase()} tasks`}
+              title="Delete all"
+              className="grid size-7 place-items-center rounded-lg text-ink/35 transition-colors hover:bg-coral/10 hover:text-coral"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          )}
+          {canAdd && (
+            <button
+              type="button"
+              onClick={() => setAdding("top")}
+              aria-label={`Add a task to ${label}`}
+              title="Add task"
+              className="grid size-7 place-items-center rounded-lg text-ink/45 transition-colors hover:bg-ink/5 hover:text-ink"
+            >
+              <Plus className="size-4" />
+            </button>
+          )}
         </div>
       </div>
 
-      <label htmlFor="new-task" className="sr-only">
-        New task
-      </label>
-      <div data-tour="new-task" className="mt-4 flex items-center gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-peach text-on-accent">
-          <Plus className="size-5" strokeWidth={3} />
-        </span>
-        <input
-          ref={inputRef}
-          id="new-task"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="What needs doing?"
-          autoComplete="off"
-          autoFocus
-          maxLength={140}
-          className="min-w-0 flex-1 bg-transparent font-display text-xl font-semibold placeholder:text-ink/30 focus:outline-none"
-        />
+
+      {/* Each column scrolls on its own once its tasks outgrow the screen, so the headers stay put. */}
+      <div className="gb-column-scroll -mx-1 mt-2 max-h-[calc(100dvh-12rem)] overflow-y-auto overscroll-contain px-1 py-0.5">
+        <ul className={`flex flex-col gap-2 ${dragging ? "min-h-24" : ""}`}>
+          {/* The card opens where the task will land: above the tasks, or below them. */}
+          {adding === "top" && <li>{addCard("top")}</li>}
+          {children}
+          {adding === "bottom" && <li>{addCard("bottom")}</li>}
+          {empty &&
+            (dragging ? (
+              <li
+                className={`flex min-h-20 items-center justify-center rounded-xl border-2 border-dashed px-4 text-center text-xs font-semibold transition-colors ${
+                  blocked ? "border-coral/40 text-coral" : highlight ? "border-ink/25 text-ink/60" : "border-ink/10 text-ink/40"
+                }`}
+              >
+                {blocked ? "Not allowed by your workflow" : "Drop it here"}
+              </li>
+            ) : (
+              !adding && <li className="px-2 py-2 text-xs text-ink/40">No tasks</li>
+            ))}
+        </ul>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-ink/5 pt-4">
-        <div data-tour="task-extras" className="flex flex-wrap items-center gap-2">
+      {canAdd && adding !== "bottom" && (
         <button
           type="button"
-          onClick={() => (scheduling ? closeSchedule() : setScheduling(true))}
-          aria-expanded={scheduling}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-            scheduling
-              ? "border-deep bg-deep text-peach"
-              : "border-ink/10 text-ink/60 hover:border-ink/25 hover:text-ink"
-          }`}
+          onClick={() => setAdding("bottom")}
+          data-tour={id === TODO_COLUMN ? "add-task" : undefined}
+          className="mt-1 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold text-ink/45 transition-colors hover:bg-ink/5 hover:text-ink"
         >
-          {scheduling ? <X className="size-3.5" /> : <CalendarClock className="size-3.5" />}
-          {scheduling ? "Remove timeline" : "Add timeline"}
-        </button>
-          <PriorityPicker value={priority} onChange={setPriority} variant="pill" />
-          <AssigneePicker value={assignee} onChange={setAssignee} variant="pill" />
-        </div>
-
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          className="gb-shine inline-flex items-center gap-1.5 rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-peach transition-all hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
-        >
+          <Plus className="size-3.5" />
           Add task
         </button>
-      </div>
-
-      {scheduling && (
-        <div className="gb-rise mt-4 rounded-2xl bg-paper p-3 sm:p-4" style={{ animationDuration: "0.35s" }}>
-          <ScheduleFields
-            start={start}
-            end={end}
-            onChange={(s, e) => {
-              setStart(s);
-              setEnd(e);
-            }}
-          />
-        </div>
       )}
-    </form>
+    </div>
   );
 }
 
-/* ───────────────────────── Task row ───────────────────────── */
+/* ───────────────────────── Task card ───────────────────────── */
 
 type TaskRowProps = {
   task: Task;
   /** The task's tag, already resolved (unknown tags show as Default). */
   tag: TagView;
   leaving: boolean;
-  /** Just ticked: pausing in place before moving to the Completed column. */
+  /** Just ticked: pausing in place before moving to its next column. */
   moving: boolean;
   /** Just arrived in the Completed column: briefly highlighted. */
   landed: boolean;
@@ -991,8 +1099,6 @@ type TaskRowProps = {
   sortable: boolean;
   onOpen: () => void;
   onDelete: () => void;
-  /** The task's status, shown as a chip when the list mixes statuses (All). */
-  column?: { label: string; dot: string };
 };
 
 /** The grip button's drag wiring (keyboard drags start from it). */
@@ -1002,11 +1108,8 @@ type Grip = {
   onKeyDown?: KeyboardEventHandler<HTMLButtonElement>;
 };
 
-/**
- * A draggable task. In the columns, a copy follows the pointer and this one stays behind as a placeholder;
- * in the phone list (`inPlace`), the card itself moves.
- */
-function SortableTaskRow({ inPlace = false, ...props }: TaskRowProps & { inPlace?: boolean }) {
+/** A draggable task. A copy follows the pointer and this one stays behind as a placeholder. */
+function SortableTaskRow(props: TaskRowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: props.task.id, disabled: !props.sortable });
   // Pointer/touch drags start anywhere on the card; keyboard drags start from the grip.
@@ -1017,13 +1120,12 @@ function SortableTaskRow({ inPlace = false, ...props }: TaskRowProps & { inPlace
       ref={setNodeRef}
       {...pointerListeners}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      // Raised while just ticked (confetti) or dragged in place, so it draws over the rows around it.
-      className={`relative touch-manipulation ${props.moving || (inPlace && isDragging) ? "z-10" : ""}`}
+      // Raised while just ticked (confetti), so it draws over the cards around it.
+      className={`relative touch-manipulation ${props.moving ? "z-10" : ""}`}
     >
       <TaskCard
         {...props}
-        placeholder={!inPlace && isDragging}
-        lifted={inPlace && isDragging}
+        placeholder={isDragging}
         grip={
           props.sortable
             ? {
@@ -1048,15 +1150,11 @@ function TaskCard({
   sortable,
   onOpen,
   onDelete,
-  column,
   grip,
   placeholder = false,
   overlay = false,
-  lifted = false,
 }: TaskRowProps & {
   grip?: Grip;
-  /** Being dragged in place (phone list). */
-  lifted?: boolean;
   /** Left behind in the column while its copy is being dragged. */
   placeholder?: boolean;
   /** The copy that follows the pointer while dragging. */
@@ -1077,131 +1175,113 @@ function TaskCard({
   return (
     // The card carries the entrance animation, which would override the li's drag transform.
     <div
-      className={`group relative flex items-center gap-2 rounded-2xl border py-3.5 pl-1.5 pr-3 transition-[box-shadow,transform,opacity,background-color,border-color] duration-300 ${
+      className={`group relative rounded-xl border bg-white p-3 dark:bg-surface transition-[box-shadow,transform,opacity,border-color] duration-200 ${
         overlay ? "" : "gb-rise"
-      } ${ticked ? "border-success/25 bg-success-soft" : "border-ink/10 bg-surface hover:shadow-md"} ${
-        leaving ? "scale-95 opacity-0" : ""
-      } ${
+      } ${ticked ? "border-success/25" : "border-ink/10"} ${leaving ? "scale-95 opacity-0" : ""} ${
         overlay
-          ? "rotate-[1.5deg] scale-[1.03] cursor-grabbing shadow-[0_24px_50px_-15px_rgb(20_22_34/0.55)] ring-2 ring-iris/50"
+          ? "rotate-[2deg] cursor-grabbing shadow-[0_24px_50px_-15px_rgb(20_22_34/0.55)] ring-2 ring-iris/40"
           : placeholder
-            ? "border-dashed border-iris/40 opacity-40 shadow-none"
-            : lifted
-              ? "cursor-grabbing shadow-xl ring-2 ring-iris/40"
-            : sortable
-              ? "cursor-grab"
-              : ""
+            ? "border-dashed border-ink/20 opacity-40 shadow-none"
+            : `shadow-[0_1px_2px_rgb(20_22_34/0.06)] hover:border-ink/20 hover:shadow-md ${sortable ? "cursor-grab" : ""}`
       }`}
-      style={{ animationDuration: "0.5s" } as CSSProperties}
+      style={{ animationDuration: "0.4s" } as CSSProperties}
     >
-        {sortable ? (
-          <button
-            type="button"
-            ref={grip?.ref}
-            {...grip?.attributes}
-            onKeyDown={grip?.onKeyDown}
-            aria-label={`Move "${task.title}"`}
-            className={`grid h-9 w-5 shrink-0 cursor-grab place-items-center rounded-md text-ink/25 transition-colors hover:text-ink/60 focus-visible:text-ink focus-visible:outline-2 focus-visible:outline-iris group-hover:text-ink/45 ${
-              overlay ? "cursor-grabbing text-ink/60" : ""
-            }`}
-          >
-            <GripVertical className="size-4" />
-          </button>
-        ) : (
-          <span aria-hidden className="w-1" />
-        )}
-  
+      <div className="flex items-start gap-2.5">
         <button
           type="button"
           onClick={toggle}
           aria-label={ticked ? `Untick "${task.title}"` : `Tick "${task.title}"`}
           aria-pressed={ticked}
-          className="relative rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris"
+          className="relative mt-px shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris"
         >
-          <CheckBox done={ticked} size={28} />
+          <CheckBox done={ticked} size={20} />
           {burst > 0 && ticked && <ConfettiBurst key={burst} />}
         </button>
-  
+
         <button
           type="button"
           onClick={onOpen}
           aria-label={`Open details for "${task.title}"`}
-          className="min-w-0 flex-1 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-iris"
+          className="min-w-0 flex-1 rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris"
         >
-          <p className="truncate">
-            <span className="gb-strike text-base font-medium" data-done={ticked || undefined}>
+          <p className="line-clamp-2 break-words text-sm font-semibold leading-snug">
+            <span className={`gb-strike ${ticked ? "text-ink/55" : ""}`} data-done={ticked || undefined}>
               {task.title}
             </span>
           </p>
           {preview && (
-            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-ink/55">
-              <NotebookPen className="size-3.5 shrink-0 text-iris" aria-hidden />
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-ink/50">
+              <NotebookPen className="size-3 shrink-0 text-iris" aria-hidden />
               <span className="truncate">{preview}</span>
             </p>
           )}
-          <span className="mt-1 flex flex-wrap items-center gap-2">
-            {column && (
-              <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-ink/10 px-2 py-0.5 text-[11px] font-semibold text-ink/70">
-                <span aria-hidden className={`size-1.5 rounded-full ${column.dot}`} />
-                {column.label}
-              </span>
-            )}
-            <TagChip tag={tag} />
-            <PriorityChip priority={task.priority} />
-            {moving && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-[11px] font-semibold text-white">
-                <ArrowRight className="gb-nudge-right size-3" aria-hidden />
-                Moving to Completed
-              </span>
-            )}
-            {schedule && status && (
-              <>
-                {/* Status and date are separate chips so they wrap cleanly on narrow screens. */}
-                {status.label && (
-                  <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${status.cls}`}>
-                    {status.label}
-                  </span>
-                )}
-                <span
-                  className={`inline-flex items-start gap-1 rounded-lg px-2 py-0.5 text-[11px] font-semibold leading-snug ${
-                    status.label ? "bg-ink/5 text-ink/70" : status.cls
-                  }`}
-                >
-                  <CalendarClock className="mt-px size-3 shrink-0" aria-hidden />
-                  {formatSchedule(schedule)}
-                </span>
-              </>
-            )}
-            {!preview && (
-              <span className="hidden text-[11px] font-medium text-ink/35 opacity-0 transition-opacity group-hover:opacity-100 sm:inline [@media(hover:none)]:hidden">
-                + Add details
-              </span>
-            )}
-            <AssigneeBadge assignee={task.assignee} />
-          </span>
         </button>
-  
-        <ChevronRight
-          aria-hidden
-          className="hidden size-4 shrink-0 text-ink/25 transition-transform group-hover:translate-x-0.5 group-hover:text-ink/50 sm:block"
-        />
-  
-        <button
-          type="button"
-          onClick={onDelete}
-          aria-label={`Delete "${task.title}"`}
-          className="grid size-9 shrink-0 place-items-center rounded-xl text-ink/35 transition-all group-hover:text-ink/60 hover:bg-coral/10 hover:text-coral! focus-visible:text-coral"
-        >
-          <Trash2 className="size-4" />
-        </button>
-        {landed && <span aria-hidden className="gb-landed pointer-events-none absolute inset-0 rounded-[inherit]" />}
+
+        {/* Shown on hover (always on touch screens, and when focused by keyboard). */}
+        <div className="-mr-1.5 -mt-1 flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+          {sortable && (
+            <button
+              type="button"
+              ref={grip?.ref}
+              {...grip?.attributes}
+              onKeyDown={grip?.onKeyDown}
+              aria-label={`Move "${task.title}"`}
+              className="grid size-7 cursor-grab place-items-center rounded-lg text-ink/35 transition-colors hover:bg-ink/5 hover:text-ink/70 focus-visible:outline-2 focus-visible:outline-iris"
+            >
+              <GripVertical className="size-3.5" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onDelete}
+            aria-label={`Delete "${task.title}"`}
+            className="grid size-7 place-items-center rounded-lg text-ink/35 transition-colors hover:bg-coral/10 hover:text-coral focus-visible:text-coral"
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Details under the title, lined up with it. The assignee sits at the far right. */}
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5 pl-[30px]">
+        <TagChip tag={tag} />
+        <PriorityChip priority={task.priority} />
         {moving && (
-          <span
-            aria-hidden
-            className="gb-move-progress absolute inset-x-4 bottom-0 h-0.5 origin-left rounded-full bg-success"
-            style={{ animationDuration: `${MOVE_PROGRESS_MS}ms` }}
-          />
+          <span className="inline-flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-[11px] font-semibold text-white">
+            <ArrowRight className="gb-nudge-right size-3" aria-hidden />
+            Moving
+          </span>
         )}
+        {schedule && status && (
+          <>
+            {status.label && (
+              <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${status.cls}`}>
+                {status.label}
+              </span>
+            )}
+            <span
+              className={`inline-flex items-start gap-1 rounded-lg px-2 py-0.5 text-[11px] font-semibold leading-snug ${
+                status.label ? "bg-ink/5 text-ink/70" : status.cls
+              }`}
+            >
+              <CalendarClock className="mt-px size-3 shrink-0" aria-hidden />
+              {formatSchedule(schedule)}
+            </span>
+          </>
+        )}
+        <span className="ml-auto">
+          <AssigneeBadge assignee={task.assignee} />
+        </span>
+      </div>
+
+      {landed && <span aria-hidden className="gb-landed pointer-events-none absolute inset-0 rounded-[inherit]" />}
+      {moving && (
+        <span
+          aria-hidden
+          className="gb-move-progress absolute inset-x-3 bottom-0 h-0.5 origin-left rounded-full bg-success"
+          style={{ animationDuration: `${MOVE_PROGRESS_MS}ms` }}
+        />
+      )}
     </div>
   );
 }
@@ -1255,7 +1335,7 @@ function EmptyState({
           ? { emoji: "⏳", title: `Nothing in ${filterLabel}`, body: `Open a task and set its status to ${filterLabel} to put it here.` }
           : total > 0 && filter === "done"
             ? { emoji: "✅", title: "Nothing ticked yet", body: "Go on, tick your first task off." }
-            : { emoji: "🌱", title: "Your board is empty", body: "Type a task above and hit Enter to plant your first one." };
+            : { emoji: "🌱", title: "Your board is empty", body: "Click Task above, or Add task in a column, to plant your first one." };
 
   return (
     <div className="gb-pop flex flex-col items-center rounded-[28px] border-2 border-dashed border-ink/10 px-6 py-14 text-center">

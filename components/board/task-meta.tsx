@@ -9,10 +9,17 @@ import { customChipStyle } from "./tag-chip";
 
 /* ───────────────────────── Shared bits ───────────────────────── */
 
-type Variant = "pill" | "field";
+export type Variant = "pill" | "field" | "icon";
 
-/** Trigger styles: "pill" in the new-task form, "field" in the task editor. */
-function triggerClass(variant: Variant, active: boolean) {
+/**
+ * Trigger styles: "pill" in a roomy form, "field" in the task editor, and "icon" in a column's
+ * quick-add card (just the icon until something is picked, then the icon and its value).
+ */
+export function triggerClass(variant: Variant, active: boolean) {
+  if (variant === "icon")
+    return `inline-flex h-7 min-w-7 items-center justify-center gap-1 rounded-lg border px-1.5 text-xs font-semibold transition-colors ${
+      active ? "border-ink/15 bg-ink/[0.04] text-ink" : "border-dashed border-ink/20 text-ink/45 hover:border-ink/35 hover:text-ink"
+    }`;
   return variant === "pill"
     ? `inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
         active ? "border-ink/20 text-ink" : "border-ink/10 text-ink/60 hover:border-ink/25 hover:text-ink"
@@ -20,7 +27,7 @@ function triggerClass(variant: Variant, active: boolean) {
     : "inline-flex items-center gap-2 rounded-xl border border-ink/10 bg-surface px-3 py-2 text-sm font-medium transition-colors hover:border-iris focus-visible:border-iris focus-visible:outline-none";
 }
 
-function Panel({ children, label }: { children: React.ReactNode; label: string }) {
+export function Panel({ children, label }: { children: React.ReactNode; label: string }) {
   return (
     <Popover.Portal>
       {/* Above the task drawer/modal (z-50) and its confirmation dialog (z-60). */}
@@ -36,7 +43,7 @@ function Panel({ children, label }: { children: React.ReactNode; label: string }
   );
 }
 
-function OptionRow({
+export function OptionRow({
   selected,
   onSelect,
   children,
@@ -111,9 +118,13 @@ export function PriorityPicker({
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger aria-label={`Priority: ${p ? p.label : "none"}`} className={triggerClass(variant, !!p)}>
-        <PriorityFlag priority={value} className={variant === "pill" ? "size-3.5" : "size-4 text-ink/50"} />
-        <span>{p ? p.label : variant === "pill" ? "Priority" : "No priority"}</span>
+      <Popover.Trigger
+        aria-label={`Priority: ${p ? p.label : "none"}`}
+        title={variant === "icon" ? "Priority" : undefined}
+        className={triggerClass(variant, !!p)}
+      >
+        <PriorityFlag priority={value} className={variant === "field" ? "size-4 text-ink/50" : "size-3.5"} />
+        {(variant !== "icon" || p) && <span>{p ? p.label : variant === "pill" ? "Priority" : "No priority"}</span>}
         {variant === "field" && <ChevronDown className="size-3.5 text-ink/40" />}
       </Popover.Trigger>
       <Panel label="Choose a priority">
@@ -214,9 +225,15 @@ export function AssigneePicker({
 
   return (
     <Popover.Root open={open} onOpenChange={onOpenChange}>
-      <Popover.Trigger aria-label={`Assignee: ${name ?? "unassigned"}`} className={triggerClass(variant, !!person)}>
-        {person ? <Avatar person={person} size={variant === "pill" ? 16 : 20} /> : <UserRound className={variant === "pill" ? "size-3.5" : "size-4 text-ink/50"} />}
-        <span className="max-w-32 truncate">{name ?? (variant === "pill" ? "Assignee" : "Unassigned")}</span>
+      <Popover.Trigger
+        aria-label={`Assignee: ${name ?? "unassigned"}`}
+        title={variant === "icon" ? "Assignee" : undefined}
+        className={triggerClass(variant, !!person)}
+      >
+        {person ? <Avatar person={person} size={variant === "field" ? 20 : 16} /> : <UserRound className={variant === "field" ? "size-4 text-ink/50" : "size-3.5"} />}
+        {(variant !== "icon" || person) && (
+          <span className={`truncate ${variant === "icon" ? "max-w-20" : "max-w-32"}`}>{name ?? (variant === "pill" ? "Assignee" : "Unassigned")}</span>
+        )}
         {variant === "field" && <ChevronDown className="size-3.5 text-ink/40" />}
       </Popover.Trigger>
       <Panel label="Choose an assignee">

@@ -225,7 +225,7 @@ function AddSubtaskRow({ taskId, compact = false, onClose }: { taskId: string; c
           <button
             type="submit"
             disabled={!canSave}
-            className="inline-flex items-center gap-1 rounded-lg bg-deep px-2.5 py-1 text-xs font-semibold text-peach transition-opacity disabled:opacity-40"
+            className="inline-flex items-center gap-1 rounded-lg bg-deep px-2.5 py-1 text-xs font-semibold text-on-deep transition-opacity disabled:opacity-40"
           >
             Save
             <CornerDownLeft aria-hidden className="size-3 opacity-70" />

@@ -55,7 +55,7 @@ export default function NotFound() {
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center md:justify-start">
             <Link
               href="/board"
-              className="gb-shine inline-flex w-full items-center justify-center gap-2 rounded-xl bg-deep px-5 py-3 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5 sm:w-auto"
+              className="gb-shine inline-flex w-full items-center justify-center gap-2 rounded-xl bg-deep px-5 py-3 text-sm font-semibold text-on-deep transition-transform hover:-translate-y-0.5 sm:w-auto"
             >
               Go to my board
               <ArrowRight className="size-4" />

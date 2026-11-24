@@ -636,9 +636,10 @@ export function BoardApp() {
       <div className="relative isolate min-w-0 flex-1 overflow-x-clip">
         {/*
           Full-screen backdrop, fixed so it stays put while the board scrolls.
+          Dark mode only: the light theme keeps a plain white page, like ClickUp.
           It sits behind the sidebar (z-30) and the content (positioned later).
         */}
-        <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div aria-hidden className="pointer-events-none fixed inset-0 hidden overflow-hidden dark:block">
           <div className="gb-blob absolute -top-48 left-[22%] size-[560px] rounded-full bg-peach/35 blur-3xl dark:bg-peach/10" />
           <div
             className="gb-blob absolute -right-40 top-1/4 size-[460px] rounded-full bg-skyblue/20 blur-3xl"

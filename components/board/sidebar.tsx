@@ -419,7 +419,7 @@ function SidebarBody({
                     aria-label={`Edit tag ${t.label}`}
                     title="Edit tag"
                     className={`grid size-7 place-items-center rounded-lg transition-colors ${
-                      tag === t.id ? "text-peach hover:bg-white/15" : "text-ink/50 hover:bg-surface hover:text-ink"
+                      tag === t.id ? "text-iris hover:bg-iris/15 dark:text-peach dark:hover:bg-white/15" : "text-ink/50 hover:bg-surface hover:text-ink"
                     }`}
                   >
                     <Pencil className="size-3.5" />
@@ -430,7 +430,7 @@ function SidebarBody({
                     aria-label={`Delete tag ${t.label}`}
                     title="Delete tag"
                     className={`grid size-7 place-items-center rounded-lg transition-colors ${
-                      tag === t.id ? "text-peach hover:bg-white/15 hover:text-coral" : "text-ink/50 hover:bg-coral/10 hover:text-coral"
+                      tag === t.id ? "text-iris hover:bg-iris/15 hover:text-coral dark:text-peach dark:hover:bg-white/15" : "text-ink/50 hover:bg-coral/10 hover:text-coral"
                     }`}
                   >
                     <Trash2 className="size-3.5" />
@@ -588,7 +588,7 @@ function SidebarItem({
   const showCount = typeof count === "number" && count > 0;
   const className = `relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
     reserveActions ? "pr-16" : ""
-  } ${collapsed ? "justify-center px-0" : ""} ${active ? "bg-deep text-peach" : "text-ink/70 hover:bg-mist hover:text-ink"}`;
+  } ${collapsed ? "justify-center px-0" : ""} ${active ? "bg-iris/10 font-semibold text-iris dark:bg-deep dark:text-on-deep" : "text-ink/70 hover:bg-mist hover:text-ink"}`;
   const a11y = {
     "aria-label": collapsed ? (showCount ? `${label}, ${count}` : label) : undefined,
     title: collapsed ? label : undefined,
@@ -609,7 +609,7 @@ function SidebarItem({
               countTone === "coral"
                 ? "bg-coral text-white"
                 : active
-                  ? "bg-white/15 text-peach"
+                  ? "bg-iris/15 text-iris dark:bg-white/15 dark:text-peach"
                   : "bg-ink/5 text-ink/55"
             }`}
           >

@@ -152,7 +152,7 @@ const SHORTCUTS: { keys: string[]; action: string }[] = [
 export default function HelpPage() {
   return (
     <div className="relative flex-1 overflow-x-clip text-ink">
-      <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
+      <div aria-hidden className="pointer-events-none fixed inset-0 hidden overflow-hidden dark:block">
         <div className="gb-grid-bg absolute inset-0" />
         <div className="gb-blob absolute -top-48 left-[20%] size-[520px] rounded-full bg-peach/35 blur-3xl dark:bg-peach/10" />
         <div

@@ -260,7 +260,7 @@ function DetailsBody({ task, parts, onDelete }: { task: Task; parts: Parts; onDe
             <Trash2 className="size-4" />
             Delete
           </button>
-          <Close className="rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5">
+          <Close className="rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-on-deep transition-transform hover:-translate-y-0.5">
             Done
           </Close>
         </div>
@@ -350,7 +350,7 @@ function StatusPicker({ task }: { task: Task }) {
               title={allowed ? undefined : `Your workflow doesn't allow moving from ${currentLabel} to ${c.label}`}
               onClick={() => taskActions.setStatus(task.id, c.id)}
               className={`flex min-w-[6.5rem] flex-1 items-center justify-center gap-2 rounded-xl px-2 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris disabled:opacity-35 ${
-                checked ? "bg-deep text-peach" : "text-ink/60 enabled:hover:bg-mist enabled:hover:text-ink"
+                checked ? "bg-deep text-on-deep" : "text-ink/60 enabled:hover:bg-mist enabled:hover:text-ink"
               }`}
             >
               <span aria-hidden className={`size-2 shrink-0 rounded-full ${c.dot}`} />

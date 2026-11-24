@@ -427,7 +427,7 @@ function AddColumn() {
         <button
           type="submit"
           disabled={!label.trim()}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-deep px-4 py-2.5 text-sm font-semibold text-peach transition-transform enabled:hover:-translate-y-0.5 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-deep px-4 py-2.5 text-sm font-semibold text-on-deep transition-transform enabled:hover:-translate-y-0.5 disabled:opacity-50"
         >
           <Plus className="size-4" />
           Add
@@ -466,7 +466,7 @@ function TickColumnPicker({ columns, value }: { columns: BoardColumn[]; value: s
               aria-checked={value === c.id}
               onClick={() => columnActions.setTickColumn(c.id)}
               className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
-                value === c.id ? "border-deep bg-deep text-peach" : "border-ink/15 text-ink/70 hover:border-ink/30 hover:text-ink"
+                value === c.id ? "border-deep bg-deep text-on-deep" : "border-ink/15 text-ink/70 hover:border-ink/30 hover:text-ink"
               }`}
             >
               <span aria-hidden className={`size-2 rounded-full ${c.dot}`} />
@@ -608,7 +608,7 @@ export function WorkflowSettings() {
                           onClick={() => columnActions.setMove(from.id, to.id, !on)}
                           className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
                             on
-                              ? "border-deep bg-deep text-peach"
+                              ? "border-deep bg-deep text-on-deep"
                               : "border-ink/15 text-ink/45 line-through decoration-ink/30 hover:border-ink/30 hover:text-ink/70"
                           }`}
                         >

@@ -6,17 +6,20 @@
 
 /* Greenboard brand palette */
 @theme {
-  --color-ink: #2e3349;
-  --color-ink-2: #3c4260;
-  --color-iris: #4f6bed;
+  /* Light mode follows ClickUp's: charcoal text, a violet accent, a white page with near-white panels. */
+  --color-ink: #292d34;
+  --color-ink-2: #3a3f48;
+  --color-iris: #7b68ee;
   --color-peach: #ffc9a9;
-  --color-mist: #dfe4f4;
-  /* Light mode avoids bright white: a soft blue-grey page with off-white cards on top. */
-  --color-paper: #e8ebf2;
-  /* Cards, panels and inputs: off-white, not pure white, to cut glare. */
-  --color-surface: #f4f5f9;
-  /* Dark panels in both themes: summary card, active items, primary buttons. */
-  --color-deep: #2e3349;
+  /* Hover and highlighted rows: a soft neutral grey. */
+  --color-mist: #f0f1f3;
+  --color-paper: #ffffff;
+  /* The sidebar, menus and inputs: a whisper off the white page. */
+  --color-surface: #fafbfc;
+  /* The accent panels: summary card and primary buttons (violet here, navy in dark mode). */
+  --color-deep: #7b68ee;
+  /* Text on those panels and buttons. */
+  --color-on-deep: #ffffff;
   /* Text on peach / yellow, which stays dark in both themes. */
   --color-on-accent: #2e3349;
   /* Green is reserved for completed / successful tasks. */
@@ -42,6 +45,7 @@
   --color-paper: #0e1120;
   --color-surface: #171b2e;
   --color-deep: #262c4d;
+  --color-on-deep: #ffc9a9;
   --color-success-soft: #10291c;
 }
 

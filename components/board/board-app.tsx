@@ -27,7 +27,12 @@ import {
   PartyPopper,
   Plus,
   Trash2,
+  Ellipsis,
+  ChevronsLeftRight,
+  ChevronsRightLeft,
 } from "lucide-react";
+import { Menu as BaseMenu } from "@base-ui/react/menu";
+import { setColumnCollapsed, useCollapsedColumns } from "@/lib/collapsed-columns";
 import {
   DndContext,
   DragOverlay,
@@ -338,6 +343,8 @@ export function BoardApp() {
 
   /** Scroll a column into view and highlight it for a moment. */
   function showColumn(id: ColumnId) {
+    // A collapsed column opens up, so there's something to see.
+    setColumnCollapsed(id, false);
     setFlash(id);
     window.setTimeout(() => setFlash((f) => (f === id ? null : f)), 1400);
     const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -958,6 +965,35 @@ function Summary({ total, doneCount }: { total: number; doneCount: number }) {
 
 /* ───────────────────────── Board column ───────────────────────── */
 
+/** The column header's "⋯" button and its menu. */
+function ColumnActions({ label, onCollapse }: { label: string; onCollapse: () => void }) {
+  return (
+    <BaseMenu.Root>
+      <BaseMenu.Trigger
+        aria-label={`${label} column options`}
+        title="Column options"
+        className="grid size-7 place-items-center rounded-lg text-ink/45 transition-colors hover:bg-ink/5 hover:text-ink data-popup-open:bg-ink/5 data-popup-open:text-ink"
+      >
+        <Ellipsis className="size-4" />
+      </BaseMenu.Trigger>
+      <BaseMenu.Portal>
+        {/* Below the task drawer (z-50) but above the board and its sticky bits. */}
+        <BaseMenu.Positioner sideOffset={6} align="end" className="z-40">
+          <BaseMenu.Popup className="w-52 origin-(--transform-origin) rounded-2xl border border-ink/10 bg-surface p-1.5 text-ink shadow-[0_20px_50px_-15px_rgb(46_51_73/0.4)] outline-none transition-[opacity,transform] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
+            <BaseMenu.Item
+              onClick={onCollapse}
+              className="flex w-full cursor-pointer select-none items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-medium text-ink/80 outline-none transition-colors data-highlighted:bg-mist data-highlighted:text-ink"
+            >
+              <ChevronsRightLeft className="size-4 text-ink/50" />
+              Collapse column
+            </BaseMenu.Item>
+          </BaseMenu.Popup>
+        </BaseMenu.Positioner>
+      </BaseMenu.Portal>
+    </BaseMenu.Root>
+  );
+}
+
 function BoardColumn({
   column,
   count,
@@ -999,6 +1035,43 @@ function BoardColumn({
       <InlineAddTask status={id} label={label} at={at} defaultTag={defaultTag} onClose={() => setAdding(null)} />
     ) : null;
   const label = column.label;
+  const collapsed = useCollapsedColumns().includes(id);
+
+  // Collapsed: a slim strip with the name running down it. Click to open it again; tasks can still be dropped on it.
+  if (collapsed) {
+    return (
+      <div
+        ref={setNodeRef}
+        role="group"
+        aria-label={`${label}, ${count} ${count === 1 ? "task" : "tasks"}, collapsed`}
+        data-column={id}
+        className={`flex w-11 shrink-0 snap-start flex-col items-center rounded-2xl outline-2 outline-offset-2 transition-[outline-color] duration-200 ${style.wash} ${
+          blocked ? "outline-dashed outline-coral/60" : highlight ? `outline-dashed ${style.ring}` : "outline-transparent"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => setColumnCollapsed(id, false)}
+          aria-label={`Expand ${label}`}
+          title="Expand column"
+          className="flex w-full flex-col items-center gap-2 rounded-2xl px-1 py-2.5 transition-colors hover:bg-ink/5"
+        >
+          <ChevronsLeftRight className="size-4 text-ink/45" />
+          <span ref={countRef} className="text-xs font-semibold tabular-nums text-ink/50">
+            {count}
+          </span>
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-md px-1 py-2 text-[11px] font-bold uppercase tracking-wider [writing-mode:vertical-rl] ${style.pill}`}
+          >
+            <span className="rotate-90">
+              <ColumnIcon c={column} />
+            </span>
+            <span className="max-h-56 truncate">{label}</span>
+          </span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -1046,9 +1119,9 @@ function BoardColumn({
               <Plus className="size-4" />
             </button>
           )}
+          <ColumnActions label={label} onCollapse={() => setColumnCollapsed(id, true)} />
         </div>
       </div>
-
 
       {/* Each column scrolls on its own once its tasks outgrow the screen, so the headers stay put. */}
       <div className="gb-column-scroll -mx-1 mt-2 max-h-[calc(100dvh-12rem)] overflow-y-auto overscroll-contain px-1 py-0.5">

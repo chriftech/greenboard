@@ -117,7 +117,7 @@ function Hero() {
           >
             <Link
               href="/board"
-              className="gb-shine group inline-flex items-center gap-2 rounded-2xl bg-deep px-6 py-4 text-base font-semibold text-peach shadow-[0_12px_30px_-10px_rgb(46_51_73/0.7)] transition-transform hover:-translate-y-1"
+              className="gb-shine group inline-flex items-center gap-2 rounded-2xl bg-deep px-6 py-4 text-base font-semibold text-on-deep shadow-[0_12px_30px_-10px_rgb(46_51_73/0.7)] transition-transform hover:-translate-y-1"
             >
               Start ticking — it&apos;s free
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
@@ -218,7 +218,7 @@ function HowItWorks() {
       icon: Sparkles,
       title: "Watch it come together",
       body: "Your board fills with colour as you go. A fully ticked board = a great day.",
-      color: "bg-deep text-peach",
+      color: "bg-deep text-on-deep",
     },
   ];
 

@@ -17,8 +17,10 @@ const FAQ: { q: string; a: ReactNode }[] = [
     q: "How do I add a task?",
     a: (
       <>
-        On your board, pick a tag at the top of the form, type the task into <b>What needs doing?</b> and press{" "}
-        <b>Enter</b> (or click <b>Add task</b>). New tasks go to the top of the board.
+        Two ways. Click <b>Task</b> above the board (or press <b>T</b>) to open <b>Create task</b>, where you can
+        give it a name, a description, a status, someone to do it, a timeline, a priority and a tag. Or click{" "}
+        <b>Add task</b> at the bottom of a column (or the <b>+</b> at its top): type a name, pick any details from
+        the icons under it, and press <b>Enter</b>. The card stays open, so you can add several in a row.
       </>
     ),
   },
@@ -27,9 +29,10 @@ const FAQ: { q: string; a: ReactNode }[] = [
     a: (
       <>
         Click the circle on the left of a task. It turns green, the text is struck through and it moves to{" "}
-        <b>Completed</b>. Click it again to put it back in <b>Todo</b>. Your tasks are one list:{" "}
-        <b>All</b> shows everything, and the <b>Todo</b>, <b>Pending</b> (started, not finished) and <b>Completed</b>{" "}
-        tabs narrow it to one status. To move a task to <b>Pending</b>, open it and pick a <b>Status</b>. You can add your own columns (in <b>Settings</b>, or with{" "}
+        <b>Completed</b>. Click it again to put it back in <b>Todo</b>. Your board has a column for each status,{" "}
+        <b>Todo</b>, <b>Pending</b> (started, not finished) and <b>Completed</b>, and you can drag a task between them
+        (or open it and pick a <b>Status</b>). The <b>+</b> on a column adds a task straight into it, and on a phone
+        you swipe sideways between columns. You can add your own columns (in <b>Settings</b>, or with{" "}
         <b>Add column</b> on the board), choose where ticking sends a task, for the whole board or per column (say{" "}
         <b>In review</b> → <b>QA</b> → <b>Completed</b>), and limit which moves are allowed with a workflow, in{" "}
         <b>Settings</b>.
@@ -54,6 +57,17 @@ const FAQ: { q: string; a: ReactNode }[] = [
         form or the <b>Timeline</b> section of the details panel. The end has to be after the start. Tasks then show
         badges like <b>Today</b>, <b>In progress</b> or <b>Overdue</b>, and appear under <b>Today</b> and{" "}
         <b>Upcoming</b> in the sidebar.
+      </>
+    ),
+  },
+  {
+    q: "Can I get a reminder before a task starts?",
+    a: (
+      <>
+        Yes. In <b>Settings</b> → <b>Notifications</b>, turn on <b>Task reminders</b> and allow notifications when your
+        browser asks. Then pick how early to be reminded, from when it starts to an hour before. Any task with a{" "}
+        <b>timeline</b> gets one reminder, and clicking it opens the task. Reminders come from your browser, so they
+        only arrive while Greenboard is open in a tab. One missed by up to 15 minutes still shows when you come back.
       </>
     ),
   },
@@ -138,7 +152,7 @@ const SHORTCUTS: { keys: string[]; action: string }[] = [
 export default function HelpPage() {
   return (
     <div className="relative flex-1 overflow-x-clip text-ink">
-      <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
+      <div aria-hidden className="pointer-events-none fixed inset-0 hidden overflow-hidden dark:block">
         <div className="gb-grid-bg absolute inset-0" />
         <div className="gb-blob absolute -top-48 left-[20%] size-[520px] rounded-full bg-peach/35 blur-3xl dark:bg-peach/10" />
         <div

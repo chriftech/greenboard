@@ -18,6 +18,7 @@ import { canMove, useBoardColumns, useTickColumn, useWorkflow } from "@/lib/colu
 import { findTag, useTags } from "@/lib/tags";
 import { TagRadio } from "./tag-chip";
 import { AssigneePicker, PriorityPicker } from "./task-meta";
+import { SubtasksSection } from "./subtasks";
 
 /**
  * The description editor (Tiptap and ProseMirror) is the biggest part of the board's code, so it
@@ -134,7 +135,7 @@ function DetailsBody({ task, parts, onDelete }: { task: Task; parts: Parts; onDe
     <div className="flex h-full min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
         <Title className="text-xs font-semibold uppercase tracking-widest text-ink/50">Task details</Title>
-        <Description className="sr-only">Edit the task title, tag, timeline and description.</Description>
+        <Description className="sr-only">Edit the task title, tag, timeline, subtasks and description.</Description>
         <Close
           aria-label="Close details"
           className="grid size-9 place-items-center rounded-xl text-ink/60 transition-colors hover:bg-surface hover:text-ink"
@@ -243,6 +244,9 @@ function DetailsBody({ task, parts, onDelete }: { task: Task; parts: Parts; onDe
           />
           <p className="mt-2 text-xs text-ink/40">Saved automatically</p>
         </div>
+
+        {/* Subtasks */}
+        <SubtasksSection task={task} />
       </div>
 
       <div className="flex items-center justify-between gap-3 border-t border-ink/10 px-5 py-4">
@@ -256,7 +260,7 @@ function DetailsBody({ task, parts, onDelete }: { task: Task; parts: Parts; onDe
             <Trash2 className="size-4" />
             Delete
           </button>
-          <Close className="rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5">
+          <Close className="rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-on-deep transition-transform hover:-translate-y-0.5">
             Done
           </Close>
         </div>
@@ -346,7 +350,7 @@ function StatusPicker({ task }: { task: Task }) {
               title={allowed ? undefined : `Your workflow doesn't allow moving from ${currentLabel} to ${c.label}`}
               onClick={() => taskActions.setStatus(task.id, c.id)}
               className={`flex min-w-[6.5rem] flex-1 items-center justify-center gap-2 rounded-xl px-2 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris disabled:opacity-35 ${
-                checked ? "bg-deep text-peach" : "text-ink/60 enabled:hover:bg-mist enabled:hover:text-ink"
+                checked ? "bg-deep text-on-deep" : "text-ink/60 enabled:hover:bg-mist enabled:hover:text-ink"
               }`}
             >
               <span aria-hidden className={`size-2 shrink-0 rounded-full ${c.dot}`} />

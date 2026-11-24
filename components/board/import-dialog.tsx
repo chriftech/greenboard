@@ -191,7 +191,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
                   type="button"
                   disabled={step.preview.tasks.length === 0}
                   onClick={() => setStep({ kind: "done", count: applyImport(step.preview) })}
-                  className="rounded-xl bg-deep px-4 py-2.5 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-50"
+                  className="rounded-xl bg-deep px-4 py-2.5 text-sm font-semibold text-on-deep transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-50"
                 >
                   Import {step.preview.tasks.length} {step.preview.tasks.length === 1 ? "task" : "tasks"}
                 </button>

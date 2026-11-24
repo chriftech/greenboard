@@ -54,7 +54,7 @@ export function BoardToolbar({
   const anyActive = Boolean(activeTag) || priority !== ANY || assignee !== ANY;
 
   return (
-    <div role="toolbar" aria-label="Filter, add columns, import and export tasks" className="mb-4 flex flex-wrap items-center gap-2">
+    <div role="toolbar" aria-label="Filter, add columns, import and export tasks" className="flex flex-wrap items-center gap-2">
       {!empty && (
         <>
           <span className="mr-1 hidden items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-ink/45 sm:inline-flex">
@@ -145,7 +145,7 @@ function ExportMenu() {
       <Menu.Trigger
         title="Download tasks as a CSV file"
         aria-label="Export as CSV"
-        className="inline-flex items-center gap-1.5 rounded-xl bg-deep px-2.5 py-1.5 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris sm:px-3.5"
+        className="inline-flex items-center gap-1.5 rounded-xl bg-deep px-2.5 py-1.5 text-sm font-semibold text-on-deep transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris sm:px-3.5"
       >
         <FileDown className="size-4" />
         <span className="hidden sm:inline">Export</span>

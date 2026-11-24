@@ -29,7 +29,7 @@ export function SettingsForm() {
   );
 }
 
-function ToggleRow({
+export function ToggleRow({
   icon,
   title,
   description,

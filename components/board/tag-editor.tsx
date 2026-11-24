@@ -193,7 +193,7 @@ function EditorForm({
           <button
             type="submit"
             disabled={touched && !!error}
-            className="rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
+            className="rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-on-deep transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
           >
             {tag ? "Save" : "Create tag"}
           </button>

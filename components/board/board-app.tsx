@@ -30,6 +30,8 @@ import {
   Ellipsis,
   ChevronsLeftRight,
   ChevronsRightLeft,
+  SquareCheck,
+  Check,
 } from "lucide-react";
 import { Menu as BaseMenu } from "@base-ui/react/menu";
 import { setColumnCollapsed, useCollapsedColumns } from "@/lib/collapsed-columns";
@@ -64,6 +66,8 @@ import { CheckBox, ConfettiBurst } from "@/components/landing/check-box";
 import { TaskDetails, preloadTaskEditor } from "./task-details";
 import { CreateTaskDialog, InlineAddTask, NewTaskButton, useStartColumns } from "./add-task";
 import { ConfirmDialog } from "./confirm-dialog";
+import { BulkBar } from "./bulk-bar";
+import { downloadSelectedTasksCsv } from "@/lib/export";
 import { TagEditor } from "./tag-editor";
 import { TagChip, TagDot } from "./tag-chip";
 import { AssigneeBadge, PriorityChip } from "./task-meta";
@@ -316,6 +320,8 @@ export function BoardApp() {
   const [moving, setMoving] = useState<ReadonlyMap<string, ColumnId>>(() => new Map());
   const [landed, setLanded] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  // Tasks picked with "Select all" or a card's checkbox, always within one column; the bulk bar acts on them.
+  const [selection, setSelection] = useState<{ column: ColumnId; ids: ReadonlySet<string> } | null>(null);
   const moveTimers = useRef(new Map<string, number>());
 
   useEffect(() => {
@@ -430,6 +436,7 @@ export function BoardApp() {
     switch (pending.kind) {
       case "all":
         if (selectedId && pending.ids.includes(selectedId)) setDetailsOpen(false);
+        setSelection((s) => s && { ...s, ids: new Set([...s.ids].filter((id) => !pending.ids.includes(id))) });
         return taskActions.trashMany(pending.ids);
       case "forever":
         return taskActions.deleteForever(pending.id);
@@ -490,6 +497,42 @@ export function BoardApp() {
   const sortable = view === "board";
   Object.values(columns).forEach((list) => list.sort(sortable ? byOrder : byStart));
 
+  // Only tasks still shown in the selected column count: filtered-out, deleted or moved-away ones drop out.
+  const selectedTasks = selection ? (columns[selection.column] ?? []).filter((t) => selection.ids.has(t.id)) : [];
+  const selectedIds = selectedTasks.map((t) => t.id);
+  // While anything is selected, every other task and column action is locked.
+  const selecting = selectedIds.length > 0;
+  const selectedColumn = selecting ? selection!.column : null;
+  const clearSelection = () => setSelection(null);
+  /** Tick or untick one task. Picking a task in another column starts a new selection there. */
+  const toggleSelected = (column: ColumnId, id: string) =>
+    setSelection((s) => {
+      if (!s || s.column !== column) return { column, ids: new Set([id]) };
+      const ids = new Set(s.ids);
+      if (ids.has(id)) ids.delete(id);
+      else ids.add(id);
+      return ids.size ? { column, ids } : null;
+    });
+  /** Select every task shown in one column, replacing any other selection. */
+  const selectAll = (column: ColumnId, ids: string[]) => setSelection({ column, ids: new Set(ids) });
+
+  /** Move the selected tasks to a column, skipping any the workflow doesn't allow there. */
+  function moveSelected(to: ColumnId) {
+    const allowed = selectedTasks.filter((t) => canMove(statusOf(t), to, workflow));
+    allowed.forEach((t) => taskActions.setStatus(t.id, to));
+    // The selection follows the moved tasks to their new column, so the bar stays up.
+    if (allowed.length) setSelection({ column: to, ids: new Set(allowed.map((t) => t.id)) });
+    const skipped = selectedTasks.length - allowed.length;
+    setAnnouncement(
+      `Moved ${allowed.length} ${allowed.length === 1 ? "task" : "tasks"} to ${labelOf(to)}.` +
+        (skipped ? ` ${skipped} not allowed by your workflow.` : ""),
+    );
+  }
+  const updateSelected = (patch: Parameters<typeof taskActions.update>[1], what: string) => {
+    selectedTasks.forEach((t) => taskActions.update(t.id, patch));
+    setAnnouncement(`Updated the ${what} of ${selectedTasks.length} ${selectedTasks.length === 1 ? "task" : "tasks"}.`);
+  };
+
   function navigate(target: NavTarget) {
     switch (target) {
       case "trash":
@@ -546,6 +589,18 @@ export function BoardApp() {
         count: (tasks ?? []).filter((x) => x.tag === t.id).length,
       }),
   };
+  useEffect(() => {
+    if (!selecting) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest('[role="menu"], [role="dialog"], [role="alertdialog"], input, textarea, [contenteditable="true"]')) return;
+      setSelection(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selecting]);
+
   useEffect(
     () =>
       registerBoard((action) => {
@@ -812,6 +867,9 @@ export function BoardApp() {
                         canAdd={startColumns.some((x) => x.id === col)}
                         defaultTag={activeTag ?? undefined}
                         onDeleteAll={columns[col].length > 0 ? () => askDeleteAll(col, columns[col]) : undefined}
+                        onSelectAll={columns[col].length > 0 ? () => selectAll(col, columns[col].map((t) => t.id)) : undefined}
+                        locked={selecting}
+                        selected={selectedColumn === col}
                       >
                         <SortableContext items={columns[col].map((t) => t.id)} strategy={verticalListSortingStrategy}>
                           {columns[col].map((t) => (
@@ -823,9 +881,12 @@ export function BoardApp() {
                               moving={moving.has(t.id)}
                               landed={landed === t.id}
                               onToggle={(origin) => toggleTask(t, origin)}
-                              sortable={sortable && !moving.has(t.id)}
+                              sortable={sortable && !moving.has(t.id) && !selecting}
                               onOpen={() => openDetails(t.id)}
                               onDelete={() => askDelete({ kind: "task", id: t.id, title: t.title })}
+                              selected={selectedColumn === col && selection!.ids.has(t.id)}
+                              selectMode={!selecting ? "off" : selectedColumn === col ? "in" : "out"}
+                              onSelect={() => toggleSelected(col, t.id)}
                             />
                           ))}
                         </SortableContext>
@@ -885,6 +946,28 @@ export function BoardApp() {
       />
 
       <Tour />
+
+      {selecting && (
+        <BulkBar
+          count={selectedIds.length}
+          columns={boardColumns}
+          tags={tags}
+          people={people}
+          onClear={clearSelection}
+          onMove={moveSelected}
+          onTag={(t) => updateSelected({ tag: t }, "tag")}
+          onPriority={(p) => updateSelected({ priority: p ?? undefined }, "priority")}
+          onAssignee={(a) => updateSelected({ assignee: a ?? undefined }, "assignee")}
+          onComplete={() => moveSelected(DONE_COLUMN)}
+          onExport={() => {
+            const n = downloadSelectedTasksCsv(selectedIds);
+            setAnnouncement(`Exported ${n} ${n === 1 ? "task" : "tasks"} as CSV.`);
+          }}
+          onDelete={() =>
+            askDelete({ kind: "all", ids: selectedIds, list: "selected", label: "Selected", narrowed: false })
+          }
+        />
+      )}
 
       <ConfirmDialog
         open={confirmOpen}
@@ -967,13 +1050,26 @@ function Summary({ total, doneCount }: { total: number; doneCount: number }) {
 /* ───────────────────────── Board column ───────────────────────── */
 
 /** The column header's "⋯" button and its menu. */
-function ColumnActions({ label, onCollapse }: { label: string; onCollapse: () => void }) {
+function ColumnActions({
+  label,
+  disabled = false,
+  onCollapse,
+  onSelectAll,
+}: {
+  label: string;
+  /** Off while tasks are selected. */
+  disabled?: boolean;
+  onCollapse: () => void;
+  /** Select every task shown in the column (unset when it's empty). */
+  onSelectAll?: () => void;
+}) {
   return (
     <BaseMenu.Root>
       <BaseMenu.Trigger
+        disabled={disabled}
         aria-label={`${label} column options`}
-        title="Column options"
-        className="grid size-7 place-items-center rounded-lg text-ink/45 transition-colors hover:bg-ink/5 hover:text-ink data-popup-open:bg-ink/5 data-popup-open:text-ink"
+        title={disabled ? "Clear the selection to use column options" : "Column options"}
+        className="grid size-7 place-items-center rounded-lg text-ink/45 transition-colors hover:bg-ink/5 hover:text-ink data-popup-open:bg-ink/5 data-popup-open:text-ink disabled:pointer-events-none disabled:opacity-30"
       >
         <Ellipsis className="size-4" />
       </BaseMenu.Trigger>
@@ -981,6 +1077,14 @@ function ColumnActions({ label, onCollapse }: { label: string; onCollapse: () =>
         {/* Below the task drawer (z-50) but above the board and its sticky bits. */}
         <BaseMenu.Positioner sideOffset={6} align="end" className="z-40">
           <BaseMenu.Popup className="w-52 origin-(--transform-origin) rounded-2xl border border-ink/10 bg-surface p-1.5 text-ink shadow-[0_20px_50px_-15px_rgb(46_51_73/0.4)] outline-none transition-[opacity,transform] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
+            <BaseMenu.Item
+              onClick={onSelectAll}
+              disabled={!onSelectAll}
+              className="flex w-full cursor-pointer select-none items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-medium text-ink/80 outline-none transition-colors data-disabled:cursor-default data-disabled:opacity-40 data-highlighted:bg-mist data-highlighted:text-ink"
+            >
+              <SquareCheck className="size-4 text-ink/50" />
+              Select all
+            </BaseMenu.Item>
             <BaseMenu.Item
               onClick={onCollapse}
               className="flex w-full cursor-pointer select-none items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-medium text-ink/80 outline-none transition-colors data-highlighted:bg-mist data-highlighted:text-ink"
@@ -1006,6 +1110,9 @@ function BoardColumn({
   canAdd,
   defaultTag,
   onDeleteAll,
+  onSelectAll,
+  locked = false,
+  selected = false,
   children,
 }: {
   column: ColumnDef;
@@ -1024,6 +1131,12 @@ function BoardColumn({
   defaultTag?: TagId;
   /** Move every task shown in this column to Trash (unset when it's empty). */
   onDeleteAll?: () => void;
+  /** Select every task shown in this column (unset when it's empty). */
+  onSelectAll?: () => void;
+  /** Tasks are selected (in this or another column): adding, deleting and the menu are off. */
+  locked?: boolean;
+  /** The selection is in this column. */
+  selected?: boolean;
   children: ReactNode;
 }) {
   const id = column.id;
@@ -1037,6 +1150,8 @@ function BoardColumn({
     ) : null;
   const label = column.label;
   const collapsed = useCollapsedColumns().includes(id);
+  // Selecting tasks closes an open "Add task" card.
+  if (locked && adding) setAdding(null);
 
   // Collapsed: a slim strip with the name running down it. Click to open it again; tasks can still be dropped on it.
   if (collapsed) {
@@ -1081,6 +1196,7 @@ function BoardColumn({
       aria-label={`${label}, ${count} ${count === 1 ? "task" : "tasks"}`}
       data-tour={id === TODO_COLUMN ? "tasks" : undefined}
       data-column={id}
+      data-selected={selected || undefined}
       // A fixed width, so more columns scroll sideways rather than squeezing. The outline marks a drop target.
       className={`flex w-[min(18rem,calc(100vw-4rem))] shrink-0 snap-start flex-col rounded-2xl p-2 outline-2 outline-offset-2 transition-[outline-color] duration-200 ${style.wash} ${
         blocked ? "outline-dashed outline-coral/60" : highlight ? `outline-dashed ${style.ring}` : "outline-transparent"
@@ -1098,7 +1214,7 @@ function BoardColumn({
           {count}
         </span>
         <div className="ml-auto flex shrink-0 items-center">
-          {onDeleteAll && (
+          {onDeleteAll && !locked && (
             <button
               type="button"
               onClick={onDeleteAll}
@@ -1109,7 +1225,7 @@ function BoardColumn({
               <Trash2 className="size-3.5" />
             </button>
           )}
-          {canAdd && (
+          {canAdd && !locked && (
             <button
               type="button"
               onClick={() => setAdding("top")}
@@ -1120,12 +1236,17 @@ function BoardColumn({
               <Plus className="size-4" />
             </button>
           )}
-          <ColumnActions label={label} onCollapse={() => setColumnCollapsed(id, true)} />
+          <ColumnActions
+            label={label}
+            disabled={locked}
+            onCollapse={() => setColumnCollapsed(id, true)}
+            onSelectAll={onSelectAll}
+          />
         </div>
       </div>
 
       {/* Each column scrolls on its own once its tasks outgrow the screen, so the headers stay put. */}
-      <div className="gb-column-scroll -mx-1 mt-2 max-h-[calc(100dvh-12rem)] overflow-y-auto overscroll-contain px-1 py-0.5">
+      <div className="gb-column-scroll -mx-2 mt-0.5 max-h-[calc(100dvh-12rem)] overflow-y-auto overscroll-contain px-2 pb-1 pt-2">
         <ul className={`flex flex-col gap-2 ${dragging ? "min-h-24" : ""}`}>
           {/* The card opens where the task will land: above the tasks, or below them. */}
           {adding === "top" && <li>{addCard("top")}</li>}
@@ -1146,7 +1267,7 @@ function BoardColumn({
         </ul>
       </div>
 
-      {canAdd && adding !== "bottom" && (
+      {canAdd && adding !== "bottom" && !locked && (
         <button
           type="button"
           onClick={() => setAdding("bottom")}
@@ -1178,6 +1299,15 @@ type TaskRowProps = {
   sortable: boolean;
   onOpen: () => void;
   onDelete: () => void;
+  /** Picked for the bulk-action bar. */
+  selected?: boolean;
+  /**
+   * "off": nothing selected. "in": tasks are selected in this card's column (clicking the card
+   * toggles it, its other actions are off). "out": tasks are selected in another column (the card
+   * is dimmed and locked).
+   */
+  selectMode?: "off" | "in" | "out";
+  onSelect?: () => void;
 };
 
 /** The grip button's drag wiring (keyboard drags start from it). */
@@ -1199,8 +1329,11 @@ function SortableTaskRow(props: TaskRowProps) {
       ref={setNodeRef}
       {...pointerListeners}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      // Raised while just ticked (confetti), so it draws over the cards around it.
-      className={`relative touch-manipulation ${props.moving ? "z-10" : ""}`}
+      // Raised while just ticked (confetti), so it draws over the cards around it. Dimmed (on the li, since
+      // the card's entrance animation pins its own opacity) while tasks are selected in another column.
+      className={`relative touch-manipulation transition-opacity duration-200 ${props.moving ? "z-10" : ""} ${
+        props.selectMode === "out" ? "opacity-45" : ""
+      }`}
     >
       <TaskCard
         {...props}
@@ -1229,6 +1362,9 @@ function TaskCard({
   sortable,
   onOpen,
   onDelete,
+  selected = false,
+  selectMode = "off",
+  onSelect,
   grip,
   placeholder = false,
   overlay = false,
@@ -1255,21 +1391,43 @@ function TaskCard({
     if (!ticked) setBurst((b) => b + 1);
     onToggle(e.currentTarget.getBoundingClientRect());
   }
+  // While tasks are selected, the card's own actions (tick, open, subtasks, move, delete) are off.
+  const locked = selectMode !== "off" && !overlay && !placeholder;
+  const highlighted = selected && !overlay && !placeholder;
 
   return (
     // The card carries the entrance animation, which would override the li's drag transform.
     <div
-      className={`group relative rounded-xl border bg-white p-3 dark:bg-surface transition-[box-shadow,transform,opacity,border-color] duration-200 ${
+      className={`group relative rounded-xl border p-3 transition-[box-shadow,transform,opacity,border-color,background-color] duration-200 ${
         overlay ? "" : "gb-rise"
-      } ${ticked ? "border-success/25" : "border-ink/10"} ${leaving ? "scale-95 opacity-0" : ""} ${
+      } ${
+        // Selected: a violet-tinted card with a solid violet border and a soft glow around it.
+        highlighted
+          ? "border-iris bg-[color-mix(in_srgb,var(--color-iris)_10%,white)] shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-iris)_28%,transparent),0_8px_20px_-8px_color-mix(in_srgb,var(--color-iris)_55%,transparent)] dark:bg-[color-mix(in_srgb,var(--color-iris)_18%,var(--color-surface))]"
+          : `bg-white dark:bg-surface ${ticked ? "border-success/25" : "border-ink/10"}`
+      } ${leaving ? "scale-95 opacity-0" : ""} ${
         overlay
           ? "rotate-[2deg] cursor-grabbing shadow-[0_24px_50px_-15px_rgb(20_22_34/0.55)] ring-2 ring-iris/40"
           : placeholder
             ? "border-dashed border-ink/20 opacity-40 shadow-none"
-            : `shadow-[0_1px_2px_rgb(20_22_34/0.06)] hover:border-ink/20 hover:shadow-md ${sortable ? "cursor-grab" : ""}`
-      }`}
+            : highlighted
+              ? ""
+              : `shadow-[0_1px_2px_rgb(20_22_34/0.06)] hover:border-ink/20 hover:shadow-md ${sortable ? "cursor-grab" : ""}`
+      } ${selectMode === "out" && !overlay ? "pointer-events-none" : ""}`}
       style={{ animationDuration: "0.4s" } as CSSProperties}
     >
+      {/* While selecting in this column, clicking anywhere on the card toggles its highlight. */}
+      {selectMode === "in" && !overlay && !placeholder && (
+        <button
+          type="button"
+          aria-pressed={selected}
+          aria-label={selected ? `Deselect "${task.title}"` : `Select "${task.title}"`}
+          onClick={onSelect}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="absolute inset-0 z-[5] cursor-pointer rounded-[inherit]"
+        />
+      )}
+      <div inert={locked} className="contents">
       <div className="flex items-start gap-2.5">
         <button
           type="button"
@@ -1278,8 +1436,15 @@ function TaskCard({
           aria-pressed={ticked}
           className="relative mt-px shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris"
         >
-          <CheckBox done={ticked} size={20} />
-          {burst > 0 && ticked && <ConfettiBurst key={burst} />}
+          {/* While selecting in this column, the round tick becomes a square selection checkbox. */}
+          {selectMode === "in" && !overlay && !placeholder ? (
+            <SelectionBox checked={selected} />
+          ) : (
+            <>
+              <CheckBox done={ticked} size={20} />
+              {burst > 0 && ticked && <ConfettiBurst key={burst} />}
+            </>
+          )}
         </button>
 
         <button
@@ -1289,7 +1454,10 @@ function TaskCard({
           className="min-w-0 flex-1 rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris"
         >
           <p className="line-clamp-2 break-words text-sm font-semibold leading-snug">
-            <span className={`gb-strike ${ticked ? "text-ink/55" : ""}`} data-done={ticked || undefined}>
+            <span
+              className={`gb-strike ${highlighted ? "text-ink" : ticked ? "text-ink/55" : ""}`}
+              data-done={ticked || undefined}
+            >
               {task.title}
             </span>
           </p>
@@ -1301,8 +1469,12 @@ function TaskCard({
           )}
         </button>
 
-        {/* Shown on hover (always on touch screens, and when focused by keyboard). */}
-        <div className="-mr-1.5 -mt-1 flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+        {/* Shown on hover (always on touch screens, and when focused by keyboard); hidden while selecting. */}
+        <div
+          className={`-mr-1.5 -mt-1 flex shrink-0 items-center opacity-0 transition-opacity ${
+            locked ? "invisible" : "focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+          }`}
+        >
           <button
             type="button"
             onClick={() => {
@@ -1385,6 +1557,8 @@ function TaskCard({
         />
       )}
 
+      </div>
+
       {landed && <span aria-hidden className="gb-landed pointer-events-none absolute inset-0 rounded-[inherit]" />}
       {moving && (
         <span
@@ -1397,6 +1571,20 @@ function TaskCard({
   );
 }
 
+
+/** The square checkbox shown in a card's tick spot while selecting: violet and ticked when selected. */
+function SelectionBox({ checked }: { checked: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`grid size-5 place-items-center rounded-md border-2 transition-colors duration-150 ${
+        checked ? "border-iris bg-iris text-white" : "border-ink/30 bg-surface text-transparent"
+      }`}
+    >
+      <Check className="size-3.5" strokeWidth={3.5} />
+    </span>
+  );
+}
 
 /* ───────────────────────── Empty states ───────────────────────── */
 

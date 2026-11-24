@@ -79,3 +79,14 @@ export function downloadTasksCsv(status?: string): number {
   downloadCsv(name, tasksToCsv(tasks));
   return tasks.filter((t) => !t.deletedAt).length;
 }
+
+/**
+ * Download just these tasks (e.g. the board's selection) as
+ * greenboard-tasks-selected-<date>.csv. Returns how many tasks were exported.
+ */
+export function downloadSelectedTasksCsv(ids: readonly string[]): number {
+  const wanted = new Set(ids);
+  const tasks = getTasks().filter((t) => wanted.has(t.id) && !t.deletedAt);
+  downloadCsv(`greenboard-tasks-selected-${fileDate()}.csv`, tasksToCsv(tasks));
+  return tasks.length;
+}

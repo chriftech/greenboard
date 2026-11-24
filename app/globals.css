@@ -486,3 +486,19 @@ html[data-auth-pending] body > * {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--color-ink) 20%, transparent) transparent;
 }
+
+/* ───────────── Bulk-action bar ───────────── */
+
+@keyframes gb-bulk-in {
+  from {
+    transform: translateY(24px) scale(0.97);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.gb-bulk-bar {
+  animation: gb-bulk-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+}

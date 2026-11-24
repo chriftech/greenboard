@@ -50,7 +50,7 @@ export function ProfileSettings() {
                 </Link>
                 <Link
                   href="/signup"
-                  className="rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5"
+                  className="rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-on-deep transition-transform hover:-translate-y-0.5"
                 >
                   Sign up
                 </Link>
@@ -150,7 +150,7 @@ function NameRow({ user }: { user: AuthUser }) {
         <button
           type="submit"
           disabled={unchanged || !trimmed || state.kind === "saving"}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-deep px-4 py-2.5 text-sm font-semibold text-peach transition-opacity disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-deep px-4 py-2.5 text-sm font-semibold text-on-deep transition-opacity disabled:opacity-50"
         >
           {state.kind === "saving" && <Loader2 className="size-4 animate-spin" />}
           Save

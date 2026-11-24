@@ -262,7 +262,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         <button
           type="submit"
           disabled={busy}
-          className="gb-shine inline-flex w-full items-center justify-center gap-2 rounded-xl bg-deep px-4 py-3 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-70"
+          className="gb-shine inline-flex w-full items-center justify-center gap-2 rounded-xl bg-deep px-4 py-3 text-sm font-semibold text-on-deep transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-70"
         >
           {status === "working" && <Loader2 className="size-4 animate-spin" />}
           {signup ? "Create account" : "Log in"}
@@ -334,7 +334,7 @@ function SignedIn({ user }: { user: AuthUser }) {
       </div>
       <Link
         href="/board"
-        className="gb-shine flex w-full items-center justify-center gap-2 rounded-xl bg-deep px-4 py-3 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5"
+        className="gb-shine flex w-full items-center justify-center gap-2 rounded-xl bg-deep px-4 py-3 text-sm font-semibold text-on-deep transition-transform hover:-translate-y-0.5"
       >
         <LayoutDashboard className="size-4" />
         Go to your board

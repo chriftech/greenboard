@@ -101,7 +101,7 @@ function AddColumnForm({ onDone }: { onDone: (id: string) => void }) {
         <button
           type="submit"
           disabled={!label.trim()}
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-deep px-4 py-2.5 text-sm font-semibold text-peach transition-transform enabled:hover:-translate-y-0.5 disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-deep px-4 py-2.5 text-sm font-semibold text-on-deep transition-transform enabled:hover:-translate-y-0.5 disabled:opacity-50"
         >
           <Plus className="size-4" />
           Add column

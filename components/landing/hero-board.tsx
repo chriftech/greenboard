@@ -108,7 +108,7 @@ export function HeroBoard() {
 
         {complete && (
           <div className="absolute inset-x-0 -bottom-5 flex justify-center">
-            <div className="gb-pop relative rounded-full bg-deep px-5 py-2 text-sm font-bold text-peach shadow-xl">
+            <div className="gb-pop relative rounded-full bg-deep px-5 py-2 text-sm font-bold text-on-deep shadow-xl">
               <ConfettiBurst />
               All done! Board is clear 🎉
             </div>

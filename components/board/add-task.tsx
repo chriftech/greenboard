@@ -135,7 +135,7 @@ export function TimelinePicker({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-lg bg-deep px-3 py-1.5 text-xs font-semibold text-peach"
+                className="rounded-lg bg-deep px-3 py-1.5 text-xs font-semibold text-on-deep"
               >
                 Done
               </button>
@@ -248,7 +248,7 @@ export function InlineAddTask({
         <button
           type="submit"
           disabled={!canSave}
-          className="inline-flex items-center gap-1 rounded-lg bg-deep px-2.5 py-1 text-xs font-semibold text-peach transition-opacity disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded-lg bg-deep px-2.5 py-1 text-xs font-semibold text-on-deep transition-opacity disabled:opacity-40"
         >
           Save
           <CornerDownLeft aria-hidden className="size-3 opacity-70" />
@@ -396,7 +396,7 @@ function CreateTaskForm({ defaultTag, onDone }: { defaultTag?: TagId; onDone: ()
         <button
           type="submit"
           disabled={!canSave}
-          className="ml-auto rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-peach transition-opacity disabled:opacity-40"
+          className="ml-auto rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-on-deep transition-opacity disabled:opacity-40"
         >
           Create task
         </button>

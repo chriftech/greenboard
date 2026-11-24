@@ -56,7 +56,7 @@ export function Nav() {
           </Link>
           <Link
             href="/board"
-            className="rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5 hover:shadow-lg"
+            className="rounded-xl bg-deep px-4 py-2 text-sm font-semibold text-on-deep transition-transform hover:-translate-y-0.5 hover:shadow-lg"
           >
             Get started
           </Link>
@@ -95,7 +95,7 @@ export function Nav() {
           <Link
             href="/board"
             onClick={() => setOpen(false)}
-            className="mt-2 block rounded-xl bg-deep px-3 py-3 text-center font-semibold text-peach"
+            className="mt-2 block rounded-xl bg-deep px-3 py-3 text-center font-semibold text-on-deep"
           >
             Get started
           </Link>

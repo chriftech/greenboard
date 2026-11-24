@@ -51,7 +51,7 @@ export function FeedbackForm() {
             aria-checked={kind === id}
             onClick={() => setKind(id)}
             className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${
-              kind === id ? "border-deep bg-deep text-peach" : "border-ink/10 bg-paper text-ink/65 hover:border-ink/25 hover:text-ink"
+              kind === id ? "border-deep bg-deep text-on-deep" : "border-ink/10 bg-paper text-ink/65 hover:border-ink/25 hover:text-ink"
             }`}
           >
             <Icon className="size-4" />
@@ -97,7 +97,7 @@ export function FeedbackForm() {
         <button
           type="submit"
           disabled={!ready}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-deep px-5 py-2.5 text-sm font-semibold text-peach transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-deep px-5 py-2.5 text-sm font-semibold text-on-deep transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
         >
           Continue on GitHub
           <ExternalLink className="size-4" />

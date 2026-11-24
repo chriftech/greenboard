@@ -103,7 +103,7 @@ function Toolbar({ editor }: { editor: Editor | null }) {
               aria-pressed={active}
               title={`${label} (${shortcut})`}
               className={`grid size-8 place-items-center rounded-lg transition-colors ${
-                active ? "bg-deep text-peach" : "text-ink/60 hover:bg-mist hover:text-ink"
+                active ? "bg-deep text-on-deep" : "text-ink/60 hover:bg-mist hover:text-ink"
               }`}
             >
               <Icon className="size-4" strokeWidth={2.5} />

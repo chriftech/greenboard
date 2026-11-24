@@ -21,6 +21,7 @@ import {
   CircleDot,
   ClipboardCheck,
   GripVertical,
+  ListTree,
   X,
   NotebookPen,
   PartyPopper,
@@ -61,6 +62,7 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { TagEditor } from "./tag-editor";
 import { TagChip, TagDot } from "./tag-chip";
 import { AssigneeBadge, PriorityChip } from "./task-meta";
+import { CardSubtasks, SubtaskToggle } from "./subtasks";
 import { findTag, tagActions, useTags, type CustomTag, type TagView } from "@/lib/tags";
 import { TrashPanel } from "./trash-panel";
 import { Tour } from "./tour";
@@ -1164,6 +1166,11 @@ function TaskCard({
   overlay?: boolean;
 }) {
   const [burst, setBurst] = useState(0);
+  // The subtask list under the card: closed, open, or open with the new-subtask row ready.
+  const [subtasks, setSubtasks] = useState<"closed" | "open" | "adding">("closed");
+  const showSubtasks = subtasks !== "closed" && !overlay && !placeholder;
+  // Bumped by each "Add subtask" press, so the list reopens its new-subtask row every time.
+  const [addPress, setAddPress] = useState(0);
   // Done, or in the column ticking sends tasks to (e.g. "In review"): shown ticked either way.
   const ticked = isTicked(task, useTickColumn());
   const schedule = task.start && task.end ? { start: task.start, end: task.end } : null;
@@ -1222,6 +1229,18 @@ function TaskCard({
 
         {/* Shown on hover (always on touch screens, and when focused by keyboard). */}
         <div className="-mr-1.5 -mt-1 flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+          <button
+            type="button"
+            onClick={() => {
+              setSubtasks("adding");
+              setAddPress((n) => n + 1);
+            }}
+            aria-label={`Add a subtask to "${task.title}"`}
+            title="Add subtask"
+            className="grid size-7 place-items-center rounded-lg text-ink/35 transition-colors hover:bg-ink/5 hover:text-ink/70 focus-visible:outline-2 focus-visible:outline-iris"
+          >
+            <ListTree className="size-3.5" />
+          </button>
           {sortable && (
             <button
               type="button"
@@ -1249,6 +1268,11 @@ function TaskCard({
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5 pl-[30px]">
         <TagChip tag={tag} />
         <PriorityChip priority={task.priority} />
+        <SubtaskToggle
+          task={task}
+          open={showSubtasks}
+          onToggle={() => setSubtasks(showSubtasks ? "closed" : "open")}
+        />
         {moving && (
           <span className="inline-flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-[11px] font-semibold text-white">
             <ArrowRight className="gb-nudge-right size-3" aria-hidden />
@@ -1276,6 +1300,16 @@ function TaskCard({
           <AssigneeBadge assignee={task.assignee} />
         </span>
       </div>
+
+      {showSubtasks && (
+        <CardSubtasks
+          key={subtasks === "adding" ? `add-${addPress}` : "open"}
+          task={task}
+          startAdding={subtasks === "adding"}
+          onOpenTask={onOpen}
+          onClose={() => setSubtasks("closed")}
+        />
+      )}
 
       {landed && <span aria-hidden className="gb-landed pointer-events-none absolute inset-0 rounded-[inherit]" />}
       {moving && (

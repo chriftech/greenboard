@@ -65,7 +65,53 @@ export type Task = {
   column?: string;
   /** Older saves: started but not finished, before custom columns. Read as the Pending column. */
   inProgress?: boolean;
+  /** Smaller steps inside the task, in the order shown. */
+  subtasks?: Subtask[];
 };
+
+/** A step inside a task, with its own tick, assignee, priority and timeline. */
+export type Subtask = {
+  id: string;
+  title: string;
+  done: boolean;
+  createdAt: number;
+  assignee?: string;
+  priority?: PriorityId;
+  /** Local "YYYY-MM-DDTHH:mm" strings: both or neither, end after start. */
+  start?: string;
+  end?: string;
+};
+
+export type SubtaskPatch = Partial<Pick<Subtask, "title" | "assignee" | "priority">>;
+
+function isSubtask(v: unknown): v is Subtask {
+  if (!v || typeof v !== "object") return false;
+  const s = v as Record<string, unknown>;
+  return (
+    typeof s.id === "string" &&
+    typeof s.title === "string" &&
+    typeof s.done === "boolean" &&
+    typeof s.createdAt === "number" &&
+    (s.assignee === undefined || typeof s.assignee === "string") &&
+    (s.priority === undefined || (typeof s.priority === "string" && PRIORITY_IDS.has(s.priority)))
+  );
+}
+
+/** Keep a subtask's schedule only when it's whole and valid. */
+function normalizeSubtask(s: Subtask): Subtask {
+  if (s.start === undefined && s.end === undefined) return s;
+  if (isValidSchedule({ start: s.start, end: s.end })) return s;
+  const { start: _s, end: _e, ...rest } = s;
+  void _s;
+  void _e;
+  return rest;
+}
+
+/** How many of a task's subtasks are ticked, out of how many. */
+export function subtaskProgress(t: Pick<Task, "subtasks">) {
+  const list = t.subtasks ?? [];
+  return { done: list.filter((s) => s.done).length, total: list.length };
+}
 
 /**
  * Where a task is on the board: a column id from lib/columns.ts. "todo" and
@@ -158,7 +204,8 @@ function isTask(v: unknown): v is Task {
     (t.priority === undefined || (typeof t.priority === "string" && PRIORITY_IDS.has(t.priority))) &&
     (t.assignee === undefined || typeof t.assignee === "string") &&
     (t.inProgress === undefined || typeof t.inProgress === "boolean") &&
-    (t.column === undefined || typeof t.column === "string")
+    (t.column === undefined || typeof t.column === "string") &&
+    (t.subtasks === undefined || Array.isArray(t.subtasks))
   );
 }
 
@@ -169,6 +216,16 @@ function isTask(v: unknown): v is Task {
 function normalize(t: Task): Task {
   // Tasks saved before reordering existed keep their newest-first position.
   if (typeof t.order !== "number") t = { ...t, order: -t.createdAt };
+  // Broken subtasks are dropped one by one; the task keeps the rest.
+  if (t.subtasks !== undefined) {
+    const subtasks = t.subtasks.filter(isSubtask).map(normalizeSubtask);
+    if (subtasks.length) t = { ...t, subtasks };
+    else {
+      const { subtasks: _st, ...rest } = t;
+      void _st;
+      t = rest;
+    }
+  }
   if (t.start === undefined && t.end === undefined) return t;
   if (isValidSchedule({ start: t.start, end: t.end })) return t;
   const { start: _s, end: _e, ...rest } = t;
@@ -237,6 +294,20 @@ function newId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Replace one task's subtask list. An empty list removes the field. */
+function editSubtasks(taskId: string, edit: (list: Subtask[]) => Subtask[]) {
+  save(
+    getTasks().map((t) => {
+      if (t.id !== taskId) return t;
+      const list = edit(t.subtasks ?? []);
+      if (list.length) return { ...t, subtasks: list };
+      const { subtasks: _st, ...rest } = t;
+      void _st;
+      return rest;
+    }),
+  );
 }
 
 export const taskActions = {
@@ -327,6 +398,61 @@ export const taskActions = {
     if (slots.length !== ids.length) return;
     const next = new Map(ids.map((id, i) => [id, slots[i]]));
     save(tasks.map((t) => (next.has(t.id) ? { ...t, order: next.get(t.id)! } : t)));
+  },
+  /** Add a subtask at the end of a task's list. */
+  addSubtask(
+    taskId: string,
+    input: { title: string; assignee?: string; priority?: PriorityId; schedule?: Schedule },
+  ) {
+    const title = input.title.trim();
+    if (!title) return;
+    if (input.schedule && !isValidSchedule(input.schedule)) return;
+    const sub: Subtask = {
+      id: newId(),
+      title,
+      done: false,
+      createdAt: Date.now(),
+      ...(input.assignee ? { assignee: input.assignee } : {}),
+      ...(input.priority ? { priority: input.priority } : {}),
+      ...(input.schedule ?? {}),
+    };
+    editSubtasks(taskId, (list) => [...list, sub]);
+  },
+  toggleSubtask(taskId: string, subId: string) {
+    editSubtasks(taskId, (list) => list.map((s) => (s.id === subId ? { ...s, done: !s.done } : s)));
+  },
+  /** Change a subtask's title, assignee or priority. An undefined assignee or priority clears it. */
+  updateSubtask(taskId: string, subId: string, patch: SubtaskPatch) {
+    const next = { ...patch };
+    if (next.title !== undefined) {
+      next.title = next.title.trim();
+      if (!next.title) delete next.title;
+    }
+    editSubtasks(taskId, (list) =>
+      list.map((s) => {
+        if (s.id !== subId) return s;
+        const merged: Subtask = { ...s, ...next };
+        if ("assignee" in next && !next.assignee) delete merged.assignee;
+        if ("priority" in next && !next.priority) delete merged.priority;
+        return merged;
+      }),
+    );
+  },
+  /** Set a subtask's start and end together, or pass null to remove them. */
+  setSubtaskSchedule(taskId: string, subId: string, schedule: Schedule | null) {
+    if (schedule && !isValidSchedule(schedule)) return;
+    editSubtasks(taskId, (list) =>
+      list.map((s) => {
+        if (s.id !== subId) return s;
+        const { start: _s, end: _e, ...rest } = s;
+        void _s;
+        void _e;
+        return schedule ? { ...rest, start: schedule.start, end: schedule.end } : rest;
+      }),
+    );
+  },
+  deleteSubtask(taskId: string, subId: string) {
+    editSubtasks(taskId, (list) => list.filter((s) => s.id !== subId));
   },
   /** Move every task with one tag to another (used when a custom tag is deleted). */
   retag(from: TagId, to: TagId) {

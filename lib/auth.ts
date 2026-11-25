@@ -9,7 +9,10 @@ import { useSyncExternalStore } from "react";
 import { FirebaseError } from "firebase/app";
 import {
   GoogleAuthProvider,
+  TotpMultiFactorGenerator,
   createUserWithEmailAndPassword,
+  getMultiFactorResolver,
+  multiFactor,
   onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
@@ -17,6 +20,9 @@ import {
   signInWithPopup,
   signOut,
   updateProfile,
+  type MultiFactorError,
+  type MultiFactorResolver,
+  type TotpSecret,
   type User,
 } from "firebase/auth";
 import { getFirebaseAuth, isFirebaseConfigured } from "./firebase";
@@ -30,6 +36,19 @@ export type AuthUser = {
   emailVerified: boolean;
   /** How this account signs in: "password" (email and password) and/or "google.com". */
   providers: string[];
+  /** Second factors for two-factor sign-in (authenticator apps). Empty when 2FA is off. */
+  twoFactor: TwoFactorMethod[];
+};
+
+/** An enrolled second factor. */
+export type TwoFactorMethod = {
+  uid: string;
+  /** The name given when it was added, e.g. "Authenticator app". */
+  name: string;
+  /** "totp" (an authenticator app) or "phone". */
+  kind: string;
+  /** When it was added (ISO date string). */
+  addedAt: string;
 };
 
 export type AuthState =
@@ -61,6 +80,12 @@ function toAuthUser(u: User): AuthUser {
     photoURL: u.photoURL,
     emailVerified: u.emailVerified,
     providers: u.providerData.map((p) => p.providerId),
+    twoFactor: multiFactor(u).enrolledFactors.map((f) => ({
+      uid: f.uid,
+      name: f.displayName || (f.factorId === "totp" ? "Authenticator app" : "Phone"),
+      kind: f.factorId,
+      addedAt: f.enrollmentTime,
+    })),
   };
 }
 
@@ -102,10 +127,47 @@ export class AuthActionError extends Error {
   }
 }
 
+/**
+ * Signing in needs a second step: the code from the user's authenticator app.
+ * Finish with authActions.completeTwoFactor(code), or drop it with cancelTwoFactor().
+ */
+export class TwoFactorRequiredError extends AuthActionError {
+  constructor() {
+    super("Enter the 6-digit code from your authenticator app.");
+  }
+}
+
+/** The pending two-factor sign-in, between the password (or Google) step and the code. */
+let pendingTwoFactor: MultiFactorResolver | null = null;
+
+/** If Firebase wants a second factor, keep its resolver and ask for the code instead of failing. */
+function catchTwoFactor(error: unknown): never {
+  const auth = getFirebaseAuth();
+  if (auth && error instanceof FirebaseError && error.code === "auth/multi-factor-auth-required") {
+    pendingTwoFactor = getMultiFactorResolver(auth, error as MultiFactorError);
+    if (pendingTwoFactor.hints.some((h) => h.factorId === TotpMultiFactorGenerator.FACTOR_ID)) throw new TwoFactorRequiredError();
+    pendingTwoFactor = null;
+    throw new AuthActionError("This account uses a kind of two-factor sign-in greenboard doesn't support yet.");
+  }
+  throw error;
+}
+
 /** Firebase's error codes, in words a person can act on. */
 function friendly(error: unknown): AuthActionError {
   const code = error instanceof FirebaseError ? error.code : "";
   switch (code) {
+    case "auth/invalid-verification-code":
+    case "auth/missing-code":
+      return new AuthActionError("That code didn't match. Check your authenticator app and try again.");
+    case "auth/code-expired":
+    case "auth/totp-challenge-timeout":
+      return new AuthActionError("That took a little too long. Start again to get a fresh code.");
+    case "auth/unverified-email":
+      return new AuthActionError("Confirm your email address first, then turn on two-factor sign-in.");
+    case "auth/admin-restricted-operation":
+      return new AuthActionError("Two-factor sign-in isn't switched on for greenboard yet.");
+    case "auth/maximum-second-factor-count-exceeded":
+      return new AuthActionError("This account already has as many second factors as it can.");
     case "auth/invalid-credential":
     case "auth/wrong-password":
     case "auth/user-not-found":
@@ -185,9 +247,11 @@ function requireUser() {
 /* ───────────────────────── Actions ───────────────────────── */
 
 export const authActions = {
+  /** Throws TwoFactorRequiredError when the account also needs a code from an authenticator app. */
   logIn: (email: string, password: string) =>
     attempt(async () => {
-      await signInWithEmailAndPassword(requireAuth(), email.trim(), password);
+      pendingTwoFactor = null;
+      await signInWithEmailAndPassword(requireAuth(), email.trim(), password).catch(catchTwoFactor);
     }),
 
   signUp: (name: string, email: string, password: string) =>
@@ -203,7 +267,54 @@ export const authActions = {
     attempt(async () => {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
-      await signInWithPopup(requireAuth(), provider);
+      pendingTwoFactor = null;
+      await signInWithPopup(requireAuth(), provider).catch(catchTwoFactor);
+    }),
+
+  /** Finish a sign-in that needed a second factor, with the code from the authenticator app. */
+  completeTwoFactor: (code: string) =>
+    attempt(async () => {
+      const resolver = pendingTwoFactor;
+      const hint = resolver?.hints.find((h) => h.factorId === TotpMultiFactorGenerator.FACTOR_ID);
+      if (!resolver || !hint) throw new AuthActionError("That sign-in has expired. Enter your details again.");
+      await resolver.resolveSignIn(TotpMultiFactorGenerator.assertionForSignIn(hint.uid, code.trim()));
+      pendingTwoFactor = null;
+    }),
+
+  /** Give up on a sign-in that was waiting for a second factor. */
+  cancelTwoFactor: () => {
+    pendingTwoFactor = null;
+  },
+
+  /**
+   * Start adding an authenticator app: a secret to show as a QR code (and as a key to type in).
+   * Finish with finishTwoFactorSetup and a code from the app.
+   */
+  startTwoFactorSetup: () =>
+    attempt(async () => {
+      const user = requireUser();
+      const session = await multiFactor(user).getSession();
+      const secret = await TotpMultiFactorGenerator.generateSecret(session);
+      return {
+        secret,
+        key: secret.secretKey,
+        url: secret.generateQrCodeUrl(user.email ?? "greenboard", "Greenboard"),
+      };
+    }),
+
+  /** Confirm the new authenticator app with a code from it; two-factor sign-in is on from then. */
+  finishTwoFactorSetup: (secret: TotpSecret, code: string) =>
+    attempt(async () => {
+      const assertion = TotpMultiFactorGenerator.assertionForEnrollment(secret, code.trim());
+      await multiFactor(requireUser()).enroll(assertion, "Authenticator app");
+      refresh();
+    }),
+
+  /** Remove a second factor (turning two-factor sign-in off when it was the only one). */
+  removeTwoFactor: (uid: string) =>
+    attempt(async () => {
+      await multiFactor(requireUser()).unenroll(uid);
+      refresh();
     }),
 
   /** Firebase doesn't reveal whether the email has an account, so this succeeds either way. */

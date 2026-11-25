@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState, useSyncExternalStore, type FormEvent } from "react";
-import { ArrowDown, ArrowUp, CircleCheck, Columns3, GitBranch, GripVertical, Lock, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, CircleCheck, Columns3, GitBranch, GripVertical, Plus, Trash2 } from "lucide-react";
 import {
   DndContext,
   KeyboardSensor,
@@ -53,7 +53,7 @@ export function ColumnsSettings() {
   const countIn = (id: string) => (tasks ?? []).filter((t) => statusOf(t) === id).length;
   const extra = columns.length - 2;
   const deletingCount = deleting ? countIn(deleting.id) : 0;
-  const firstLabel = columns[0]?.label ?? "Todo";
+  const firstLabel = columns.find((c) => c.id === TODO_COLUMN)?.label ?? "Todo";
   const tickColumn = useTickColumn();
   const tickLabel = columns.find((c) => c.id === tickColumn)?.label ?? "Completed";
 
@@ -81,8 +81,8 @@ export function ColumnsSettings() {
             <div className="min-w-0">
               <p className="font-semibold">Your board&rsquo;s columns</p>
               <p className="mt-0.5 text-sm text-ink/60">
-                Left to right. {firstLabel} is where new tasks start; {tickLabel} is where ticked tasks go. Add up to{" "}
-                {MAX_EXTRA_COLUMNS} columns in between.
+                Left to right, in any order. {firstLabel} is where new tasks start; {tickLabel} is where ticked tasks go. Add up
+                to {MAX_EXTRA_COLUMNS} more columns.
               </p>
             </div>
           </div>
@@ -95,8 +95,8 @@ export function ColumnsSettings() {
                 key={`${c.id}:${c.label}`}
                 column={c}
                 count={onBoard.filter((t) => statusOf(t) === c.id).length}
-                canMoveUp={!c.fixed && i > 1}
-                canMoveDown={!c.fixed && i < columns.length - 2}
+                canMoveUp={i > 0}
+                canMoveDown={i < columns.length - 1}
                 onDelete={() => setDeleting(c)}
               />
             ))}
@@ -135,7 +135,7 @@ export function ColumnsSettings() {
 
 /**
  * Wider screens: the columns in a row, as on the board. Drag one left or right to reorder
- * (or focus its handle and use the arrow keys). Todo and Completed are locked at the ends.
+ * (or focus its handle and use the arrow keys). Every column can move, Todo and Completed included.
  * Phones use the arrows on each row instead.
  */
 function ColumnOrderStrip({ columns }: { columns: BoardColumn[] }) {
@@ -144,10 +144,7 @@ function ColumnOrderStrip({ columns }: { columns: BoardColumn[] }) {
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-  const movable = columns.filter((c) => !c.fixed);
-  const ids = movable.map((c) => c.id);
-  const first = columns[0];
-  const last = columns[columns.length - 1];
+  const ids = columns.map((c) => c.id);
   const labelOf = (id: unknown) => columns.find((c) => c.id === id)?.label ?? "Column";
 
   function onDragEnd({ active, over }: DragEndEvent) {
@@ -162,7 +159,7 @@ function ColumnOrderStrip({ columns }: { columns: BoardColumn[] }) {
     <div className="hidden bg-paper/50 px-5 py-4 md:block">
       <p className="text-sm font-semibold">Board order</p>
       <p className="mt-0.5 text-xs text-ink/50">
-        Drag a column left or right to move it on your board. {first?.label} and {last?.label} stay at the ends.
+        Drag a column left or right to move it on your board.
       </p>
       <DndContext
         sensors={sensors}
@@ -182,31 +179,21 @@ function ColumnOrderStrip({ columns }: { columns: BoardColumn[] }) {
         }}
       >
         <ol aria-label="Board order" className="mt-3 flex items-stretch gap-2 overflow-x-auto pb-1">
-          {first && <OrderChip column={first} />}
           <SortableContext items={ids} strategy={horizontalListSortingStrategy}>
-            {movable.map((c) => (
+            {columns.map((c) => (
               <SortableOrderChip key={c.id} column={c} />
             ))}
           </SortableContext>
-          {last && last !== first && <OrderChip column={last} />}
         </ol>
       </DndContext>
     </div>
   );
 }
 
-const chip = "flex min-w-[8.5rem] flex-1 items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold";
+/** Todo's name: where new (and unticked) tasks go, wherever it sits. */
+const firstLabelOf = (columns: BoardColumn[]) => columns.find((c) => c.id === TODO_COLUMN)?.label ?? "Todo";
 
-/** Todo or Completed: shown in place, not draggable. */
-function OrderChip({ column }: { column: BoardColumn }) {
-  return (
-    <li className={`${chip} border-ink/10 bg-surface/60 text-ink/60`} title={`${column.label} stays ${column.fixed === "first" ? "first" : "last"}`}>
-      <Lock aria-hidden className="size-3.5 shrink-0 text-ink/35" />
-      <span aria-hidden className={`size-2.5 shrink-0 rounded-full ${column.dot}`} />
-      <span className="truncate">{column.label}</span>
-    </li>
-  );
-}
+const chip = "flex min-w-[8.5rem] flex-1 items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold";
 
 function SortableOrderChip({ column }: { column: BoardColumn }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: column.id });
@@ -243,6 +230,8 @@ function ColumnRow({
 }) {
   const id = useId();
   const locked = column.id === DONE_COLUMN;
+  // Todo and Completed are part of every board: they can be renamed and moved, not deleted.
+  const builtIn = locked || column.id === TODO_COLUMN;
   const tickColumn = useTickColumn();
   const tickHere = tickColumn === column.id;
   const columns = useBoardColumns();
@@ -278,61 +267,52 @@ function ColumnRow({
         )}
 
         <div className="min-w-0 flex-1">
-          {locked ? (
-            <p className="truncate px-1 font-semibold">{column.label}</p>
-          ) : (
-            <>
-              <label htmlFor={id} className="sr-only">
-                Column name
-              </label>
-              <input
-                id={id}
-                value={draft}
-                maxLength={MAX_COLUMN_LABEL}
-                onChange={(e) => setDraft(e.target.value)}
-                onBlur={saveLabel}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") e.currentTarget.blur();
-                  if (e.key === "Escape") {
-                    setDraft(column.label);
-                    e.currentTarget.blur();
-                  }
-                }}
-                className="w-full rounded-lg border border-transparent bg-transparent px-1 py-1 font-semibold outline-none transition-colors hover:border-ink/15 focus:border-iris focus:bg-paper"
-              />
-            </>
-          )}
+          {/* Every column can be renamed, Completed included. */}
+          <label htmlFor={id} className="sr-only">
+            Column name
+          </label>
+          <input
+            id={id}
+            value={draft}
+            maxLength={MAX_COLUMN_LABEL}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={saveLabel}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+              if (e.key === "Escape") {
+                setDraft(column.label);
+                e.currentTarget.blur();
+              }
+            }}
+            className="w-full rounded-lg border border-transparent bg-transparent px-1 py-1 font-semibold outline-none transition-colors hover:border-ink/15 focus:border-iris focus:bg-paper"
+          />
           <p className="px-1 text-xs text-ink/50">
             {column.id === TODO_COLUMN
-              ? "First · new tasks start here"
-              : `${locked ? "Last · done tasks" : `${count} ${count === 1 ? "task" : "tasks"}`}${tickHere ? " · ticked tasks go here" : ""}`}
+              ? "New tasks start here"
+              : `${locked ? "Done tasks" : `${count} ${count === 1 ? "task" : "tasks"}`}${tickHere ? " · ticked tasks go here" : ""}`}
           </p>
         </div>
 
-        {locked ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2.5 py-1 text-xs font-semibold text-ink/50">
-            <Lock className="size-3" />
-            Fixed
-          </span>
-        ) : column.fixed ? null : (
-          <div className="flex items-center">
+        {/* Every column can move; Todo and Completed can't be deleted. */}
+        <div className="flex items-center">
             <button type="button" disabled={!canMoveUp} onClick={() => columnActions.move(column.id, -1)} aria-label={`Move ${column.label} earlier`} title="Move earlier (left on the board)" className={`${iconButton} md:hidden`}>
               <ArrowUp className="size-4" />
             </button>
             <button type="button" disabled={!canMoveDown} onClick={() => columnActions.move(column.id, 1)} aria-label={`Move ${column.label} later`} title="Move later (right on the board)" className={`${iconButton} md:hidden`}>
               <ArrowDown className="size-4" />
             </button>
-            <button
-              type="button"
-              onClick={onDelete}
-              aria-label={`Delete ${column.label}`}
-              title="Delete column"
-              className="grid size-9 place-items-center rounded-xl text-ink/55 transition-colors hover:bg-coral/10 hover:text-coral"
-            >
-              <Trash2 className="size-4" />
-            </button>
-          </div>
-        )}
+            {!builtIn && (
+              <button
+                type="button"
+                onClick={onDelete}
+                aria-label={`Delete ${column.label}`}
+                title="Delete column"
+                className="grid size-9 place-items-center rounded-xl text-ink/55 transition-colors hover:bg-coral/10 hover:text-coral"
+              >
+                <Trash2 className="size-4" />
+              </button>
+            )}
+        </div>
       </div>
 
       {/* Where ticking a task in this column sends it. Not for Completed (tasks there are done), or the tick column (ticking unticks there). */}
@@ -455,7 +435,7 @@ function TickColumnPicker({ columns, value }: { columns: BoardColumn[]; value: s
         </p>
         <p className="mt-0.5 text-sm text-ink/60">
           Ticking a task&rsquo;s circle moves it here, unless its column sends ticked tasks somewhere else (set on
-          each column above). Tasks here show as ticked; unticking sends them back to {columns[0]?.label ?? "Todo"}.
+          each column above). Tasks here show as ticked; unticking sends them back to {firstLabelOf(columns)}.
         </p>
         <div role="radiogroup" aria-labelledby={id} className="mt-3 flex flex-wrap gap-2">
           {choices.map((c) => (
@@ -626,7 +606,7 @@ export function WorkflowSettings() {
       </div>
       {hydrated && workflow.enabled && (
         <p className="mt-3 px-1 text-sm text-ink/50">
-          Ticking a task is a move to Completed, and unticking is a move back to {columns[0]?.label ?? "Todo"}, so they
+          Ticking a task is a move to Completed, and unticking is a move back to {firstLabelOf(columns)}, so they
           follow these rules too.
         </p>
       )}

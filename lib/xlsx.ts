@@ -4,7 +4,7 @@
  */
 
 import { PRIORITIES, TAGS } from "./tasks";
-import { getColumns } from "./columns";
+import { DONE_COLUMN, TODO_COLUMN, getColumns } from "./columns";
 import { getCustomTags } from "./tags";
 import { ME, getPeople } from "./people";
 import { MAX_IMPORT_ROWS } from "./import";
@@ -67,8 +67,8 @@ export async function downloadImportTemplateXlsx() {
     wallClock(now.getFullYear(), now.getMonth(), now.getDate() + offset, h, min);
   // Sample statuses use the board's own column names.
   const boardColumns = getColumns();
-  const first = boardColumns[0].label;
-  const middle = boardColumns.length > 2 ? boardColumns[1].label : first;
+  const first = boardColumns.find((c) => c.id === TODO_COLUMN)?.label ?? "Todo";
+  const middle = boardColumns.find((c) => c.id !== TODO_COLUMN && c.id !== DONE_COLUMN)?.label ?? first;
   sheet.addRows([
     { title: "Plan the team offsite", status: first, tag: "Work", priority: "High", assignee: "Me", start: day(1, 9), end: day(1, 11), description: "Shortlist venues\nSend the invites" },
     { title: "Book a dentist appointment", status: first, tag: "Personal", priority: "Medium" },

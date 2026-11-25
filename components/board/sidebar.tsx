@@ -33,7 +33,7 @@ import {
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { Logo } from "@/components/landing/logo";
 import type { TagId } from "@/lib/tasks";
-import { MAX_CUSTOM_TAGS, getCustomTags, type CustomTag, type TagView } from "@/lib/tags";
+import { MAX_CUSTOM_TAGS, getCustomTags, isCreatedTag, type CustomTag, type TagView } from "@/lib/tags";
 import { TagDot } from "./tag-chip";
 import { UserAvatar } from "@/components/auth/user-avatar";
 import { authActions, useAuth } from "@/lib/auth";
@@ -444,7 +444,8 @@ function SidebarBody({
           ))}
         </ul>
         {(() => {
-          const customCount = tags.filter((t) => t.custom).length;
+          // Only tags the user created count toward the limit; Default and the starter tags don't.
+          const customCount = tags.filter((t) => isCreatedTag(t.id)).length;
           const full = customCount >= MAX_CUSTOM_TAGS;
           return collapsed ? (
             !full && (
@@ -455,7 +456,7 @@ function SidebarBody({
               type="button"
               onClick={() => onEditTag(null)}
               disabled={full}
-              title={full ? `You can have up to ${MAX_CUSTOM_TAGS} custom tags` : undefined}
+              title={full ? `You can create up to ${MAX_CUSTOM_TAGS} tags of your own` : undefined}
               className="mt-1 flex w-full items-center gap-3 rounded-xl border border-dashed border-ink/15 px-3 py-2 text-sm font-medium text-ink/55 transition-colors hover:border-iris hover:text-ink disabled:border-ink/10 disabled:text-ink/30 disabled:hover:border-ink/10"
             >
               <Plus className="size-4 shrink-0" />

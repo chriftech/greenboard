@@ -71,8 +71,8 @@ export async function downloadImportTemplateXlsx() {
   const middle = boardColumns.find((c) => c.id !== TODO_COLUMN && c.id !== DONE_COLUMN)?.label ?? first;
   sheet.addRows([
     { title: "Plan the team offsite", status: first, tag: "Work", priority: "High", assignee: "Me", start: day(1, 9), end: day(1, 11), description: "Shortlist venues\nSend the invites" },
-    { title: "Book a dentist appointment", status: first, tag: "Personal", priority: "Medium" },
-    { title: "Water the plants", status: "Completed", tag: "Home", priority: "Low" },
+    { title: "Book a dentist appointment", status: first, tag: "Errands", priority: "Medium" },
+    { title: "Water the plants", status: "Completed", tag: "Default", priority: "Low" },
     { title: "Draft the newsletter", status: middle, tag: "Work", assignee: "Me", start: day(2, 14), end: day(2, 16, 30), description: "Ask for the photos" },
   ]);
   sheet.getColumn("description").alignment = { wrapText: true, vertical: "top" };

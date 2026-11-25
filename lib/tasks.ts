@@ -9,14 +9,13 @@ import { DONE_COLUMN, TODO_COLUMN, getColumns, getTickColumn, knownColumn, tickD
  * render matches the server HTML and tasks appear right after hydration.
  */
 
-/** Built-in tags. Users can add up to 5 more (see lib/tags.ts). */
+/**
+ * The built-in tag: Default, which every board has and which can't be deleted.
+ * Errands and Work are starter tags the user can rename or delete, and users can
+ * create up to 5 tags of their own (see lib/tags.ts).
+ */
 export const TAGS = [
   { id: "default", label: "Default", chip: "bg-ink/10 text-ink/75", dot: "bg-ink/40" },
-  { id: "work", label: "Work", chip: "bg-grape/15 text-[#5b2fd1] dark:text-[#c9b6ff]", dot: "bg-grape" },
-  { id: "personal", label: "Personal", chip: "bg-coral/15 text-[#c23a22] dark:text-[#ffab9c]", dot: "bg-coral" },
-  { id: "team", label: "Team", chip: "bg-skyblue/15 text-[#0b6aa8] dark:text-[#8fd3ff]", dot: "bg-skyblue" },
-  { id: "health", label: "Health", chip: "bg-[#14b8a6]/15 text-[#0f766e] dark:text-[#5eead4]", dot: "bg-[#14b8a6]" },
-  { id: "home", label: "Home", chip: "bg-sunny/25 text-[#8a5a00] dark:text-[#ffd77a]", dot: "bg-sunny" },
 ] as const;
 
 /** A built-in tag id or a custom tag id ("custom-…"). */

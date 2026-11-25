@@ -54,14 +54,16 @@ export function BoardToolbar({
   const anyActive = Boolean(activeTag) || priority !== ANY || assignee !== ANY;
 
   return (
-    <div role="toolbar" aria-label="Filter, add columns, import and export tasks" className="flex flex-wrap items-center gap-2">
+    <div role="toolbar" aria-label="Filter, add columns, import and export tasks" className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-ink/10 bg-surface/70 p-2 shadow-[0_10px_30px_-18px_rgb(46_51_73/0.45)] sm:gap-2 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
+      {/* Phones: the filters are a centred segmented bar on their own row. Wider screens: on the left, in line with the actions. */}
       {!empty && (
-        <>
+        <div className="flex w-full flex-col items-center gap-1.5 sm:w-auto sm:flex-row sm:gap-2">
           <span className="mr-1 hidden items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-ink/45 sm:inline-flex">
             <SlidersHorizontal className="size-3.5" />
             Filter
           </span>
 
+          <div className="grid w-full grid-cols-3 gap-1 rounded-xl bg-ink/[0.06] p-1 sm:flex sm:w-auto sm:gap-2 sm:bg-transparent sm:p-0">
           <FilterMenu
             label="Tag"
             value={activeTag ? <><TagDot tag={activeTag} />{activeTag.label}</> : null}
@@ -96,6 +98,7 @@ export function BoardToolbar({
               { value: NONE, label: "Unassigned" },
             ]}
           />
+          </div>
 
           {anyActive && (
             <button
@@ -106,21 +109,22 @@ export function BoardToolbar({
               Clear filters
             </button>
           )}
-        </>
+        </div>
       )}
 
-      {/* Add column, Import and Export stay together at the far right (and wrap together on narrow screens). Icons only on phones. */}
-      <div className="ml-auto flex items-center gap-2">
+      {/* Add column, Import and Export stay together at the far right. On phones they take their own row,
+          spread evenly across it, with icons only. */}
+      <div className="flex w-full items-stretch gap-2 sm:ml-auto sm:w-auto sm:items-center">
         {addColumn}
         <button
           type="button"
           onClick={onImport}
           title="Add tasks from a CSV file"
           aria-label="Import from CSV"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-ink/15 bg-surface px-2.5 py-1.5 text-sm font-semibold text-ink transition-colors hover:border-ink/30 sm:px-3.5"
+          className="inline-flex flex-1 flex-col justify-center gap-1 py-2 text-[11px] sm:flex-none sm:flex-row sm:gap-1.5 sm:py-1.5 sm:text-sm items-center rounded-xl border border-ink/15 bg-surface px-2.5 font-semibold text-ink transition-colors hover:border-ink/30 sm:px-3.5"
         >
           <FileUp className="size-4" />
-          <span className="hidden sm:inline">Import</span>
+          <span>Import</span>
         </button>
 
         {/* All tasks (like "Export tasks as CSV" in the profile menu) or one status, whatever the filters. */}
@@ -145,10 +149,10 @@ function ExportMenu() {
       <Menu.Trigger
         title="Download tasks as a CSV file"
         aria-label="Export as CSV"
-        className="inline-flex items-center gap-1.5 rounded-xl bg-deep px-2.5 py-1.5 text-sm font-semibold text-on-deep transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris sm:px-3.5"
+        className="inline-flex flex-1 flex-col justify-center gap-1 py-2 text-[11px] sm:flex-none sm:flex-row sm:gap-1.5 sm:py-1.5 sm:text-sm items-center rounded-xl bg-deep px-2.5 font-semibold text-on-deep transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris sm:px-3.5"
       >
         <FileDown className="size-4" />
-        <span className="hidden sm:inline">Export</span>
+        <span>Export</span>
         <ChevronDown className="hidden size-3.5 opacity-70 sm:block" />
       </Menu.Trigger>
       <Menu.Portal>
@@ -208,12 +212,15 @@ function FilterMenu({
   return (
     <Menu.Root>
       <Menu.Trigger
-        className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris data-popup-open:border-iris/50 ${
-          on ? "border-iris/40 bg-iris/10 text-ink" : "border-ink/15 bg-surface text-ink/70 hover:border-ink/30 hover:text-ink"
+        className={`inline-flex min-w-0 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris sm:justify-start sm:rounded-xl sm:px-3 sm:py-1.5 sm:data-popup-open:border-iris/50 ${
+          on
+            ? "border-transparent bg-surface text-ink shadow-[0_2px_8px_-3px_rgb(46_51_73/0.35)] sm:border-iris/40 sm:bg-iris/10 sm:shadow-none"
+            : "border-transparent text-ink/70 hover:text-ink data-popup-open:bg-surface data-popup-open:text-ink sm:border-ink/15 sm:bg-surface sm:hover:border-ink/30"
         }`}
       >
-        <span className={on ? "text-ink/55" : ""}>{label}</span>
-        {on && <span className="inline-flex items-center gap-1.5 font-semibold">{value}</span>}
+        {/* On phones a chosen filter shows just its value, so it fits a third of the row. */}
+        <span className={on ? "hidden text-ink/55 sm:inline" : ""}>{label}</span>
+        {on && <span className="inline-flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap font-semibold">{value}</span>}
         <ChevronDown className="size-3.5 text-ink/45" />
       </Menu.Trigger>
       <Menu.Portal>

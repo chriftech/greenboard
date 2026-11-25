@@ -528,6 +528,11 @@ export function BoardApp() {
         (skipped ? ` ${skipped} not allowed by your workflow.` : ""),
     );
   }
+  /** Copy the selected tasks into a column. The selection stays on the originals. */
+  function copySelected(to: ColumnId) {
+    const n = taskActions.copy(selectedIds, to);
+    setAnnouncement(`Copied ${n} ${n === 1 ? "task" : "tasks"} to ${labelOf(to)}.`);
+  }
   const updateSelected = (patch: Parameters<typeof taskActions.update>[1], what: string) => {
     selectedTasks.forEach((t) => taskActions.update(t.id, patch));
     setAnnouncement(`Updated the ${what} of ${selectedTasks.length} ${selectedTasks.length === 1 ? "task" : "tasks"}.`);
@@ -955,6 +960,7 @@ export function BoardApp() {
           people={people}
           onClear={clearSelection}
           onMove={moveSelected}
+          onCopy={copySelected}
           onTag={(t) => updateSelected({ tag: t }, "tag")}
           onPriority={(p) => updateSelected({ priority: p ?? undefined }, "priority")}
           onAssignee={(a) => updateSelected({ assignee: a ?? undefined }, "assignee")}

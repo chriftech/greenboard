@@ -354,6 +354,33 @@ export const taskActions = {
   setStatus(id: string, status: TaskStatus) {
     save(getTasks().map((t) => (t.id === id && statusOf(t) !== status ? withStatus(t, status) : t)));
   },
+  /**
+   * Copy tasks into a column: each copy keeps the title, tag, priority, assignee,
+   * schedule, description and subtasks, gets new ids, and goes to the top of the
+   * board in the same order as the originals. Returns how many were copied.
+   */
+  copy(ids: string[], status: TaskStatus) {
+    const tasks = getTasks();
+    const wanted = new Set(ids);
+    const originals = tasks.filter((t) => wanted.has(t.id) && !t.deletedAt).sort((a, b) => a.order - b.order);
+    if (!originals.length) return 0;
+    const top = Math.min(-Date.now(), ...tasks.map((t) => t.order - 1));
+    const now = Date.now();
+    const copies = originals.map((t, i) => {
+      const { deletedAt: _del, ...rest } = t;
+      void _del;
+      const copy: Task = {
+        ...rest,
+        id: newId(),
+        createdAt: now,
+        order: top - (originals.length - 1 - i),
+        ...(t.subtasks ? { subtasks: t.subtasks.map((s) => ({ ...s, id: newId() })) } : {}),
+      };
+      return withStatus(copy, status);
+    });
+    save([...copies, ...tasks]);
+    return copies.length;
+  },
   /** Move every task in one column to another (used before a column is deleted). Trash included. */
   moveColumn(from: TaskStatus, to: TaskStatus) {
     const tasks = getTasks();

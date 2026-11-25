@@ -218,6 +218,22 @@ const ColumnIcon = ({ c }: { c: ColumnDef }) => {
   return <Icon aria-hidden className="size-3.5" strokeWidth={2.5} />;
 };
 
+/**
+ * Dragging a task towards a screen edge scrolls the board. dnd-kit's default
+ * speed is tuned for a mouse on a wide screen; on a phone the edge zones cover
+ * most of the narrow screen and it races past several columns. Touch screens get
+ * a slower, steadier scroll: roughly one column a second at the very edge.
+ */
+const TOUCH_AUTO_SCROLL = { acceleration: 3, interval: 10, threshold: { x: 0.15, y: 0.15 } };
+
+const COARSE_POINTER = "(pointer: coarse)";
+const subscribeCoarsePointer = (onChange: () => void) => {
+  const query = window.matchMedia(COARSE_POINTER);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+};
+const isCoarsePointer = () => window.matchMedia(COARSE_POINTER).matches;
+
 export function BoardApp() {
   const { showGreeting } = useSettings();
   const tasks = useSyncExternalStore(subscribeTasks, getTasks, getServerTasks);
@@ -614,6 +630,8 @@ export function BoardApp() {
     [],
   );
 
+  const coarsePointer = useSyncExternalStore(subscribeCoarsePointer, isCoarsePointer, () => false);
+
   // Drag starts after a small move (mouse) or a short press (touch), so clicks
   // and scrolling still work; the grip handle supports keyboard reordering.
   const sensors = useSensors(
@@ -776,9 +794,9 @@ export function BoardApp() {
             className={`mx-auto max-w-7xl px-4 ${sidebarNarrowed ? "mt-5" : "mt-10"}`}
           >
             {/* Filters on the left, Export on the far right, above the columns.
-                On wider screens they stay pinned to the top while a long column scrolls the page. */}
+                On every screen size they stay pinned to the top while a long column scrolls the page. */}
             {loaded && (
-              <div className="z-20 -mx-4 mb-4 bg-paper/85 px-4 py-3 backdrop-blur-xl md:sticky md:top-0">
+              <div className="sticky top-0 z-20 -mx-4 mb-4 bg-paper/85 px-4 py-3 backdrop-blur-xl">
               <BoardToolbar
                 empty={all.length === 0}
                 onImport={() => setImportOpen(true)}
@@ -822,6 +840,7 @@ export function BoardApp() {
                 onDragOver={handleDragOver}
                 onDragEnd={handleDragEnd}
                 onDragCancel={endDrag}
+                autoScroll={coarsePointer ? TOUCH_AUTO_SCROLL : true}
                 accessibility={{
                   screenReaderInstructions: {
                     draggable:
@@ -846,7 +865,10 @@ export function BoardApp() {
                     Phones snap one column at a time, with the next one peeking in. */}
                 <div
                   data-tour="columns"
-                  className="gb-column-scroll -mx-4 flex snap-x snap-mandatory scroll-px-4 items-start gap-3 overflow-x-auto px-4 pb-3 md:snap-none"
+                  className={`gb-column-scroll -mx-4 flex scroll-px-4 items-start gap-3 overflow-x-auto px-4 pb-3 md:snap-none ${
+                    // Snapping fights the auto-scroll while dragging and jumps past columns, so it's off until the drop.
+                    activeId ? "snap-none" : "snap-x snap-mandatory"
+                  }`}
                 >
                   {boardColumns.map((c) => {
                     const col = c.id;
@@ -1245,8 +1267,9 @@ function BoardColumn({
         </div>
       </div>
 
-      {/* Each column scrolls on its own once its tasks outgrow the screen, so the headers stay put. */}
-      <div className="gb-column-scroll -mx-2 mt-0.5 max-h-[calc(100dvh-12rem)] overflow-y-auto overscroll-contain px-2 pb-1 pt-2">
+      {/* Each column scrolls on its own once its tasks outgrow the screen, so the headers stay put.
+          Phones leave more room, for the taller pinned toolbar above. */}
+      <div className="gb-column-scroll -mx-2 mt-0.5 max-h-[calc(100dvh-23rem)] overflow-y-auto sm:max-h-[calc(100dvh-12rem)] overscroll-contain px-2 pb-1 pt-2">
         <ul className={`flex flex-col gap-2 ${dragging ? "min-h-24" : ""}`}>
           {/* The card opens where the task will land: above the tasks, or below them. */}
           {adding === "top" && <li>{addCard("top")}</li>}

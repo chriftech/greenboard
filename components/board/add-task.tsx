@@ -269,7 +269,7 @@ export function NewTaskButton({ onClick }: { onClick: () => void }) {
       data-tour="new-task"
       aria-keyshortcuts="t"
       title="Create a task (T)"
-      className="gb-shine inline-flex items-center gap-1.5 rounded-xl bg-iris px-3 py-1.5 text-sm font-semibold text-white shadow-[0_8px_20px_-10px_rgb(79_107_237/0.8)] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris"
+      className="gb-shine inline-flex flex-1 flex-col justify-center gap-1 py-2 text-[11px] sm:flex-none sm:flex-row sm:gap-1.5 sm:py-1.5 sm:text-sm items-center rounded-xl bg-iris px-3 font-semibold text-white shadow-[0_8px_20px_-10px_rgb(79_107_237/0.8)] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris"
     >
       <Plus className="size-4" strokeWidth={3} />
       Task

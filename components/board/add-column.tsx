@@ -23,10 +23,11 @@ export function AddColumnButton({ onAdded }: { /** Called with the new column's 
         disabled={full}
         title={hint}
         aria-label="Add a column"
-        // Matches Import beside it; icon only on phones.
-        className="inline-flex items-center gap-1.5 rounded-xl border border-ink/15 bg-surface px-2.5 py-1.5 text-sm font-semibold text-ink transition-colors enabled:hover:border-ink/30 disabled:opacity-40 sm:px-3.5"
+        // Matches Import beside it; a tile with a short label on phones.
+        className="inline-flex flex-1 flex-col justify-center gap-1 py-2 text-[11px] sm:flex-none sm:flex-row sm:gap-1.5 sm:py-1.5 sm:text-sm items-center rounded-xl border border-ink/15 bg-surface px-2.5 font-semibold text-ink transition-colors enabled:hover:border-ink/30 disabled:opacity-40 sm:px-3.5"
       >
         <Columns3 className="size-4" />
+        <span className="sm:hidden">Column</span>
         <span className="hidden sm:inline">Add column</span>
       </Dialog.Trigger>
       <Dialog.Portal>

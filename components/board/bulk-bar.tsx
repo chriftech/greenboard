@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Menu } from "@base-ui/react/menu";
-import { ArrowRightLeft, CircleCheckBig, FileDown, Flag, Tag, Trash2, UserRound, X } from "lucide-react";
+import { ArrowRightLeft, CircleCheckBig, Copy, FileDown, Flag, Tag, Trash2, UserRound, X } from "lucide-react";
 import { PRIORITIES, type PriorityId, type TagId, type TaskStatus } from "@/lib/tasks";
 import type { BoardColumn } from "@/lib/columns";
 import type { TagView } from "@/lib/tags";
@@ -24,6 +24,7 @@ export function BulkBar({
   people,
   onClear,
   onMove,
+  onCopy,
   onTag,
   onPriority,
   onAssignee,
@@ -37,6 +38,8 @@ export function BulkBar({
   people: Person[];
   onClear: () => void;
   onMove: (column: TaskStatus) => void;
+  /** Duplicate the selected tasks into a column, leaving the originals where they are. */
+  onCopy: (column: TaskStatus) => void;
   onTag: (tag: TagId) => void;
   onPriority: (priority: PriorityId | null) => void;
   onAssignee: (personId: string | null) => void;
@@ -75,6 +78,15 @@ export function BulkBar({
         <BarMenu icon={<ArrowRightLeft className="size-4" />} label="Move to">
           {columns.map((c) => (
             <Menu.Item key={c.id} className={ITEM} onClick={() => onMove(c.id)}>
+              <span className={`size-2.5 shrink-0 rounded-full ${c.dot}`} />
+              {c.label}
+            </Menu.Item>
+          ))}
+        </BarMenu>
+
+        <BarMenu icon={<Copy className="size-4" />} label="Copy to">
+          {columns.map((c) => (
+            <Menu.Item key={c.id} className={ITEM} onClick={() => onCopy(c.id)}>
               <span className={`size-2.5 shrink-0 rounded-full ${c.dot}`} />
               {c.label}
             </Menu.Item>

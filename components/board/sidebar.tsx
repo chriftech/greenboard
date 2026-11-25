@@ -40,6 +40,7 @@ import { authActions, useAuth } from "@/lib/auth";
 import { FileDown } from "lucide-react";
 import { downloadTasksCsv } from "@/lib/export";
 import type { NavTarget } from "@/lib/workspace";
+import { DONE_COLUMN, useBoardColumns } from "@/lib/columns";
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -326,6 +327,8 @@ function SidebarBody({
   searchRef?: RefObject<HTMLInputElement | null>;
   onExpandForSearch?: () => void;
 }) {
+  // "Completed" follows the done column's name, if the user renamed it.
+  const doneLabel = useBoardColumns().find((c) => c.id === DONE_COLUMN)?.label;
   return (
     <>
       {/* Brand + collapse/close */}
@@ -381,7 +384,7 @@ function SidebarBody({
             <li key={target}>
               <SidebarItem
                 icon={<Icon className="size-4" />}
-                label={label}
+                label={target === "completed" && doneLabel ? doneLabel : label}
                 count={counts[target]}
                 countTone={target === "trash" ? "coral" : "muted"}
                 active={target === active}

@@ -32,6 +32,7 @@ import {
   ChevronsRightLeft,
   SquareCheck,
   Check,
+  PencilLine,
 } from "lucide-react";
 import { Menu as BaseMenu } from "@base-ui/react/menu";
 import { setColumnCollapsed, useCollapsedColumns } from "@/lib/collapsed-columns";
@@ -43,6 +44,7 @@ import {
   TouchSensor,
   closestCenter,
   pointerWithin,
+  useDraggable,
   useDroppable,
   useSensor,
   useSensors,
@@ -106,8 +108,10 @@ import {
 } from "@/lib/tasks";
 import {
   DONE_COLUMN,
+  MAX_COLUMN_LABEL,
   TODO_COLUMN,
   canMove,
+  columnActions,
   useBoardColumns,
   useTickColumn,
   useWorkflow,
@@ -184,6 +188,10 @@ const MOVE_PROGRESS_MS = 350;
 
 /** Droppable id for a column itself (tasks use their own ids). */
 const dropId = (col: ColumnId) => `col-${col}`;
+/** A column being dragged by its header, to swap it with another column. */
+const headId = (col: ColumnId) => `colhead-${col}`;
+const headColumn = (id: UniqueIdentifier | null | undefined) =>
+  id != null && String(id).startsWith("colhead-") ? String(id).slice("colhead-".length) : null;
 
 /**
  * Drop on the task under the pointer if there is one, else on the column
@@ -191,6 +199,12 @@ const dropId = (col: ColumnId) => `col-${col}`;
  * Keyboard drags have no pointer, so they fall back to the nearest target.
  */
 const collision: CollisionDetection = (args) => {
+  // A dragged column only lands on other columns, never on tasks.
+  if (headColumn(args.active.id)) {
+    const droppableContainers = args.droppableContainers.filter((c) => String(c.id).startsWith("col-"));
+    const hits = pointerWithin({ ...args, droppableContainers });
+    return hits.length ? hits : closestCenter({ ...args, droppableContainers });
+  }
   const hits = pointerWithin(args);
   const onTasks = hits.filter((h) => !String(h.id).startsWith("col-"));
   if (onTasks.length) return onTasks;
@@ -621,13 +635,18 @@ export function BoardApp() {
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-  const titleOf = (id: UniqueIdentifier) => `"${all.find((t) => t.id === id)?.title ?? "task"}"`;
+  const titleOf = (id: UniqueIdentifier) => {
+    const col = headColumn(id);
+    return col ? `the ${labelOf(col)} column` : `"${all.find((t) => t.id === id)?.title ?? "task"}"`;
+  };
 
   const columnOf = (id: UniqueIdentifier): ColumnId | null => {
     const key = String(id);
     return columnIds.find((c) => key === dropId(c) || columns[c].some((t) => t.id === key)) ?? null;
   };
   const activeTask = activeId ? all.find((t) => t.id === activeId) ?? null : null;
+  // The column being dragged by its header, if any.
+  const draggedColumn = headColumn(activeId);
 
   function handleDragStart({ active }: DragStartEvent) {
     setActiveId(String(active.id));
@@ -645,6 +664,18 @@ export function BoardApp() {
   function handleDragEnd({ active, over }: DragEndEvent) {
     endDrag();
     if (!over) return;
+
+    // A column dropped on another column moves into that column's place; the columns in between shift over.
+    const movedColumn = headColumn(active.id);
+    if (movedColumn) {
+      const target = columnOf(over.id);
+      if (!target || target === movedColumn) return;
+      const from = columnIds.indexOf(movedColumn);
+      const to = columnIds.indexOf(target);
+      columnActions.reorder(arrayMove(columnIds, from, to));
+      setAnnouncement(`${labelOf(movedColumn)} moved ${to > from ? "after" : "before"} ${labelOf(target)}.`);
+      return;
+    }
     const id = String(active.id);
     const from = columnOf(active.id);
     const to = columnOf(over.id);
@@ -825,7 +856,7 @@ export function BoardApp() {
                 accessibility={{
                   screenReaderInstructions: {
                     draggable:
-                      "To move a task, press space or enter to pick it up, use the arrow keys to move it within or between the columns, then space or enter to drop it. Press escape to cancel.",
+                      "To move a task, press space or enter to pick it up, use the arrow keys to move it within or between the columns, then space or enter to drop it. Press escape to cancel. To move a column, drag it by its name onto another column, or use Settings, Columns.",
                   },
                   announcements: {
                     onDragStart: ({ active }) => `Picked up ${titleOf(active.id)}.`,
@@ -853,6 +884,13 @@ export function BoardApp() {
                     const dragFrom = activeTask ? columnOf(activeTask.id) : null;
                     const draggedOver = activeTask !== null && overColumn === col && dragFrom !== col;
                     const blocked = draggedOver && dragFrom !== null && !canMove(dragFrom, col, workflow);
+                    // Another column dragged over this one: it will land just before or after it.
+                    const insertSide =
+                      draggedColumn !== null && draggedColumn !== col && overColumn === col
+                        ? columnIds.indexOf(draggedColumn) > columnIds.indexOf(col)
+                          ? "before"
+                          : "after"
+                        : null;
                     return (
                       <BoardColumn
                         key={col}
@@ -860,6 +898,7 @@ export function BoardApp() {
                         count={counts[col] ?? 0}
                         countRef={col === DONE_COLUMN ? completedCountRef : undefined}
                         highlight={(draggedOver && !blocked) || flash === col}
+                        insertSide={insertSide}
                         blocked={blocked}
                         empty={columns[col].length === 0}
                         dragging={activeTask !== null}
@@ -897,7 +936,9 @@ export function BoardApp() {
 
                 {/* The card that follows the pointer while dragging (the original stays behind as a placeholder). */}
                 <DragOverlay dropAnimation={{ duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }}>
-                  {activeTask ? (
+                  {draggedColumn ? (
+                    <ColumnDragPreview column={boardColumns.find((c) => c.id === draggedColumn)} count={counts[draggedColumn] ?? 0} />
+                  ) : activeTask ? (
                     <TaskCard
                       task={activeTask}
                       tag={findTag(tags, activeTask.tag)}
@@ -1055,14 +1096,19 @@ function ColumnActions({
   disabled = false,
   onCollapse,
   onSelectAll,
+  onRename,
 }: {
   label: string;
   /** Off while tasks are selected. */
   disabled?: boolean;
   onCollapse: () => void;
+  /** Edit the column's name in place. */
+  onRename?: () => void;
   /** Select every task shown in the column (unset when it's empty). */
   onSelectAll?: () => void;
 }) {
+  // Choosing Rename keeps focus off the ⋯ button as the menu closes, so the name field can take it.
+  const renaming = useRef(false);
   return (
     <BaseMenu.Root>
       <BaseMenu.Trigger
@@ -1076,7 +1122,13 @@ function ColumnActions({
       <BaseMenu.Portal>
         {/* Below the task drawer (z-50) but above the board and its sticky bits. */}
         <BaseMenu.Positioner sideOffset={6} align="end" className="z-40">
-          <BaseMenu.Popup className="w-52 origin-(--transform-origin) rounded-2xl border border-ink/10 bg-surface p-1.5 text-ink shadow-[0_20px_50px_-15px_rgb(46_51_73/0.4)] outline-none transition-[opacity,transform] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
+          <BaseMenu.Popup
+            finalFocus={() => {
+              const keep = renaming.current;
+              renaming.current = false;
+              return !keep;
+            }}
+            className="w-52 origin-(--transform-origin) rounded-2xl border border-ink/10 bg-surface p-1.5 text-ink shadow-[0_20px_50px_-15px_rgb(46_51_73/0.4)] outline-none transition-[opacity,transform] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
             <BaseMenu.Item
               onClick={onSelectAll}
               disabled={!onSelectAll}
@@ -1084,6 +1136,17 @@ function ColumnActions({
             >
               <SquareCheck className="size-4 text-ink/50" />
               Select all
+            </BaseMenu.Item>
+            <BaseMenu.Item
+              onClick={() => {
+                renaming.current = true;
+                onRename?.();
+              }}
+              disabled={!onRename}
+              className="flex w-full cursor-pointer select-none items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-medium text-ink/80 outline-none transition-colors data-disabled:cursor-default data-disabled:opacity-40 data-highlighted:bg-mist data-highlighted:text-ink"
+            >
+              <PencilLine className="size-4 text-ink/50" />
+              Rename
             </BaseMenu.Item>
             <BaseMenu.Item
               onClick={onCollapse}
@@ -1096,6 +1159,66 @@ function ColumnActions({
         </BaseMenu.Positioner>
       </BaseMenu.Portal>
     </BaseMenu.Root>
+  );
+}
+
+/**
+ * The column name as a text field, for renaming in place. Enter or clicking away
+ * saves; Escape (or an empty name) keeps the old one.
+ */
+function ColumnNameField({ label, onDone }: { label: string; onDone: (name: string | null) => void }) {
+  const [draft, setDraft] = useState(label);
+  const input = useRef<HTMLInputElement>(null);
+  const done = useRef(false);
+  // Only clicking away after the field had focus saves (not focus moving elsewhere before it ever got it).
+  const focused = useRef(false);
+  const finish = (name: string | null) => {
+    if (done.current) return;
+    done.current = true;
+    onDone(name?.trim() || null);
+  };
+  // Focus once the menu has closed and handed focus back to its button.
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      input.current?.focus();
+      input.current?.select();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, []);
+  return (
+    <input
+      ref={input}
+      value={draft}
+      maxLength={MAX_COLUMN_LABEL}
+      aria-label="Column name"
+      onChange={(e) => setDraft(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") finish(draft);
+        else if (e.key === "Escape") {
+          e.stopPropagation();
+          finish(null);
+        }
+      }}
+      onFocus={() => (focused.current = true)}
+      onBlur={() => focused.current && finish(draft)}
+      size={Math.max(4, draft.length + 1)}
+      className="min-w-0 max-w-40 rounded-sm bg-transparent font-bold uppercase tracking-wider outline-none ring-1 ring-current/40 focus:ring-current"
+    />
+  );
+}
+
+/** What follows the pointer while a column is dragged by its name: its header pill and count. */
+function ColumnDragPreview({ column, count }: { column?: ColumnDef; count: number }) {
+  if (!column) return null;
+  const style = columnStyle(column);
+  return (
+    <div className="flex w-max cursor-grabbing items-center gap-2 rounded-xl border border-ink/10 bg-surface px-2 py-1.5 shadow-[0_18px_40px_-12px_rgb(46_51_73/0.5)]">
+      <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wider ${style.pill}`}>
+        <ColumnIcon c={column} />
+        {column.label}
+      </span>
+      <span className="text-xs font-semibold tabular-nums text-ink/50">{count}</span>
+    </div>
   );
 }
 
@@ -1113,8 +1236,11 @@ function BoardColumn({
   onSelectAll,
   locked = false,
   selected = false,
+  insertSide = null,
   children,
 }: {
+  /** A column is being dragged over this one and will land on this side of it. */
+  insertSide?: "before" | "after" | null;
   column: ColumnDef;
   count: number;
   /** The count (Completed's is where the ✓ bubble lands). */
@@ -1144,12 +1270,29 @@ function BoardColumn({
   const style = columnStyle(column);
   // Where the "Add task" card is open: the top (header's +), the bottom (under the tasks), or nowhere.
   const [adding, setAdding] = useState<"top" | "bottom" | null>(null);
+  // Renaming from the column menu: the name in the header turns into a text field.
+  const [renaming, setRenaming] = useState(false);
+  // The name in the header is a handle: drag it onto another column to move it there.
+  const {
+    setNodeRef: setHeaderRef,
+    listeners: headerListeners,
+    isDragging: headerDragging,
+  } = useDraggable({ id: headId(id), disabled: locked || renaming });
   const addCard = (at: "top" | "bottom") =>
     canAdd && adding === at ? (
       <InlineAddTask status={id} label={label} at={at} defaultTag={defaultTag} onClose={() => setAdding(null)} />
     ) : null;
   const label = column.label;
   const collapsed = useCollapsedColumns().includes(id);
+  // Where a dragged column will land: a bar in the gap on that side.
+  const insertBar = insertSide ? (
+    <span
+      aria-hidden
+      className={`pointer-events-none absolute inset-y-1 w-1 rounded-full bg-iris shadow-[0_0_12px_rgb(123_104_238/0.7)] ${
+        insertSide === "before" ? "-left-2" : "-right-2"
+      }`}
+    />
+  ) : null;
   // Selecting tasks closes an open "Add task" card.
   if (locked && adding) setAdding(null);
 
@@ -1161,10 +1304,11 @@ function BoardColumn({
         role="group"
         aria-label={`${label}, ${count} ${count === 1 ? "task" : "tasks"}, collapsed`}
         data-column={id}
-        className={`flex w-11 shrink-0 snap-start flex-col items-center rounded-2xl outline-2 outline-offset-2 transition-[outline-color] duration-200 ${style.wash} ${
+        className={`relative flex w-11 shrink-0 snap-start flex-col items-center rounded-2xl outline-2 outline-offset-2 transition-[outline-color] duration-200 ${style.wash} ${
           blocked ? "outline-dashed outline-coral/60" : highlight ? `outline-dashed ${style.ring}` : "outline-transparent"
         }`}
       >
+        {insertBar}
         <button
           type="button"
           onClick={() => setColumnCollapsed(id, false)}
@@ -1198,17 +1342,35 @@ function BoardColumn({
       data-column={id}
       data-selected={selected || undefined}
       // A fixed width, so more columns scroll sideways rather than squeezing. The outline marks a drop target.
-      className={`flex w-[min(18rem,calc(100vw-4rem))] shrink-0 snap-start flex-col rounded-2xl p-2 outline-2 outline-offset-2 transition-[outline-color] duration-200 ${style.wash} ${
+      className={`relative flex w-[min(18rem,calc(100vw-4rem))] shrink-0 snap-start flex-col rounded-2xl p-2 outline-2 outline-offset-2 transition-[outline-color,opacity] duration-200 ${style.wash} ${
+        headerDragging ? "opacity-40" : ""
+      } ${
         blocked ? "outline-dashed outline-coral/60" : highlight ? `outline-dashed ${style.ring}` : "outline-transparent"
       }`}
     >
+      {insertBar}
       {/* Header: a solid status pill and the count, with the column's actions on the right. */}
       <div className="flex items-center gap-2 py-0.5 pl-0.5 pr-0">
         <h2
-          className={`inline-flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wider ${style.pill}`}
+          ref={setHeaderRef}
+          {...(renaming ? {} : headerListeners)}
+          title={renaming || locked ? undefined : "Drag to move this column"}
+          className={`inline-flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wider ${style.pill} ${
+            renaming || locked ? "" : "cursor-grab active:cursor-grabbing"
+          }`}
         >
           <ColumnIcon c={column} />
-          <span className="truncate">{label}</span>
+          {renaming ? (
+            <ColumnNameField
+              label={label}
+              onDone={(name) => {
+                if (name && name !== label) columnActions.update(id, { label: name });
+                setRenaming(false);
+              }}
+            />
+          ) : (
+            <span className="truncate">{label}</span>
+          )}
         </h2>
         <span ref={countRef} className="inline-block text-xs font-semibold tabular-nums text-ink/50">
           {count}
@@ -1241,6 +1403,7 @@ function BoardColumn({
             disabled={locked}
             onCollapse={() => setColumnCollapsed(id, true)}
             onSelectAll={onSelectAll}
+            onRename={() => setRenaming(true)}
           />
         </div>
       </div>

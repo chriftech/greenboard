@@ -1,9 +1,11 @@
 /**
  * The board's columns and its workflow, saved in this browser (localStorage).
  *
- * Columns run left to right: Todo first (where new tasks start), any columns
- * the user adds, and Completed last. Completed is fixed: it's where ticked
- * tasks go, and it can't be renamed, moved or deleted. Todo can be renamed
+ * Columns run left to right, in any order the user likes: by default Todo
+ * (where new tasks start), any columns the user adds, and Completed (where
+ * ticked tasks go). Every column can be renamed and moved; Completed's name is
+ * saved as `doneLabel` and its place as `doneAt`. Completed can't be recoloured
+ * or deleted. Todo can be renamed
  * and recoloured but not deleted. Pending is a starter column that works like
  * any added one.
  *
@@ -20,7 +22,7 @@
 
 import { useSyncExternalStore } from "react";
 
-/** The fixed first and last columns. */
+/** The built-in columns: where new tasks start, and where ticked tasks go. */
 export const TODO_COLUMN = "todo";
 export const DONE_COLUMN = "done";
 
@@ -44,8 +46,8 @@ export type Column = {
   /** Where ticking a task in this column sends it. Unset: the board's tick column. */
   tickTo?: string;
 };
-/** A column as the board shows it, with its dot class and whether it's fixed. */
-export type BoardColumn = Column & { dot: string; fixed: "first" | "last" | null };
+/** A column as the board shows it, with its dot class. */
+export type BoardColumn = Column & { dot: string };
 
 export type Workflow = {
   /** Off: any move is allowed. On: only the moves in `moves`. */
@@ -54,13 +56,21 @@ export type Workflow = {
   moves: Record<string, string[]>;
 };
 
-type Saved = { columns: Column[]; workflow: Workflow; tickColumn: string };
+type Saved = {
+  columns: Column[];
+  workflow: Workflow;
+  tickColumn: string;
+  /** Completed's name, when the user has renamed it. */
+  doneLabel?: string;
+  /** Completed's place among the columns (0 = first). Unset: last. */
+  doneAt?: number;
+};
 
 /** Columns the user can add, besides Todo and Completed. */
 export const MAX_EXTRA_COLUMNS = 6;
 export const MAX_COLUMN_LABEL = 24;
 
-const DONE: BoardColumn = { id: DONE_COLUMN, label: "Completed", color: "teal", dot: "bg-success", fixed: "last" };
+const DONE: BoardColumn = { id: DONE_COLUMN, label: "Completed", color: "teal", dot: "bg-success" };
 
 const DEFAULTS: Saved = {
   columns: [
@@ -95,11 +105,11 @@ function clean(raw: unknown): Saved {
       });
     }
   }
-  // Todo always exists, and always comes first.
-  const todoAt = columns.findIndex((c) => c.id === TODO_COLUMN);
-  const todo = todoAt === -1 ? DEFAULTS.columns[0] : columns.splice(todoAt, 1)[0];
-  const list = [todo, ...columns.slice(0, MAX_EXTRA_COLUMNS)];
-  if (!Array.isArray(r.columns)) list.splice(1, 0, ...DEFAULTS.columns.slice(1));
+  // Todo always exists (first, if it had gone missing), wherever the user put it.
+  if (!columns.some((c) => c.id === TODO_COLUMN)) columns.unshift(DEFAULTS.columns[0]);
+  if (!Array.isArray(r.columns)) columns.push(...DEFAULTS.columns.slice(1));
+  let extras = 0;
+  const list = columns.filter((c) => c.id === TODO_COLUMN || ++extras <= MAX_EXTRA_COLUMNS);
 
   const ids = new Set([...list.map((c) => c.id), DONE_COLUMN]);
   // A column's own tick destination must be another column, not Todo (a deleted one is dropped).
@@ -116,7 +126,14 @@ function clean(raw: unknown): Saved {
   }
   // Ticking can send tasks to any column but Todo (a column that's gone falls back to Completed).
   const tickColumn = typeof r.tickColumn === "string" && ids.has(r.tickColumn) && r.tickColumn !== TODO_COLUMN ? r.tickColumn : DONE_COLUMN;
-  return { columns: list, workflow: { enabled: w.enabled === true, moves }, tickColumn };
+  const doneLabel = typeof r.doneLabel === "string" ? r.doneLabel.trim().slice(0, MAX_COLUMN_LABEL) : "";
+  return {
+    columns: list,
+    workflow: { enabled: w.enabled === true, moves },
+    tickColumn,
+    ...(doneLabel && doneLabel !== DONE.label ? { doneLabel } : {}),
+    ...(Number.isInteger(r.doneAt) && r.doneAt! >= 0 && r.doneAt! < list.length ? { doneAt: r.doneAt } : {}),
+  };
 }
 
 function read(): Saved {
@@ -143,14 +160,24 @@ function write(next: Saved) {
 }
 
 function toBoard(saved: Saved): BoardColumn[] {
-  return [
-    ...saved.columns.map((c) => ({
-      ...c,
-      dot: COLUMN_COLORS.find((x) => x.id === c.color)?.dot ?? "bg-iris",
-      fixed: c.id === TODO_COLUMN ? ("first" as const) : null,
-    })),
-    DONE,
-  ];
+  const board: BoardColumn[] = saved.columns.map((c) => ({
+    ...c,
+    dot: COLUMN_COLORS.find((x) => x.id === c.color)?.dot ?? "bg-iris",
+  }));
+  board.splice(saved.doneAt ?? board.length, 0, saved.doneLabel ? { ...DONE, label: saved.doneLabel } : DONE);
+  return board;
+}
+
+/** Save the columns in this left-to-right order (every id, Completed included). */
+function writeOrder(s: Saved, ids: string[]) {
+  const byId = new Map(s.columns.map((c) => [c.id, c]));
+  const columns = ids.filter((id) => byId.has(id)).map((id) => byId.get(id)!);
+  // Any column missing from `ids` keeps its place at the end, so nothing is lost.
+  columns.push(...s.columns.filter((c) => !columns.includes(c)));
+  const doneAt = ids.filter((id) => id === DONE_COLUMN || byId.has(id)).indexOf(DONE_COLUMN);
+  const { doneAt: _old, ...rest } = s;
+  void _old;
+  write({ ...rest, columns, ...(doneAt !== -1 && doneAt < columns.length ? { doneAt } : {}) });
 }
 
 const SERVER_BOARD = toBoard(DEFAULTS);
@@ -250,6 +277,11 @@ export const columnActions = {
   /** Rename or recolour a column, or set where ticking sends its tasks (tickTo: null for the board's default). */
   update(id: string, patch: Partial<Pick<Column, "label" | "color">> & { tickTo?: string | null }) {
     const s = read();
+    // Completed only takes a new name.
+    if (id === DONE_COLUMN) {
+      if (patch.label?.trim()) write({ ...s, doneLabel: patch.label });
+      return;
+    }
     write({
       ...s,
       columns: s.columns.map((c) => {
@@ -265,24 +297,18 @@ export const columnActions = {
       }),
     });
   },
-  /** Move one of the user's columns left (-1) or right (+1). Todo stays first, Completed last. */
+  /** Move a column (any, Todo and Completed included) one place left (-1) or right (+1). */
   move(id: string, by: -1 | 1) {
-    const s = read();
-    const i = s.columns.findIndex((c) => c.id === id);
+    const ids = getColumns().map((c) => c.id);
+    const i = ids.indexOf(id);
     const j = i + by;
-    if (i < 1 || j < 1 || j >= s.columns.length) return;
-    const columns = [...s.columns];
-    [columns[i], columns[j]] = [columns[j], columns[i]];
-    write({ ...s, columns });
+    if (i === -1 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    writeOrder(read(), ids);
   },
-  /** Put the user's columns in this order (Todo stays first, Completed last; unknown ids are ignored). */
+  /** Put the columns in this left-to-right order (Completed included; unknown ids are ignored). */
   reorder(ids: string[]) {
-    const s = read();
-    const byId = new Map(s.columns.map((c) => [c.id, c]));
-    const middle = ids.filter((id) => id !== TODO_COLUMN && byId.has(id)).map((id) => byId.get(id)!);
-    // Any column missing from `ids` keeps its place at the end, so nothing is lost.
-    const rest = s.columns.slice(1).filter((c) => !middle.includes(c));
-    write({ ...s, columns: [s.columns[0], ...middle, ...rest] });
+    writeOrder(read(), ids);
   },
   /** Delete one of the user's columns (not Todo or Completed). Its tasks should be moved first. */
   remove(id: string) {
@@ -293,7 +319,11 @@ export const columnActions = {
       if (from !== id) moves[from] = to.filter((x) => x !== id);
     }
     // If ticked tasks went here, they go to Completed again (clean() sees the column is gone).
-    write({ ...s, columns: s.columns.filter((c) => c.id !== id), workflow: { ...s.workflow, moves } });
+    // Completed keeps its place relative to the other columns.
+    writeOrder(
+      { ...s, columns: s.columns.filter((c) => c.id !== id), workflow: { ...s.workflow, moves } },
+      getColumns().map((c) => c.id).filter((x) => x !== id),
+    );
   },
   /** Turn the workflow on (starting with every move allowed) or off (keeping the moves for next time). */
   setWorkflowEnabled(enabled: boolean) {

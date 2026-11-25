@@ -115,6 +115,8 @@ export function previewImport(text: string): ImportPreview {
 /** Work out what these rows (headings first) would add, without changing anything. */
 export function previewRows(rows: string[][]): ImportPreview {
   const boardColumns = getColumns();
+  // Unmatched statuses land in Todo, wherever it sits on the board.
+  const todoLabel = boardColumns.find((c) => c.id === TODO_COLUMN)?.label ?? "Todo";
   const preview: ImportPreview = { tasks: [], skipped: [], warnings: [], newTags: [], newPeople: [], ignoredColumns: [] };
   const blank = (r: string[]) => r.every((c) => c.trim() === "");
   // The headings are the first row with anything in it.
@@ -178,9 +180,9 @@ export function previewRows(rows: string[][]): ImportPreview {
     let column: string | undefined = named && named !== DONE_COLUMN && named !== TODO_COLUMN ? named : undefined;
     if (!named && !done && PENDING_WORDS.has(status)) {
       if (boardColumns.some((c) => c.id === "pending")) column = "pending";
-      else warn(`There’s no Pending column, so “${get("status")}” goes in ${boardColumns[0].label}.`);
+      else warn(`There’s no Pending column, so “${get("status")}” goes in ${todoLabel}.`);
     } else if (!named && !done && !TODO_WORDS.has(status)) {
-      warn(`Status “${get("status")}” doesn’t match a column, so it goes in ${boardColumns[0].label}.`);
+      warn(`Status “${get("status")}” doesn’t match a column, so it goes in ${todoLabel}.`);
     }
 
     // Tag: an existing one, a new one (if there's room), or Default.

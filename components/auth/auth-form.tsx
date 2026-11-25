@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { ArrowRight, CircleAlert, Eye, EyeOff, Info, LayoutDashboard, Loader2, LogOut, UserRound } from "lucide-react";
-import { AuthActionError, authActions, useAuth, type AuthUser } from "@/lib/auth";
+import { ArrowRight, CircleAlert, Eye, EyeOff, Info, LayoutDashboard, Loader2, LogOut, ShieldCheck, UserRound } from "lucide-react";
+import { AuthActionError, TwoFactorRequiredError, authActions, useAuth, type AuthUser } from "@/lib/auth";
 import { UserAvatar } from "./user-avatar";
+import { TwoFactorCodeForm } from "./two-factor-code";
 
 /*
  * Login and signup forms, backed by Firebase Auth (email and password, or Google).
@@ -61,6 +62,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [formError, setFormError] = useState<string | null>(null);
   // Forgot password: the link being requested, or sent; or a note when there's nothing to reset.
   const [reset, setReset] = useState<{ state: "sending" | "sent" | "unavailable"; email: string } | null>(null);
+  // Two-factor sign-in: the password (or Google) step worked, and now the app's code is needed.
+  const [needsCode, setNeedsCode] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -88,6 +91,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
   /** Show an auth failure: on its field when it has one, else above the button. */
   function fail(error: unknown) {
+    if (error instanceof TwoFactorRequiredError) {
+      setNeedsCode(true);
+      setStatus("idle");
+      return;
+    }
     const err = error instanceof AuthActionError ? error : new AuthActionError("Something went wrong. Please try again.");
     const field = err.field && (err.field !== "name" || signup) ? err.field : null;
     if (field) {
@@ -161,7 +169,18 @@ export function AuthForm({ mode }: { mode: Mode }) {
   }
 
   // Already signed in (and not mid-submit, which moves on to the board by itself).
-  if (auth.status === "signed-in" && !busy) return <SignedIn user={auth.user} />;
+  if (auth.status === "signed-in" && !busy && !needsCode) return <SignedIn user={auth.user} />;
+
+  if (needsCode)
+    return (
+      <TwoFactorStep
+        onDone={() => router.push("/board")}
+        onCancel={() => {
+          authActions.cancelTwoFactor();
+          setNeedsCode(false);
+        }}
+      />
+    );
 
   const score = strength(values.password);
 
@@ -316,6 +335,42 @@ export function AuthForm({ mode }: { mode: Mode }) {
           {signup ? "Log in" : "Create an account"}
         </Link>
       </p>
+    </div>
+  );
+}
+
+/** The second sign-in step when two-factor sign-in is on: the code from the authenticator app. */
+function TwoFactorStep({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className="gb-rise space-y-5" style={{ animationDuration: "0.35s" }}>
+      <div className="flex items-start gap-3 rounded-2xl bg-mist px-4 py-3.5">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-iris/15 text-iris">
+          <ShieldCheck className="size-5" />
+        </span>
+        <div className="min-w-0">
+          <p className="font-semibold">Two-factor sign-in</p>
+          <p className="mt-0.5 text-sm text-ink/65">Open your authenticator app and enter the 6-digit code for greenboard.</p>
+        </div>
+      </div>
+      <TwoFactorCodeForm
+        submitLabel="Verify and log in"
+        error={error}
+        onSubmit={async (code) => {
+          setError(null);
+          try {
+            await authActions.completeTwoFactor(code);
+            onDone();
+          } catch (e) {
+            setError(e instanceof AuthActionError ? e.message : "Something went wrong. Please try again.");
+          }
+        }}
+        extra={
+          <button type="button" onClick={onCancel} className="rounded-xl px-3.5 py-2.5 text-sm font-semibold text-ink/60 transition-colors hover:bg-ink/5 hover:text-ink">
+            Back
+          </button>
+        }
+      />
     </div>
   );
 }

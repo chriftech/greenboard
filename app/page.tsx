@@ -7,7 +7,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Nav } from "@/components/landing/nav";
-import { Logo } from "@/components/landing/logo";
+import { Footer } from "@/components/landing/footer";
 import { HeroBoard } from "@/components/landing/hero-board";
 import { Reveal } from "@/components/landing/reveal";
 import { SignedInRedirect } from "@/components/landing/signed-in-redirect";
@@ -310,24 +310,5 @@ function Cta() {
         </div>
       </Reveal>
     </section>
-  );
-}
-
-/* ───────────────────────── Footer ───────────────────────── */
-
-function Footer() {
-  return (
-    <footer className="border-t border-ink/10 px-4 py-10">
-      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 sm:flex-row">
-        <a href="#top" className="flex items-center gap-2">
-          <Logo className="size-8" />
-          <span className="font-display text-lg font-bold">greenboard</span>
-        </a>
-        <nav className="flex gap-6 text-sm text-ink/60">
-          <a href="#how" className="hover:text-ink">How it works</a>
-        </nav>
-        <p className="text-sm text-ink/50">© 2026 Greenboard</p>
-      </div>
-    </footer>
   );
 }

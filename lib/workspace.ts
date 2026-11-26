@@ -1,6 +1,6 @@
 /**
  * What the sidebar and the board share, so the sidebar can stay put across the
- * workspace pages (/board, /settings, /help) and keep its state as you move between them:
+ * workspace pages (/board, /usage, /settings, /help) and keep its state as you move between them:
  * the board view, tag, search and filters, and whether the phone menu is open.
  *
  * Kept in memory for the visit (a reload starts fresh, like before).

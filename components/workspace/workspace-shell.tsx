@@ -10,9 +10,9 @@ import { tourActions } from "@/lib/tour";
 import { ReminderScheduler } from "./reminder-scheduler";
 import { requestBoard, useWorkspace, workspace, type NavTarget, type View } from "@/lib/workspace";
 
-const PAGES = { "/board": "board", "/settings": "settings", "/help": "help" } as const;
+const PAGES = { "/board": "board", "/usage": "usage", "/settings": "settings", "/help": "help" } as const;
 
-// This layout is prerendered once for all three pages, so the server can't know which
+// This layout is prerendered once for all the workspace pages, so the server can't know which
 // one is showing; the highlight is worked out in the browser, right after loading.
 const noSubscribe = () => () => {};
 const inBrowser = () => true;
@@ -26,7 +26,7 @@ function inView(t: Task, v: View) {
 }
 
 /**
- * The frame around the workspace pages (/board, /settings, /help): the sidebar on
+ * The frame around the workspace pages (/board, /usage, /settings, /help): the sidebar on
  * the left (a slide-out menu on phones) and the page beside it. The sidebar stays
  * mounted as you move between these pages, so its size, scroll, search and selection carry over.
  */
@@ -46,14 +46,14 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const trashed = (tasks ?? []).length - all.length;
   const activeTag = tag && tags.some((t) => t.id === tag) ? tag : null;
 
-  /** Open the board (from Settings or Help) so it can show what was picked. */
+  /** Open the board (from Usage, Settings or Help) so it can show what was picked. */
   const toBoard = () => {
     if (!onBoard) router.push("/board");
   };
 
   const sidebar: SidebarProps = {
     page,
-    // Settings and Help aren't board views, so nothing in the workspace list is highlighted there.
+    // Usage, Settings and Help aren't board views, so nothing in the workspace list is highlighted there.
     active: !onBoard ? null : view !== "board" ? view : "board",
     onNavigate: (target: NavTarget) => {
       if (!requestBoard({ type: "navigate", target })) toBoard();

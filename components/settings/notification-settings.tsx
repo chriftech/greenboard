@@ -5,10 +5,13 @@ import { BellRing, Mail } from "lucide-react";
 import { PremiumBadge } from "@/components/pricing/premium-badge";
 import { usePlan } from "@/lib/plan";
 import Link from "next/link";
-import { REMINDER_LEADS, setSetting, useSettings, type ReminderLead } from "@/lib/settings";
+import { REMINDER_LEADS, type ReminderLead } from "@/lib/settings";
 import { requestNotificationPermission, showNotification, useNotificationState } from "@/lib/notifications";
 import { useHydrated } from "@/lib/hydrated";
 import { ToggleRow } from "./settings-form";
+import { SaveBar, useSettingsDraft } from "./settings-draft";
+
+const KEYS = ["reminders", "reminderLead"] as const;
 
 const LEAD_LABELS: Record<ReminderLead, string> = {
   0: "When it starts",
@@ -19,9 +22,11 @@ const LEAD_LABELS: Record<ReminderLead, string> = {
   60: "1 hour before",
 };
 
-/** Task reminders: a browser notification before each scheduled task starts. */
+/** Task reminders: a browser notification before each scheduled task starts. Saved when Save is pressed. */
 export function NotificationSettings() {
-  const { reminders, reminderLead } = useSettings();
+  const draft = useSettingsDraft(KEYS);
+  const { reminders, reminderLead } = draft.value;
+  const [asking, setAsking] = useState(false);
   const plan = usePlan();
   const permission = useNotificationState();
   const hydrated = useHydrated();
@@ -32,9 +37,12 @@ export function NotificationSettings() {
 
   async function toggle(next: boolean) {
     setTestNote(null);
-    if (!next) return setSetting("reminders", false);
+    if (!next) return draft.set("reminders", false);
+    // Ask for the browser's permission now, while the click counts as the user's choice.
+    setAsking(true);
     const result = permission === "granted" ? "granted" : await requestNotificationPermission();
-    setSetting("reminders", result === "granted");
+    setAsking(false);
+    draft.set("reminders", result === "granted");
   }
 
   function sendTest() {
@@ -77,7 +85,7 @@ export function NotificationSettings() {
             <select
               id={leadId}
               value={reminderLead}
-              onChange={(e) => setSetting("reminderLead", Number(e.target.value) as ReminderLead)}
+              onChange={(e) => draft.set("reminderLead", Number(e.target.value) as ReminderLead)}
               className="rounded-xl border border-ink/15 bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors hover:border-ink/30 focus:border-iris"
             >
               {REMINDER_LEADS.map((m) => (
@@ -125,6 +133,17 @@ export function NotificationSettings() {
             </p>
           </div>
         </div>
+
+        <SaveBar
+          dirty={draft.dirty}
+          justSaved={draft.justSaved}
+          busy={asking}
+          onSave={draft.save}
+          onDiscard={() => {
+            setTestNote(null);
+            draft.discard();
+          }}
+        />
       </div>
       <p className="mt-3 px-1 text-sm text-ink/50">
         Give a task a start and end time to get its reminder. Reminders don&apos;t arrive while every Greenboard tab is closed.

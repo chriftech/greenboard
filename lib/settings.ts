@@ -1,6 +1,6 @@
 /**
  * Board preferences, saved in this browser (localStorage) like the tasks.
- * Read them with useSettings(); change one with setSetting().
+ * Read them with useSettings(); change one with setSetting(), or several with setSettings().
  */
 
 import { useSyncExternalStore } from "react";
@@ -44,7 +44,12 @@ function read(): Settings {
 }
 
 export function setSetting<K extends keyof Settings>(key: K, value: Settings[K]) {
-  cached = { ...read(), [key]: value };
+  setSettings({ [key]: value } as Partial<Settings>);
+}
+
+/** Save several settings at once (e.g. a section's Save button). */
+export function setSettings(patch: Partial<Settings>) {
+  cached = { ...read(), ...patch };
   try {
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(cached));
   } catch {

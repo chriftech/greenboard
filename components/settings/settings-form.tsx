@@ -2,29 +2,32 @@
 
 import { useId, type ReactNode } from "react";
 import { Hand } from "lucide-react";
-import { setSetting, useSettings } from "@/lib/settings";
 import { useHydrated } from "@/lib/hydrated";
 import { SwitchSkeleton } from "./settings-skeleton";
+import { SaveBar, useSettingsDraft } from "./settings-draft";
 
-/** The board preferences. Changes save straight away, in this browser. */
+const KEYS = ["showGreeting"] as const;
+
+/** The board preferences. Changes are saved in this browser when Save is pressed. */
 export function SettingsForm() {
-  const settings = useSettings();
+  const draft = useSettingsDraft(KEYS);
 
   return (
     <section aria-labelledby="board-settings" className="gb-rise" style={{ animationDelay: "120ms" }}>
       <h2 id="board-settings" className="px-1 text-xs font-semibold uppercase tracking-widest text-ink/50">
         Board
       </h2>
-      <div className="mt-3 overflow-hidden rounded-[24px] border border-ink/10 bg-surface shadow-[0_20px_60px_-30px_rgb(46_51_73/0.4)]">
+      <div className="mt-3 divide-y divide-ink/10 overflow-hidden rounded-[24px] border border-ink/10 bg-surface shadow-[0_20px_60px_-30px_rgb(46_51_73/0.4)]">
         <ToggleRow
           icon={<Hand className="size-4" />}
           title="Greeting card"
           description="Show the “Good morning” card at the top of your board, with today’s date and how many tasks are left."
-          checked={settings.showGreeting}
-          onChange={(on) => setSetting("showGreeting", on)}
+          checked={draft.value.showGreeting}
+          onChange={(on) => draft.set("showGreeting", on)}
         />
+        <SaveBar dirty={draft.dirty} justSaved={draft.justSaved} onSave={draft.save} onDiscard={draft.discard} />
       </div>
-      <p className="mt-3 px-1 text-sm text-ink/50">Settings are saved in this browser and apply straight away.</p>
+      <p className="mt-3 px-1 text-sm text-ink/50">Settings are saved in this browser when you press Save.</p>
     </section>
   );
 }

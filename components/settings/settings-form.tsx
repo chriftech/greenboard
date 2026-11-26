@@ -38,12 +38,17 @@ export function ToggleRow({
   description,
   checked,
   onChange,
+  badge,
+  disabled = false,
 }: {
   icon: ReactNode;
   title: string;
   description: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
+  /** Shown after the title, e.g. the plan a feature comes with. */
+  badge?: ReactNode;
+  disabled?: boolean;
 }) {
   const id = useId();
   const hydrated = useHydrated();
@@ -51,8 +56,9 @@ export function ToggleRow({
     <div className="flex items-start gap-4 p-5">
       <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-mist text-iris">{icon}</span>
       <div className="min-w-0 flex-1">
-        <p id={`${id}-title`} className="font-semibold">
-          {title}
+        <p className="flex flex-wrap items-center gap-2 font-semibold">
+          <span id={`${id}-title`}>{title}</span>
+          {badge}
         </p>
         <p id={`${id}-desc`} className="mt-0.5 text-sm text-ink/60">
           {description}
@@ -68,8 +74,9 @@ export function ToggleRow({
           aria-checked={checked}
           aria-labelledby={`${id}-title`}
           aria-describedby={`${id}-desc`}
+          disabled={disabled}
           onClick={() => onChange(!checked)}
-          className={`relative mt-1 inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris ${
+          className={`relative mt-1 inline-flex disabled:cursor-not-allowed disabled:opacity-50 h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris ${
             checked ? "bg-success" : "bg-ink/20"
           }`}
         >

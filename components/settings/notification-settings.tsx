@@ -4,14 +4,14 @@ import { useId, useState } from "react";
 import { BellRing, Mail } from "lucide-react";
 import { PremiumBadge } from "@/components/pricing/premium-badge";
 import { usePlan } from "@/lib/plan";
-import Link from "next/link";
+import { useAuth } from "@/lib/auth";
 import { REMINDER_LEADS, type ReminderLead } from "@/lib/settings";
 import { requestNotificationPermission, showNotification, useNotificationState } from "@/lib/notifications";
 import { useHydrated } from "@/lib/hydrated";
 import { ToggleRow } from "./settings-form";
 import { SaveBar, useSettingsDraft } from "./settings-draft";
 
-const KEYS = ["reminders", "reminderLead"] as const;
+const KEYS = ["reminders", "reminderLead", "emailReminders"] as const;
 
 const LEAD_LABELS: Record<ReminderLead, string> = {
   0: "When it starts",
@@ -25,7 +25,9 @@ const LEAD_LABELS: Record<ReminderLead, string> = {
 /** Task reminders: a browser notification before each scheduled task starts. Saved when Save is pressed. */
 export function NotificationSettings() {
   const draft = useSettingsDraft(KEYS);
-  const { reminders, reminderLead } = draft.value;
+  const { reminders, reminderLead, emailReminders } = draft.value;
+  const auth = useAuth();
+  const canEmail = auth.status === "signed-in" && Boolean(auth.user.email);
   const [asking, setAsking] = useState(false);
   const plan = usePlan();
   const permission = useNotificationState();
@@ -109,30 +111,20 @@ export function NotificationSettings() {
           </div>
         )}
 
-        {/* A Standard feature, still being built: shown so people know it's coming. */}
-        <div className="flex items-start gap-4 p-5">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-mist text-iris">
-            <Mail className="size-4" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="flex flex-wrap items-center gap-2 font-semibold">
-              Email reminders
-              {plan === "free" && <PremiumBadge />}
-              <span className="rounded-full bg-ink/8 px-2 py-0.5 text-[11px] font-semibold text-ink/55">Soon</span>
-            </p>
-            <p className="mt-0.5 text-sm text-ink/60">
-              Reminders in your inbox before tasks are due, even with every tab closed.
-              {plan === "free" && (
-                <>
-                  {" "}
-                  <Link href="/pricing" className="font-semibold text-ink underline-offset-4 hover:underline">
-                    See plans
-                  </Link>
-                </>
-              )}
-            </p>
-          </div>
-        </div>
+        {/* Sent to the account's email address, so it needs an account. */}
+        <ToggleRow
+          icon={<Mail className="size-4" />}
+          title="Email reminders"
+          badge={plan === "free" ? <PremiumBadge /> : undefined}
+          description={
+            auth.status === "signed-in" && auth.user.email
+              ? `Get an email at ${auth.user.email} before a task with a timeline starts, even with every tab closed.`
+              : "Get an email before a task with a timeline starts, even with every tab closed. Log in to turn this on."
+          }
+          checked={emailReminders && canEmail}
+          disabled={!canEmail}
+          onChange={(next) => draft.set("emailReminders", next)}
+        />
 
         <SaveBar
           dirty={draft.dirty}
@@ -146,7 +138,7 @@ export function NotificationSettings() {
         />
       </div>
       <p className="mt-3 px-1 text-sm text-ink/50">
-        Give a task a start and end time to get its reminder. Reminders don&apos;t arrive while every Greenboard tab is closed.
+        Give a task a start and end time to get its reminder. Browser reminders don&apos;t arrive while every Greenboard tab is closed.
       </p>
     </section>
   );

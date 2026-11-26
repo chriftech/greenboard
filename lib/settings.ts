@@ -15,9 +15,11 @@ export type Settings = {
   /** Browser notifications before scheduled tasks start (also needs the browser's permission). */
   reminders: boolean;
   reminderLead: ReminderLead;
+  /** Email reminders before scheduled tasks start, sent to the account's address. */
+  emailReminders: boolean;
 };
 
-export const DEFAULT_SETTINGS: Settings = { showGreeting: true, reminders: false, reminderLead: 10 };
+export const DEFAULT_SETTINGS: Settings = { showGreeting: true, reminders: false, reminderLead: 10, emailReminders: false };
 
 const SETTINGS_KEY = "greenboard.settings.v1";
 
@@ -36,6 +38,7 @@ function read(): Settings {
   cached = {
     showGreeting: typeof saved.showGreeting === "boolean" ? saved.showGreeting : DEFAULT_SETTINGS.showGreeting,
     reminders: typeof saved.reminders === "boolean" ? saved.reminders : DEFAULT_SETTINGS.reminders,
+    emailReminders: typeof saved.emailReminders === "boolean" ? saved.emailReminders : DEFAULT_SETTINGS.emailReminders,
     reminderLead: (REMINDER_LEADS as readonly number[]).includes(saved.reminderLead as number)
       ? (saved.reminderLead as ReminderLead)
       : DEFAULT_SETTINGS.reminderLead,

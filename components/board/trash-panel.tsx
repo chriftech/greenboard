@@ -9,9 +9,11 @@ import {
   DrawerDescription,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { TRASH_DAYS, taskActions, trashDaysLeft, type Task } from "@/lib/tasks";
+import { taskActions, trashDaysLeft, type Task } from "@/lib/tasks";
 import { findTag, useTags } from "@/lib/tags";
 import { TagChip } from "./tag-chip";
+import { UpgradeNote } from "@/components/pricing/premium-badge";
+import { PLAN_LIMITS, usePlan } from "@/lib/plan";
 
 /** Slide-in panel listing trashed tasks, with restore and delete-forever actions. */
 export function TrashPanel({
@@ -28,10 +30,12 @@ export function TrashPanel({
   onDeleteForever: (task: Task) => void;
   onEmptyTrash: () => void;
 }) {
-  // Clear out anything whose 30 days ran out while the page was open.
+  const plan = usePlan();
+  const trashDays = PLAN_LIMITS[plan].trashDays;
+  // Clear out anything whose time on this plan ran out (also after moving to a plan that keeps Trash for less).
   useEffect(() => {
     if (open) taskActions.purgeExpired();
-  }, [open]);
+  }, [open, plan]);
 
   const sorted = [...tasks].sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0));
 
@@ -46,7 +50,7 @@ export function TrashPanel({
             <div>
               <DrawerTitle className="font-display text-xl font-bold text-ink">Trash</DrawerTitle>
               <DrawerDescription className="mt-0.5 text-sm text-ink/55">
-                Deleted tasks stay here for {TRASH_DAYS} days, then they&apos;re deleted for good.
+                Deleted tasks stay here for {trashDays} days, then they&apos;re deleted for good.
               </DrawerDescription>
             </div>
             <DrawerClose
@@ -58,6 +62,12 @@ export function TrashPanel({
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+            {plan === "free" && (
+              <UpgradeNote className="mb-5">Keep deleted tasks for 90 days with Standard, or a year with Premium.</UpgradeNote>
+            )}
+            {plan === "standard" && (
+              <UpgradeNote plan="premium" className="mb-5">Keep deleted tasks for a year with Premium.</UpgradeNote>
+            )}
             {!open ? null : sorted.length === 0 ? (
               <div className="flex flex-col items-center rounded-[28px] border-2 border-dashed border-ink/10 px-6 py-14 text-center">
                 <span className="grid size-14 place-items-center rounded-2xl bg-surface text-ink/40 shadow-sm">
@@ -65,7 +75,7 @@ export function TrashPanel({
                 </span>
                 <p className="mt-4 font-display text-lg font-bold">Trash is empty</p>
                 <p className="mt-1 max-w-xs text-sm text-ink/55">
-                  Tasks you delete will show up here for {TRASH_DAYS} days in case you need them back.
+                  Tasks you delete will show up here for {trashDays} days in case you need them back.
                 </p>
               </div>
             ) : (
@@ -110,7 +120,8 @@ function TrashList({ tasks, onDeleteForever }: { tasks: Task[]; onDeleteForever:
 
 function TrashRow({ task, now, onDeleteForever }: { task: Task; now: number; onDeleteForever: () => void }) {
   const tag = findTag(useTags(), task.tag);
-  const left = trashDaysLeft(task, now);
+  const trashDays = PLAN_LIMITS[usePlan()].trashDays;
+  const left = trashDaysLeft(task, now, trashDays);
   const deleted = new Date(task.deletedAt ?? now).toLocaleDateString(undefined, {
     day: "numeric",
     month: "short",

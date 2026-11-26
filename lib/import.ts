@@ -11,10 +11,11 @@
  */
 
 import { DEFAULT_TAG, PRIORITIES, TAGS, isValidSchedule, taskActions, type PriorityId, type Schedule, type Task } from "./tasks";
-import { MAX_CUSTOM_TAGS, MAX_TAG_LABEL, TAG_COLORS, getCustomTags, isCreatedTag, tagActions } from "./tags";
+import { MAX_TAG_LABEL, TAG_COLORS, getCustomTags, isCreatedTag, tagActions } from "./tags";
 import { MAX_PERSON_NAME, ME, getPeople, peopleActions } from "./people";
 import { parseCsv } from "./csv";
 import { DONE_COLUMN, TODO_COLUMN, getColumns } from "./columns";
+import { getLimits } from "./plan";
 
 /** More than this and the file is probably not a task list. */
 export const MAX_IMPORT_ROWS = 500;
@@ -149,7 +150,8 @@ export function previewRows(rows: string[][]): ImportPreview {
   for (const t of TAGS) tagIds.set(t.label.toLowerCase(), t.id).set(t.id, t.id);
   for (const t of getCustomTags()) tagIds.set(t.label.toLowerCase(), t.id);
   // Only tags the user created count toward the limit (not Default or the starter tags).
-  const freeTagSlots = MAX_CUSTOM_TAGS - getCustomTags().filter((t) => isCreatedTag(t.id)).length;
+  const tagLimit = getLimits().createdTags;
+  const freeTagSlots = tagLimit - getCustomTags().filter((t) => isCreatedTag(t.id)).length;
   const personIds = new Map<string, string>([[ME.name.toLowerCase(), ME.id]]);
   for (const p of getPeople()) personIds.set(p.name.toLowerCase(), p.id);
   const priorityIds = new Map<string, PriorityId>(PRIORITIES.flatMap((p) => [[p.label.toLowerCase(), p.id], [p.id, p.id]] as [string, PriorityId][]));
@@ -195,7 +197,7 @@ export function previewRows(rows: string[][]): ImportPreview {
       if (existing) tag = { id: existing };
       else if (planned) tag = { create: planned };
       else if (tagName.length > MAX_TAG_LABEL) warn(`Tag “${tagName}” is longer than ${MAX_TAG_LABEL} characters, so it’s Default.`);
-      else if (preview.newTags.length >= freeTagSlots) warn(`No room for a new tag “${tagName}” (${MAX_CUSTOM_TAGS} tags of your own at most), so it’s Default.`);
+      else if (preview.newTags.length >= freeTagSlots) warn(`No room for a new tag “${tagName}” (${tagLimit} tags of your own on your plan), so it’s Default.`);
       else {
         preview.newTags.push(tagName);
         tag = { create: tagName };

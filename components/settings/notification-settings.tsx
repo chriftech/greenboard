@@ -1,7 +1,10 @@
 "use client";
 
 import { useId, useState } from "react";
-import { BellRing } from "lucide-react";
+import { BellRing, Mail } from "lucide-react";
+import { PremiumBadge } from "@/components/pricing/premium-badge";
+import { usePlan } from "@/lib/plan";
+import Link from "next/link";
 import { REMINDER_LEADS, setSetting, useSettings, type ReminderLead } from "@/lib/settings";
 import { requestNotificationPermission, showNotification, useNotificationState } from "@/lib/notifications";
 import { useHydrated } from "@/lib/hydrated";
@@ -19,6 +22,7 @@ const LEAD_LABELS: Record<ReminderLead, string> = {
 /** Task reminders: a browser notification before each scheduled task starts. */
 export function NotificationSettings() {
   const { reminders, reminderLead } = useSettings();
+  const plan = usePlan();
   const permission = useNotificationState();
   const hydrated = useHydrated();
   const leadId = useId();
@@ -96,6 +100,31 @@ export function NotificationSettings() {
             )}
           </div>
         )}
+
+        {/* A Standard feature, still being built: shown so people know it's coming. */}
+        <div className="flex items-start gap-4 p-5">
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-mist text-iris">
+            <Mail className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="flex flex-wrap items-center gap-2 font-semibold">
+              Email reminders
+              {plan === "free" && <PremiumBadge />}
+              <span className="rounded-full bg-ink/8 px-2 py-0.5 text-[11px] font-semibold text-ink/55">Soon</span>
+            </p>
+            <p className="mt-0.5 text-sm text-ink/60">
+              Reminders in your inbox before tasks are due, even with every tab closed.
+              {plan === "free" && (
+                <>
+                  {" "}
+                  <Link href="/pricing" className="font-semibold text-ink underline-offset-4 hover:underline">
+                    See plans
+                  </Link>
+                </>
+              )}
+            </p>
+          </div>
+        </div>
       </div>
       <p className="mt-3 px-1 text-sm text-ink/50">
         Give a task a start and end time to get its reminder. Reminders don&apos;t arrive while every Greenboard tab is closed.

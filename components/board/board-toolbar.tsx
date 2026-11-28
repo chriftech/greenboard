@@ -7,7 +7,7 @@ import { CalendarRange, Check, ChevronDown, ChevronLeft, FileDown, FileUp, Slide
 import { PRIORITIES, getServerTasks, getTasks, statusOf, subscribeTasks, todayKey, type TagId } from "@/lib/tasks";
 import { useBoardColumns } from "@/lib/columns";
 import type { TagView } from "@/lib/tags";
-import { ME, type Person } from "@/lib/people";
+import { ME, boardUsesAssignees, type Person } from "@/lib/people";
 import { downloadTasksCsv } from "@/lib/export";
 import { TagDot } from "./tag-chip";
 import { CALENDAR_THEME, Calendar, loadCalendar } from "./schedule";
@@ -96,17 +96,19 @@ export function BoardToolbar({
 
           <DateFilterMenu value={date} onChange={onDateChange} />
 
-          <FilterMenu
-            label="Assignee"
-            value={assignee === NONE ? "Unassigned" : activePerson ? activePerson.name : null}
-            selected={assignee}
-            onSelect={onAssigneeChange}
-            options={[
-              { value: ANY, label: "Anyone" },
-              ...everyone.map((p) => ({ value: p.id, label: p.name })),
-              { value: NONE, label: "Unassigned" },
-            ]}
-          />
+          {boardUsesAssignees() && (
+            <FilterMenu
+              label="Assignee"
+              value={assignee === NONE ? "Unassigned" : activePerson ? activePerson.name : null}
+              selected={assignee}
+              onSelect={onAssigneeChange}
+              options={[
+                { value: ANY, label: "Anyone" },
+                ...everyone.map((p) => ({ value: p.id, label: p.name })),
+                { value: NONE, label: "Unassigned" },
+              ]}
+            />
+          )}
           </div>
 
           {anyActive && (

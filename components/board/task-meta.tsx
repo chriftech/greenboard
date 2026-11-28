@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Popover } from "@base-ui/react/popover";
 import { Check, ChevronDown, Flag, Plus, UserRound, X } from "lucide-react";
 import { PRIORITIES, type PriorityId } from "@/lib/tasks";
-import { MAX_PERSON_NAME, ME, avatarColor, findPerson, initials, peopleActions, usePeople, type Person } from "@/lib/people";
+import { MAX_PERSON_NAME, ME, avatarColor, boardUsesAssignees, findPerson, initials, peopleActions, usePeople, type Person } from "@/lib/people";
 import { customChipStyle } from "./tag-chip";
 
 /* ───────────────────────── Shared bits ───────────────────────── */
@@ -164,7 +164,7 @@ export function Avatar({ person, size = 22 }: { person: Person; size?: number })
 export function AssigneeBadge({ assignee }: { assignee?: string }) {
   const people = usePeople();
   const person = findPerson(people, assignee);
-  if (!person) return null;
+  if (!person || !boardUsesAssignees()) return null;
   const label = person.id === ME.id ? "Assigned to me" : `Assigned to ${person.name}`;
   return (
     <span title={label} className="inline-flex items-center">
@@ -222,6 +222,9 @@ export function AssigneePicker({
   }
 
   const name = person ? (person.id === ME.id ? "Me" : person.name) : null;
+
+  // My board has no assignees, so there's nothing to pick.
+  if (!boardUsesAssignees()) return null;
 
   return (
     <Popover.Root open={open} onOpenChange={onOpenChange}>

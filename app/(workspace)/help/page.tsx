@@ -18,7 +18,7 @@ const FAQ: { q: string; a: ReactNode }[] = [
     a: (
       <>
         Two ways. Click <b>Task</b> above the board (or press <b>T</b>) to open <b>Create task</b>, where you can
-        give it a name, a description, a status, someone to do it, a timeline, a priority and a tag. Or click{" "}
+        give it a name, a description, a status, a timeline, a priority and a tag. Or click{" "}
         <b>Add task</b> at the bottom of a column (or the <b>+</b> at its top): type a name, pick any details from
         the icons under it, and press <b>Enter</b>. The card stays open, so you can add several in a row.
       </>
@@ -144,7 +144,10 @@ const SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ["Esc"], action: "Close a panel or dialog, or clear the search" },
   { keys: ["Space", "↑ ↓", "Space"], action: "Pick up, move and drop a task (from its grip)" },
   { keys: ["⌘ / Ctrl", "B · I · U"], action: "Bold, italic, underline in a description" },
+  { keys: ["⌘ / Ctrl", "⇧", "S"], action: "Strikethrough in a description" },
   { keys: ["⌘ / Ctrl", "⇧", "8"], action: "Bullet list in a description" },
+  { keys: ["⌘ / Ctrl", "⇧", "7"], action: "Numbered list in a description" },
+  { keys: ["⌘ / Ctrl", "Enter"], action: "Create the task from its description (Create task)" },
   { keys: ["← →"], action: "Resize the sidebar (with its edge focused)" },
   { keys: ["← →", "Esc"], action: "Step through the guided tour, or skip it" },
 ];

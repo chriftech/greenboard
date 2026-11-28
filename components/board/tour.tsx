@@ -46,7 +46,7 @@ const STEPS: Step[] = [
     targets: ["new-task"],
     icon: PenLine,
     title: "Create a task",
-    body: "Click Task, or press T, to write one with every detail: status, description, who's doing it, a timeline, a priority and a tag.",
+    body: "Click Task, or press T, to write one with every detail: status, description, a timeline, a priority and a tag.",
   },
   {
     targets: ["columns"],
@@ -58,7 +58,7 @@ const STEPS: Step[] = [
     targets: ["add-task"],
     icon: SlidersHorizontal,
     title: "Or add one right in a column",
-    body: "Add task opens a card in that column. Type a name, pick the assignee, timeline, priority or tag from the icons, and press Enter. It stays open for the next one.",
+    body: "Add task opens a card in that column. Type a name, pick the timeline, priority or tag from the icons, and press Enter. It stays open for the next one.",
   },
   {
     targets: ["tasks"],

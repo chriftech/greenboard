@@ -26,6 +26,8 @@ import { getLimits } from "./plan";
 /** The built-in columns: where new tasks start, and where ticked tasks go. */
 export const TODO_COLUMN = "todo";
 export const DONE_COLUMN = "done";
+/** The Pending column every board starts with (it can be renamed or deleted like any other). */
+export const PENDING_COLUMN = "pending";
 
 /** Colours a column can have (its dot on the board). Literal classes so Tailwind keeps them. */
 export const COLUMN_COLORS = [
@@ -80,7 +82,7 @@ const DONE: BoardColumn = { id: DONE_COLUMN, label: "Completed", color: "teal", 
 const DEFAULTS: Saved = {
   columns: [
     { id: TODO_COLUMN, label: "Todo", color: "iris" },
-    { id: "pending", label: "Pending", color: "peach" },
+    { id: PENDING_COLUMN, label: "Pending", color: "peach" },
   ],
   workflow: { enabled: false, moves: {} },
   tickColumn: DONE_COLUMN,

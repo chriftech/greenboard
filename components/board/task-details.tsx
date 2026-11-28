@@ -11,26 +11,17 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { CheckBox } from "@/components/landing/check-box";
-import dynamic from "next/dynamic";
 import { ScheduleFields, draftsToSchedule, toDraft, type DateTimeDraft } from "./schedule";
 import { isTicked, statusOf, taskActions, tickTarget, type Task } from "@/lib/tasks";
 import { canMove, useBoardColumns, useTickColumn, useWorkflow } from "@/lib/columns";
 import { findTag, useTags } from "@/lib/tags";
 import { TagRadio } from "./tag-chip";
 import { AssigneePicker, PriorityPicker } from "./task-meta";
+import { boardUsesAssignees } from "@/lib/people";
 import { SubtasksSection } from "./subtasks";
+import { RichTextEditor } from "./lazy-rich-text-editor";
 
-/**
- * The description editor (Tiptap and ProseMirror) is the biggest part of the board's code, so it
- * loads on its own. The board fetches it in the background once it's idle (preloadTaskEditor), so
- * it's usually ready before a task is opened. A box the editor's size holds its place meanwhile.
- */
-const loadEditor = () => import("./rich-text-editor");
-export const preloadTaskEditor = () => void loadEditor();
-const RichTextEditor = dynamic(() => loadEditor().then((m) => m.RichTextEditor), {
-  ssr: false,
-  loading: () => <div aria-hidden className="h-[9.5rem] rounded-2xl border border-ink/10 bg-surface" />,
-});
+export { preloadTaskEditor } from "./lazy-rich-text-editor";
 
 /* ───────────────────────── Mobile vs larger screens ───────────────────────── */
 
@@ -202,8 +193,8 @@ function DetailsBody({ task, parts, onDelete }: { task: Task; parts: Parts; onDe
           </div>
         </div>
 
-        {/* Priority and assignee */}
-        <div className="grid gap-5 sm:grid-cols-2">
+        {/* Priority, and the assignee on boards that use them */}
+        <div className={`grid gap-5 ${boardUsesAssignees() ? "sm:grid-cols-2" : ""}`}>
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink/50">Priority</p>
             <PriorityPicker
@@ -212,14 +203,16 @@ function DetailsBody({ task, parts, onDelete }: { task: Task; parts: Parts; onDe
               variant="field"
             />
           </div>
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink/50">Assignee</p>
-            <AssigneePicker
-              value={task.assignee}
-              onChange={(assignee) => taskActions.update(task.id, { assignee })}
-              variant="field"
-            />
-          </div>
+          {boardUsesAssignees() && (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink/50">Assignee</p>
+              <AssigneePicker
+                value={task.assignee}
+                onChange={(assignee) => taskActions.update(task.id, { assignee })}
+                variant="field"
+              />
+            </div>
+          )}
         </div>
 
         {/* Timeline */}

@@ -1,12 +1,12 @@
 "use client";
 
 import { useId, type ReactNode } from "react";
-import { Hand } from "lucide-react";
+import { Hand, PartyPopper } from "lucide-react";
 import { useHydrated } from "@/lib/hydrated";
 import { SwitchSkeleton } from "./settings-skeleton";
 import { SaveBar, useSettingsDraft } from "./settings-draft";
 
-const KEYS = ["showGreeting"] as const;
+const KEYS = ["showGreeting", "pendingConfetti"] as const;
 
 /** The board preferences. Changes are saved in this browser when Save is pressed. */
 export function SettingsForm() {
@@ -24,6 +24,13 @@ export function SettingsForm() {
           description="Show the “Good morning” card at the top of your board, with today’s date and how many tasks are left."
           checked={draft.value.showGreeting}
           onChange={(on) => draft.set("showGreeting", on)}
+        />
+        <ToggleRow
+          icon={<PartyPopper className="size-4" />}
+          title="Celebrate a cleared Pending column"
+          description="Shower the screen with confetti when the last task moves out of Pending."
+          checked={draft.value.pendingConfetti}
+          onChange={(on) => draft.set("pendingConfetti", on)}
         />
         <SaveBar dirty={draft.dirty} justSaved={draft.justSaved} onSave={draft.save} onDiscard={draft.discard} />
       </div>

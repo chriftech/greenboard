@@ -10,6 +10,13 @@ import { taskActions } from "./tasks";
 export type Person = { id: string; name: string };
 
 export const ME: Person = { id: "me", name: "Me" };
+
+/**
+ * Whether the open board shows assignees. My board is the user's own board, so it doesn't:
+ * there's no one else to hand a task to. Assignees saved earlier are kept on the tasks, just
+ * not shown. Shared boards (planned in todo.md) can turn this on per board.
+ */
+export const boardUsesAssignees = (): boolean => false;
 export const MAX_PERSON_NAME = 30;
 
 const KEY = "greenboard.people.v1";

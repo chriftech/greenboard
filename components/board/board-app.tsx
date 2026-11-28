@@ -84,7 +84,7 @@ import { ProfileMenu } from "./profile-menu";
 import { BoardToolbar } from "./board-toolbar";
 import { ImportDialog } from "./import-dialog";
 import { AddColumnButton } from "./add-column";
-import { usePeople } from "@/lib/people";
+import { boardUsesAssignees, usePeople } from "@/lib/people";
 import { registerBoard, useWorkspace, workspace, type Filter, type NavTarget, type View } from "@/lib/workspace";
 import { GreetingSkeleton, TaskBoardSkeleton } from "./board-skeleton";
 import {
@@ -295,9 +295,11 @@ export function BoardApp() {
   const [tagEditorOpen, setTagEditorOpen] = useState(false);
   // A filter on a tag that was since deleted shows nothing; treat it as no filter.
   const activeTag = tag && tags.some((t) => t.id === tag) ? tag : null;
-  // Likewise for a person who was since removed.
+  // Likewise for a person who was since removed, or on a board without assignees (My board).
   const activeAssignee =
-    assigneeFilter === "any" || assigneeFilter === "none" || assigneeFilter === "me" || people.some((p) => p.id === assigneeFilter)
+    !boardUsesAssignees()
+      ? "any"
+      : assigneeFilter === "any" || assigneeFilter === "none" || assigneeFilter === "me" || people.some((p) => p.id === assigneeFilter)
       ? assigneeFilter
       : "any";
   // Keep the selected id after closing so the panel can animate out with its content.
@@ -1702,7 +1704,7 @@ function TaskCard({
         </div>
       </div>
 
-      {/* Details under the title, lined up with it. The assignee sits at the far right. */}
+      {/* Details under the title, lined up with it. The assignee (on boards that use them) sits at the far right. */}
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5 pl-[30px]">
         <TagChip tag={tag} />
         <PriorityChip priority={task.priority} />

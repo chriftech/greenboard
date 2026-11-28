@@ -6,7 +6,7 @@ import { ArrowRightLeft, CircleCheckBig, Copy, FileDown, Flag, Tag, Trash2, User
 import { PRIORITIES, type PriorityId, type TagId, type TaskStatus } from "@/lib/tasks";
 import type { BoardColumn } from "@/lib/columns";
 import type { TagView } from "@/lib/tags";
-import type { Person } from "@/lib/people";
+import { boardUsesAssignees, type Person } from "@/lib/people";
 import { TagDot } from "./tag-chip";
 import { Avatar, PriorityFlag } from "./task-meta";
 
@@ -115,20 +115,22 @@ export function BulkBar({
           </Menu.Item>
         </BarMenu>
 
-        <BarMenu icon={<UserRound className="size-4" />} label="Assignee">
-          {people.map((p) => (
-            <Menu.Item key={p.id} className={ITEM} onClick={() => onAssignee(p.id)}>
-              <Avatar person={p} size={20} />
-              <span className="truncate">{p.name}</span>
+        {boardUsesAssignees() && (
+          <BarMenu icon={<UserRound className="size-4" />} label="Assignee">
+            {people.map((p) => (
+              <Menu.Item key={p.id} className={ITEM} onClick={() => onAssignee(p.id)}>
+                <Avatar person={p} size={20} />
+                <span className="truncate">{p.name}</span>
+              </Menu.Item>
+            ))}
+            <Menu.Item className={ITEM} onClick={() => onAssignee(null)}>
+              <span className="grid size-5 place-items-center rounded-full border border-dashed border-ink/30">
+                <UserRound className="size-3 text-ink/40" />
+              </span>
+              Unassigned
             </Menu.Item>
-          ))}
-          <Menu.Item className={ITEM} onClick={() => onAssignee(null)}>
-            <span className="grid size-5 place-items-center rounded-full border border-dashed border-ink/30">
-              <UserRound className="size-3 text-ink/40" />
-            </span>
-            Unassigned
-          </Menu.Item>
-        </BarMenu>
+          </BarMenu>
+        )}
 
         <BarMenu icon={<FileDown className="size-4" />} label="Export">
           <Menu.Item className={ITEM} onClick={onExport}>

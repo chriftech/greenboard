@@ -13,7 +13,7 @@ import { ScheduleFields, draftsToSchedule, formatSchedule, type DateTimeDraft } 
 
 /*
  * Adding tasks, the way a ClickUp board does it:
- *  - each column has an "Add task" card: type a name, optionally set the assignee, timeline,
+ *  - each column has an "Add task" card: type a name, optionally set the timeline,
  *    priority and tag from the icons under it, and press Enter. It stays open for the next one.
  *  - the "Task" button above the board opens a "Create task" window with every field, status included.
  */
@@ -345,7 +345,7 @@ function CreateTaskForm({ defaultTag, onDone }: { defaultTag?: TagId; onDone: ()
         </Dialog.Close>
       </div>
       <Dialog.Description className="sr-only">
-        Name the task, then optionally pick its status, assignee, timeline, priority and tag.
+        Name the task, then optionally pick its status, timeline, priority and tag.
       </Dialog.Description>
 
       <div className="px-5 pt-4">

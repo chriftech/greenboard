@@ -18,6 +18,7 @@ import { canMove, useBoardColumns, useTickColumn, useWorkflow } from "@/lib/colu
 import { findTag, useTags } from "@/lib/tags";
 import { TagRadio } from "./tag-chip";
 import { AssigneePicker, PriorityPicker } from "./task-meta";
+import { boardUsesAssignees } from "@/lib/people";
 import { SubtasksSection } from "./subtasks";
 
 /**
@@ -202,8 +203,8 @@ function DetailsBody({ task, parts, onDelete }: { task: Task; parts: Parts; onDe
           </div>
         </div>
 
-        {/* Priority and assignee */}
-        <div className="grid gap-5 sm:grid-cols-2">
+        {/* Priority, and the assignee on boards that use them */}
+        <div className={`grid gap-5 ${boardUsesAssignees() ? "sm:grid-cols-2" : ""}`}>
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink/50">Priority</p>
             <PriorityPicker
@@ -212,14 +213,16 @@ function DetailsBody({ task, parts, onDelete }: { task: Task; parts: Parts; onDe
               variant="field"
             />
           </div>
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink/50">Assignee</p>
-            <AssigneePicker
-              value={task.assignee}
-              onChange={(assignee) => taskActions.update(task.id, { assignee })}
-              variant="field"
-            />
-          </div>
+          {boardUsesAssignees() && (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink/50">Assignee</p>
+              <AssigneePicker
+                value={task.assignee}
+                onChange={(assignee) => taskActions.update(task.id, { assignee })}
+                variant="field"
+              />
+            </div>
+          )}
         </div>
 
         {/* Timeline */}

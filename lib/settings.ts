@@ -12,6 +12,8 @@ export type ReminderLead = (typeof REMINDER_LEADS)[number];
 export type Settings = {
   /** The "Good morning" card at the top of the board, with the date and progress ring. */
   showGreeting: boolean;
+  /** Confetti from the top of the screen when the last task moves out of Pending. */
+  pendingConfetti: boolean;
   /** Browser notifications before scheduled tasks start (also needs the browser's permission). */
   reminders: boolean;
   reminderLead: ReminderLead;
@@ -19,7 +21,13 @@ export type Settings = {
   emailReminders: boolean;
 };
 
-export const DEFAULT_SETTINGS: Settings = { showGreeting: true, reminders: false, reminderLead: 10, emailReminders: false };
+export const DEFAULT_SETTINGS: Settings = {
+  showGreeting: true,
+  pendingConfetti: true,
+  reminders: false,
+  reminderLead: 10,
+  emailReminders: false,
+};
 
 const SETTINGS_KEY = "greenboard.settings.v1";
 
@@ -37,6 +45,8 @@ function read(): Settings {
   }
   cached = {
     showGreeting: typeof saved.showGreeting === "boolean" ? saved.showGreeting : DEFAULT_SETTINGS.showGreeting,
+    pendingConfetti:
+      typeof saved.pendingConfetti === "boolean" ? saved.pendingConfetti : DEFAULT_SETTINGS.pendingConfetti,
     reminders: typeof saved.reminders === "boolean" ? saved.reminders : DEFAULT_SETTINGS.reminders,
     emailReminders: typeof saved.emailReminders === "boolean" ? saved.emailReminders : DEFAULT_SETTINGS.emailReminders,
     reminderLead: (REMINDER_LEADS as readonly number[]).includes(saved.reminderLead as number)

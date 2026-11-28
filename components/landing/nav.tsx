@@ -6,7 +6,8 @@ import { Menu, X } from "lucide-react";
 import { Logo } from "./logo";
 
 const LINKS = [
-  { href: "#how", label: "How it works" },
+  { href: "/#how", label: "How it works" },
+  { href: "/pricing", label: "Pricing" },
 ];
 
 /** Text link with an underline that grows in on hover. */
@@ -33,19 +34,19 @@ export function Nav() {
             : "border border-transparent"
         }`}
       >
-        <a href="#top" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2">
           <Logo />
           <span className="font-display text-xl font-bold tracking-tight text-ink">
             greenboard
           </span>
-        </a>
+        </Link>
 
         {/* Logo left; every link and the call to action grouped on the right. */}
         <div className="hidden items-center gap-6 md:flex">
           {LINKS.map((l) => (
-            <a key={l.href} href={l.href} className={NAV_LINK}>
+            <Link key={l.href} href={l.href} className={NAV_LINK}>
               {l.label}
-            </a>
+            </Link>
           ))}
           <Link href="/board" className={NAV_LINK}>
             My board
@@ -76,14 +77,14 @@ export function Nav() {
       {open && (
         <div className="gb-rise mx-auto mt-2 max-w-7xl rounded-2xl border border-ink/10 bg-surface p-4 shadow-xl md:hidden">
           {LINKS.map((l) => (
-            <a
+            <Link
               key={l.href}
               href={l.href}
               onClick={() => setOpen(false)}
               className="block rounded-xl px-3 py-3 font-medium text-ink hover:bg-mist"
             >
               {l.label}
-            </a>
+            </Link>
           ))}
           <Link
             href="/login"

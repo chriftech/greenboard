@@ -144,7 +144,10 @@ const SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ["Esc"], action: "Close a panel or dialog, or clear the search" },
   { keys: ["Space", "↑ ↓", "Space"], action: "Pick up, move and drop a task (from its grip)" },
   { keys: ["⌘ / Ctrl", "B · I · U"], action: "Bold, italic, underline in a description" },
+  { keys: ["⌘ / Ctrl", "⇧", "S"], action: "Strikethrough in a description" },
   { keys: ["⌘ / Ctrl", "⇧", "8"], action: "Bullet list in a description" },
+  { keys: ["⌘ / Ctrl", "⇧", "7"], action: "Numbered list in a description" },
+  { keys: ["⌘ / Ctrl", "Enter"], action: "Create the task from its description (Create task)" },
   { keys: ["← →"], action: "Resize the sidebar (with its edge focused)" },
   { keys: ["← →", "Esc"], action: "Step through the guided tour, or skip it" },
 ];

@@ -10,8 +10,8 @@ import type { Schedule } from "@/lib/tasks";
  * The calendar (react-day-picker and date-fns) is only needed once a date picker opens, so it
  * loads then, not with the board. Pointing at or focusing the date button starts the download early.
  */
-const loadCalendar = () => import("@/components/ui/calendar");
-const Calendar = dynamic(() => loadCalendar().then((m) => m.Calendar), {
+export const loadCalendar = () => import("@/components/ui/calendar");
+export const Calendar = dynamic(() => loadCalendar().then((m) => m.Calendar), {
   ssr: false,
   loading: () => <div aria-hidden className="h-[19rem] w-[16.5rem]" />,
 });
@@ -107,7 +107,7 @@ export function scheduleStatus({ start, end }: Schedule, done: boolean) {
 /* ───────────────────────── Fields ───────────────────────── */
 
 // Re-theme the shadcn Calendar (neutral tokens) to Greenboard colours, light or dark.
-const CALENDAR_THEME = {
+export const CALENDAR_THEME = {
   "--background": "var(--color-surface)",
   "--foreground": "var(--color-ink)",
   "--primary": "var(--color-deep)",

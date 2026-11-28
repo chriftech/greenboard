@@ -10,6 +10,8 @@ import { DONE_COLUMN, TODO_COLUMN, canMove, useBoardColumns, useWorkflow } from 
 import { AssigneePicker, OptionRow, Panel, PriorityPicker, triggerClass, type Variant } from "./task-meta";
 import { TagDot } from "./tag-chip";
 import { ScheduleFields, draftsToSchedule, formatSchedule, type DateTimeDraft } from "./schedule";
+import { RichTextEditor } from "./lazy-rich-text-editor";
+import type { RichTextValue } from "./rich-text-editor";
 
 /*
  * Adding tasks, the way a ClickUp board does it:
@@ -277,14 +279,6 @@ export function NewTaskButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-/** Plain text from the window's description box, as the editor's HTML (one paragraph per line). */
-const toHtml = (text: string) =>
-  text
-    .split("\n")
-    .map((line) => `<p>${escapeHtml(line)}</p>`)
-    .join("");
-
 export function CreateTaskDialog({
   open,
   onOpenChange,
@@ -311,7 +305,7 @@ function CreateTaskForm({ defaultTag, onDone }: { defaultTag?: TagId; onDone: ()
   const columns = useStartColumns();
   const [draft, setDraft] = useState<Draft>(() => emptyDraft(defaultTag ?? DEFAULT_TAG));
   const [status, setStatus] = useState<TaskStatus>(TODO_COLUMN);
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState<RichTextValue>({ html: "", text: "" });
   const tag = useDraftTag(draft.tag);
   const column = columns.find((c) => c.id === status) ?? columns[0];
   const schedule = draftsToSchedule(draft.start, draft.end);
@@ -320,7 +314,6 @@ function CreateTaskForm({ defaultTag, onDone }: { defaultTag?: TagId; onDone: ()
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!canSave) return;
-    const text = description.trim();
     taskActions.add({
       title: draft.title,
       tag,
@@ -328,7 +321,7 @@ function CreateTaskForm({ defaultTag, onDone }: { defaultTag?: TagId; onDone: ()
       priority: draft.priority,
       assignee: draft.assignee,
       schedule: schedule ?? undefined,
-      description: text ? { html: toHtml(text), text: text.replace(/\s+/g, " ") } : undefined,
+      description: description.text ? description : undefined,
     });
     onDone();
   }
@@ -362,17 +355,19 @@ function CreateTaskForm({ defaultTag, onDone }: { defaultTag?: TagId; onDone: ()
           maxLength={140}
           className="w-full bg-transparent font-display text-2xl font-bold placeholder:text-ink/25 focus:outline-none"
         />
-        <label htmlFor="create-task-description" className="sr-only">
-          Description
-        </label>
-        <textarea
-          id="create-task-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Add a description"
-          rows={3}
-          className="mt-2 w-full resize-none bg-transparent text-sm leading-relaxed placeholder:text-ink/35 focus:outline-none"
-        />
+        {/* Rich text, with the same formatting shortcuts as a task's details. ⌘/Ctrl+Enter creates the task. */}
+        <div
+          className="mt-3"
+          onKeyDownCapture={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              e.stopPropagation();
+              e.currentTarget.closest("form")?.requestSubmit();
+            }
+          }}
+        >
+          <RichTextEditor compact placeholder="Add a description" onChange={setDescription} />
+        </div>
       </div>
 
       {/* The fields, in a row of small buttons like the card in each column, with Status first. */}

@@ -27,6 +27,7 @@ import {
 } from "firebase/auth";
 import { getFirebaseAuth, isFirebaseConfigured } from "./firebase";
 import { setAuthHint } from "./auth-hint";
+import type { PlanId } from "./plan";
 
 export type AuthUser = {
   uid: string;
@@ -38,6 +39,8 @@ export type AuthUser = {
   providers: string[];
   /** Second factors for two-factor sign-in (authenticator apps). Empty when 2FA is off. */
   twoFactor: TwoFactorMethod[];
+  /** The account's plan: "free" until a payment sets the `plan` custom claim. */
+  plan: PlanId;
 };
 
 /** An enrolled second factor. */
@@ -72,7 +75,20 @@ function set(next: AuthState) {
   listeners.forEach((l) => l());
 }
 
-function toAuthUser(u: User): AuthUser {
+/** Read the `plan` custom claim; anything unpaid or unknown is Free. */
+const toPlan = (value: unknown): PlanId => (value === "standard" || value === "premium" ? value : "free");
+
+/** The account's paid plan, from its ID token's custom claims (set by the server after a payment). */
+async function planOf(u: User): Promise<PlanId> {
+  try {
+    return toPlan((await u.getIdTokenResult()).claims.plan);
+  } catch {
+    // Offline or the token can't be read: the free benefits still apply.
+    return "free";
+  }
+}
+
+function toAuthUser(u: User, plan: PlanId): AuthUser {
   return {
     uid: u.uid,
     name: u.displayName,
@@ -86,13 +102,25 @@ function toAuthUser(u: User): AuthUser {
       kind: f.factorId,
       addedAt: f.enrollmentTime,
     })),
+    plan,
   };
+}
+
+/** Signed in as this user, once their plan is known (so limits don't flicker from Free to paid). */
+async function setUser(u: User | null) {
+  if (!u) return set(SIGNED_OUT);
+  const plan = await planOf(u);
+  // A newer sign-in or sign-out may have happened while waiting.
+  if (getFirebaseAuth()?.currentUser?.uid !== u.uid) return;
+  set({ status: "signed-in", user: toAuthUser(u, plan) });
 }
 
 /** Re-read the current user (needed after profile changes, which onAuthStateChanged doesn't report). */
 function refresh() {
   const user = getFirebaseAuth()?.currentUser;
-  set(user ? { status: "signed-in", user: toAuthUser(user) } : SIGNED_OUT);
+  // Keep the plan already known for this account; a profile change doesn't change it.
+  const plan = state.status === "signed-in" && state.user.uid === user?.uid ? state.user.plan : "free";
+  set(user ? { status: "signed-in", user: toAuthUser(user, plan) } : SIGNED_OUT);
 }
 
 function subscribe(listener: () => void) {
@@ -101,10 +129,13 @@ function subscribe(listener: () => void) {
   if (!started) {
     started = true;
     const auth = getFirebaseAuth();
-    if (auth) onAuthStateChanged(auth, (u) => set(u ? { status: "signed-in", user: toAuthUser(u) } : SIGNED_OUT));
+    if (auth) onAuthStateChanged(auth, (u) => void setUser(u));
   }
   return () => listeners.delete(listener);
 }
+
+/** Who's signed in right now, outside React. */
+export const getAuthState = (): AuthState => state;
 
 export function useAuth(): AuthState {
   return useSyncExternalStore(

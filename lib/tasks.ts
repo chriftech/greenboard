@@ -1,4 +1,5 @@
 import { DONE_COLUMN, TODO_COLUMN, getColumns, getTickColumn, knownColumn, tickDestination, type BoardColumn } from "./columns";
+import { LONGEST_TRASH_DAYS, getLimits } from "./plan";
 
 /**
  * Client-side task store backed by localStorage.
@@ -168,17 +169,15 @@ export function isValidSchedule(s: Partial<Schedule> | null | undefined): s is S
 
 const KEY = "greenboard.tasks.v1";
 
-/** How long a task stays in Trash before it's deleted for good. */
-export const TRASH_DAYS = 30;
+/* How long a task stays in Trash depends on the plan (lib/plan.ts): 30 days on Free. */
 const DAY_MS = 24 * 60 * 60 * 1000;
-const TRASH_MS = TRASH_DAYS * DAY_MS;
 
-const isExpired = (t: Task, now: number) => t.deletedAt !== undefined && now - t.deletedAt >= TRASH_MS;
+const isExpired = (t: Task, now: number, days: number) => t.deletedAt !== undefined && now - t.deletedAt >= days * DAY_MS;
 
-/** Whole days until a trashed task is deleted for good (at least 0). */
-export function trashDaysLeft(t: Task, now = Date.now()) {
-  if (t.deletedAt === undefined) return TRASH_DAYS;
-  return Math.max(0, Math.ceil((t.deletedAt + TRASH_MS - now) / DAY_MS));
+/** Whole days until a trashed task is deleted for good (at least 0), on a plan keeping Trash for `days`. */
+export function trashDaysLeft(t: Task, now = Date.now(), days = getLimits().trashDays) {
+  if (t.deletedAt === undefined) return days;
+  return Math.max(0, Math.ceil((t.deletedAt + days * DAY_MS - now) / DAY_MS));
 }
 
 let cache: Task[] | null = null;
@@ -238,9 +237,10 @@ function load(): Task[] {
     const raw = window.localStorage.getItem(KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
     const tasks = Array.isArray(parsed) ? parsed.filter(isTask).map(normalize) : [];
-    // Permanently delete anything that has been in Trash for 30 days or more.
+    // Permanently delete anything past the longest Trash any plan keeps. The account's plan
+    // isn't known yet; its own limit is applied when Trash is opened (purgeExpired).
     const now = Date.now();
-    const kept = tasks.filter((t) => !isExpired(t, now));
+    const kept = tasks.filter((t) => !isExpired(t, now, LONGEST_TRASH_DAYS));
     if (kept.length !== tasks.length) {
       try {
         window.localStorage.setItem(KEY, JSON.stringify(kept));
@@ -543,11 +543,12 @@ export const taskActions = {
   emptyTrash() {
     save(getTasks().filter((t) => t.deletedAt === undefined));
   },
-  /** Delete trashed tasks whose 30 days are up (also done on every page load). */
+  /** Delete trashed tasks whose time is up on the current plan. */
   purgeExpired() {
     const now = Date.now();
+    const days = getLimits().trashDays;
     const tasks = getTasks();
-    if (tasks.some((t) => isExpired(t, now))) save(tasks.filter((t) => !isExpired(t, now)));
+    if (tasks.some((t) => isExpired(t, now, days))) save(tasks.filter((t) => !isExpired(t, now, days)));
   },
 };
 

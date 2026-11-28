@@ -1,9 +1,12 @@
 "use client";
 
 import { useId, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { Dialog } from "@base-ui/react/dialog";
 import { Columns3, Plus, X } from "lucide-react";
-import { MAX_COLUMN_LABEL, MAX_EXTRA_COLUMNS, columnActions, useBoardColumns, useTickColumn, type ColumnColor } from "@/lib/columns";
+import { PremiumBadge } from "@/components/pricing/premium-badge";
+import { NEXT_PLAN, PLAN_NAMES, useLimits, usePlan } from "@/lib/plan";
+import { MAX_COLUMN_LABEL, columnActions, useBoardColumns, useTickColumn, type ColumnColor } from "@/lib/columns";
 import { ColorPicker, TickToSelect } from "@/components/settings/columns-settings";
 
 /**
@@ -13,19 +16,35 @@ import { ColorPicker, TickToSelect } from "@/components/settings/columns-setting
 export function AddColumnButton({ onAdded }: { /** Called with the new column's id, to show it. */ onAdded?: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const columns = useBoardColumns();
+  const plan = usePlan();
+  const limit = useLimits().extraColumns;
   // Todo and Completed don't count towards the limit.
-  const full = columns.length - 2 >= MAX_EXTRA_COLUMNS;
-  const hint = full ? `You can add up to ${MAX_EXTRA_COLUMNS} columns. Delete one in Settings to add another.` : "Add a column";
+  const full = columns.length - 2 >= limit;
+  const next = NEXT_PLAN[plan];
+  // Matches Import beside it; a tile with a short label on phones.
+  const tile =
+    "relative inline-flex flex-1 flex-col justify-center gap-1 py-2 text-[11px] sm:flex-none sm:flex-row sm:gap-1.5 sm:py-1.5 sm:text-sm items-center rounded-xl border border-ink/15 bg-surface px-2.5 font-semibold text-ink transition-colors hover:border-ink/30 sm:px-3.5";
+
+  // At the plan's limit, the button leads to the plans that allow more columns.
+  if (full && next) {
+    return (
+      <Link
+        href="/pricing"
+        title={`${PLAN_NAMES[plan]} includes ${limit} columns of your own. Add more with ${PLAN_NAMES[next]}.`}
+        aria-label={`Add a column: more than ${limit} columns come with ${PLAN_NAMES[next]}. See plans`}
+        className={tile}
+      >
+        <Columns3 className="size-4" />
+        <span className="sm:hidden">Column</span>
+        <span className="hidden sm:inline">Add column</span>
+        <PremiumBadge plan={next} iconOnly className="absolute -right-1.5 -top-1.5 ring-2 ring-surface sm:static sm:ring-0" />
+      </Link>
+    );
+  }
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
-      <Dialog.Trigger
-        disabled={full}
-        title={hint}
-        aria-label="Add a column"
-        // Matches Import beside it; a tile with a short label on phones.
-        className="inline-flex flex-1 flex-col justify-center gap-1 py-2 text-[11px] sm:flex-none sm:flex-row sm:gap-1.5 sm:py-1.5 sm:text-sm items-center rounded-xl border border-ink/15 bg-surface px-2.5 font-semibold text-ink transition-colors enabled:hover:border-ink/30 disabled:opacity-40 sm:px-3.5"
-      >
+      <Dialog.Trigger title="Add a column" aria-label="Add a column" className={tile}>
         <Columns3 className="size-4" />
         <span className="sm:hidden">Column</span>
         <span className="hidden sm:inline">Add column</span>

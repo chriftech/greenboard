@@ -4,16 +4,17 @@
  *
  * A new board starts with two starter tags, Errands and Work. They can be
  * renamed, recoloured and deleted like any other, and don't count toward the
- * MAX_CUSTOM_TAGS tags a user can create (ids "custom-…").
+ * tags a user can create (ids "custom-…"), which their plan limits (lib/plan.ts).
  */
 
 import { useMemo, useSyncExternalStore } from "react";
 import { DEFAULT_TAG, TAGS, getTasks, taskActions, type TagId } from "./tasks";
+import { getLimits } from "./plan";
 
 export type CustomTag = { id: string; label: string; color: string };
 
-/** How many tags a user can create, besides Default and the starter tags. */
-export const MAX_CUSTOM_TAGS = 5;
+/** The most created tags kept in storage (a safety cap; plans allow fewer or "unlimited"). */
+export const MAX_STORED_TAGS = 500;
 
 /** A tag the user created (as opposed to Default or a starter tag). */
 export const isCreatedTag = (id: TagId) => id.startsWith("custom-");
@@ -95,11 +96,11 @@ const parseTags = (raw: string | null): CustomTag[] => {
   }
 };
 
-/** At most MAX_CUSTOM_TAGS created tags; starter and former built-in tags don't count. */
+/** No repeats, and at most MAX_STORED_TAGS created tags (a safety cap; the plan limits adding them). */
 function capCreated(tags: CustomTag[]): CustomTag[] {
   let created = 0;
   const seen = new Set<string>();
-  return tags.filter((t) => !seen.has(t.id) && seen.add(t.id) && (!isCreatedTag(t.id) || ++created <= MAX_CUSTOM_TAGS));
+  return tags.filter((t) => !seen.has(t.id) && seen.add(t.id) && (!isCreatedTag(t.id) || ++created <= MAX_STORED_TAGS));
 }
 
 function load(): CustomTag[] {
@@ -177,10 +178,10 @@ export function tagLabelError(label: string, exceptId?: string): string | null {
 }
 
 export const tagActions = {
-  /** Create a tag; returns its id, or null if the limit is reached or the input is invalid. */
+  /** Create a tag; returns its id, or null if the plan's limit is reached or the input is invalid. */
   add(label: string, color: string): string | null {
     const tags = getCustomTags();
-    if (tags.filter((t) => isCreatedTag(t.id)).length >= MAX_CUSTOM_TAGS || tagLabelError(label) || !HEX_RE.test(color)) return null;
+    if (tags.filter((t) => isCreatedTag(t.id)).length >= getLimits().createdTags || tagLabelError(label) || !HEX_RE.test(color)) return null;
     const id = `custom-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     save([...tags, { id, label: label.trim(), color: color.toLowerCase() }]);
     return id;

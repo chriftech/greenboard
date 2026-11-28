@@ -21,6 +21,7 @@
  */
 
 import { useSyncExternalStore } from "react";
+import { getLimits } from "./plan";
 
 /** The built-in columns: where new tasks start, and where ticked tasks go. */
 export const TODO_COLUMN = "todo";
@@ -66,8 +67,12 @@ type Saved = {
   doneAt?: number;
 };
 
-/** Columns the user can add, besides Todo and Completed. */
-export const MAX_EXTRA_COLUMNS = 6;
+/**
+ * The most columns a saved board keeps, besides Todo and Completed (a safety cap on stored
+ * data). How many the user can add depends on their plan (lib/plan.ts); a board that already
+ * has more, e.g. after moving to a smaller plan, keeps them.
+ */
+export const MAX_EXTRA_COLUMNS = 100;
 export const MAX_COLUMN_LABEL = 24;
 
 const DONE: BoardColumn = { id: DONE_COLUMN, label: "Completed", color: "teal", dot: "bg-success" };
@@ -258,11 +263,11 @@ function newId() {
 }
 
 export const columnActions = {
-  /** Add a column just before Completed (optionally with where ticking a task in it sends it). Returns its id, or null when full or unnamed. */
+  /** Add a column just before Completed (optionally with where ticking a task in it sends it). Returns its id, or null when the plan's limit is reached or it's unnamed. */
   add(label: string, color: ColumnColor, { tickTo }: { tickTo?: string } = {}): string | null {
     const s = read();
     const name = label.trim().slice(0, MAX_COLUMN_LABEL);
-    if (!name || s.columns.length - 1 >= MAX_EXTRA_COLUMNS) return null;
+    if (!name || s.columns.length - 1 >= getLimits().extraColumns) return null;
     const id = newId();
     const moves = { ...s.workflow.moves };
     if (s.workflow.enabled) {

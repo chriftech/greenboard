@@ -25,7 +25,6 @@ import {
   COLUMN_COLORS,
   DONE_COLUMN,
   MAX_COLUMN_LABEL,
-  MAX_EXTRA_COLUMNS,
   TODO_COLUMN,
   canMove,
   columnActions,
@@ -37,6 +36,8 @@ import {
 } from "@/lib/columns";
 import { getServerTasks, getTasks, statusOf, subscribeTasks, taskActions } from "@/lib/tasks";
 import { useHydrated } from "@/lib/hydrated";
+import { UpgradeNote } from "@/components/pricing/premium-badge";
+import { NEXT_PLAN, PLAN_NAMES, PLAN_LIMITS, usePlan } from "@/lib/plan";
 import { ConfirmDialog } from "@/components/board/confirm-dialog";
 
 const card =
@@ -52,6 +53,9 @@ export function ColumnsSettings() {
   const onBoard = (tasks ?? []).filter((t) => t.deletedAt === undefined);
   const countIn = (id: string) => (tasks ?? []).filter((t) => statusOf(t) === id).length;
   const extra = columns.length - 2;
+  const plan = usePlan();
+  const limit = PLAN_LIMITS[plan].extraColumns;
+  const next = NEXT_PLAN[plan];
   const deletingCount = deleting ? countIn(deleting.id) : 0;
   const firstLabel = columns.find((c) => c.id === TODO_COLUMN)?.label ?? "Todo";
   const tickColumn = useTickColumn();
@@ -81,8 +85,9 @@ export function ColumnsSettings() {
             <div className="min-w-0">
               <p className="font-semibold">Your board&rsquo;s columns</p>
               <p className="mt-0.5 text-sm text-ink/60">
-                Left to right, in any order. {firstLabel} is where new tasks start; {tickLabel} is where ticked tasks go. Add up
-                to {MAX_EXTRA_COLUMNS} more columns.
+                Left to right, in any order. {firstLabel} is where new tasks start; {tickLabel} is where ticked tasks go. {Number.isFinite(limit)
+                  ? `${PLAN_NAMES[plan]} adds up to ${limit} columns of your own.`
+                  : `Add as many columns of your own as you like.`}
               </p>
             </div>
           </div>
@@ -104,10 +109,20 @@ export function ColumnsSettings() {
 
           <TickColumnPicker columns={columns} value={tickColumn} />
 
-          {extra < MAX_EXTRA_COLUMNS ? (
+          {extra < limit ? (
             <AddColumn />
           ) : (
-            <p className="p-5 text-sm text-ink/55">That&rsquo;s the most columns a board can have. Delete one to add another.</p>
+            <div className="p-5">
+              {next ? (
+                <UpgradeNote plan={next}>
+                  You&rsquo;ve added {extra} columns, the most on {PLAN_NAMES[plan]}. Get{" "}
+                  {Number.isFinite(PLAN_LIMITS[next].extraColumns) ? `up to ${PLAN_LIMITS[next].extraColumns} per board` : "unlimited columns"}{" "}
+                  with {PLAN_NAMES[next]}, or delete one to add another.
+                </UpgradeNote>
+              ) : (
+                <p className="text-sm text-ink/55">That&rsquo;s the most columns a board can have. Delete one to add another.</p>
+              )}
+            </div>
           )}
         </div>
       )}

@@ -2,9 +2,11 @@
 
 import { useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
-import { BadgeCheck, Loader2, LogOut, Mail, MailWarning, RefreshCw, UserRound } from "lucide-react";
+import { BadgeCheck, Crown, Loader2, LogOut, Mail, MailWarning, RefreshCw, UserRound } from "lucide-react";
 import { AuthActionError, authActions, useAuth, type AuthUser } from "@/lib/auth";
 import { UserAvatar } from "@/components/auth/user-avatar";
+import { PremiumBadge } from "@/components/pricing/premium-badge";
+import { NEXT_PLAN, PLAN_LIMITS, PLAN_NAMES, type PlanId } from "@/lib/plan";
 import { ProfileSkeleton } from "./settings-skeleton";
 
 const MAX_NAME = 50;
@@ -82,6 +84,7 @@ function SignedInProfile({ user }: { user: AuthUser }) {
 
       <NameRow user={user} />
       {user.email && <EmailRow user={user} />}
+      <PlanRow plan={user.plan} />
 
       <div className="flex items-center justify-between gap-4 p-5">
         <p className="text-sm text-ink/60">Your tasks stay in this browser after you log out.</p>
@@ -100,6 +103,30 @@ export function Row({ icon, title, children }: { icon: ReactNode; title: string;
         {children}
       </div>
     </div>
+  );
+}
+
+/** The account's plan: Free until a payment goes through, with a link to compare plans. */
+function PlanRow({ plan }: { plan: PlanId }) {
+  const next = NEXT_PLAN[plan];
+  return (
+    <Row icon={<Crown className="size-4" />} title="Plan">
+      <p className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink/60">
+        <span className="rounded-full bg-ink/8 px-2 py-0.5 text-xs font-semibold text-ink/70">{PLAN_NAMES[plan]}</span>
+        <span>
+          {plan === "free"
+            ? `${PLAN_LIMITS.free.extraColumns} columns and ${PLAN_LIMITS.free.createdTags} tags of your own, and Trash for ${PLAN_LIMITS.free.trashDays} days.`
+            : "Thanks for subscribing."}
+        </span>
+      </p>
+      <Link
+        href="/pricing"
+        className="mt-3 inline-flex items-center gap-2 rounded-xl border border-ink/15 px-3.5 py-2 text-sm font-semibold transition-colors hover:border-ink/30"
+      >
+        {next ? <PremiumBadge plan={next} iconOnly /> : null}
+        {next ? `See what ${PLAN_NAMES[next]} adds` : "Compare plans"}
+      </Link>
+    </Row>
   );
 }
 

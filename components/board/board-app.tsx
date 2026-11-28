@@ -94,7 +94,6 @@ import {
   scheduleStatus,
 } from "./schedule";
 import {
-  TRASH_DAYS,
   getServerTasks,
   getTasks,
   isTicked,
@@ -106,6 +105,7 @@ import {
   type Task,
   type TaskStatus,
 } from "@/lib/tasks";
+import { getLimits } from "@/lib/plan";
 import {
   DONE_COLUMN,
   MAX_COLUMN_LABEL,
@@ -138,7 +138,7 @@ function confirmCopy(p: PendingDelete | null) {
       const kind = p.label ? `${p.label.toLowerCase()} task` : "task";
       return {
         title: n === 1 ? `Move 1 ${kind} to Trash?` : `Move all ${plural(n, kind)} to Trash?`,
-        description: `${p.narrowed ? "Only the tasks shown with your current filters are included. " : ""}You can restore ${n === 1 ? "it" : "them"} from Trash for ${TRASH_DAYS} days. After that ${n === 1 ? "it's" : "they're"} deleted for good.`,
+        description: `${p.narrowed ? "Only the tasks shown with your current filters are included. " : ""}You can restore ${n === 1 ? "it" : "them"} from Trash for ${getLimits().trashDays} days. After that ${n === 1 ? "it's" : "they're"} deleted for good.`,
         confirmLabel: "Move to Trash",
       };
     }
@@ -174,7 +174,7 @@ function confirmCopy(p: PendingDelete | null) {
         description: (
           <>
             <span className="font-semibold text-ink">&ldquo;{p?.title}&rdquo;</span> will move to Trash. You can
-            restore it for {TRASH_DAYS} days, then it&apos;s deleted for good.
+            restore it for {getLimits().trashDays} days, then it&apos;s deleted for good.
           </>
         ),
         confirmLabel: "Move to Trash",

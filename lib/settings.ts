@@ -1,6 +1,6 @@
 /**
  * Board preferences, saved in this browser (localStorage) like the tasks.
- * Read them with useSettings(); change one with setSetting().
+ * Read them with useSettings(); change one with setSetting(), or several with setSettings().
  */
 
 import { useSyncExternalStore } from "react";
@@ -15,9 +15,11 @@ export type Settings = {
   /** Browser notifications before scheduled tasks start (also needs the browser's permission). */
   reminders: boolean;
   reminderLead: ReminderLead;
+  /** Email reminders before scheduled tasks start, sent to the account's address. */
+  emailReminders: boolean;
 };
 
-export const DEFAULT_SETTINGS: Settings = { showGreeting: true, reminders: false, reminderLead: 10 };
+export const DEFAULT_SETTINGS: Settings = { showGreeting: true, reminders: false, reminderLead: 10, emailReminders: false };
 
 const SETTINGS_KEY = "greenboard.settings.v1";
 
@@ -36,6 +38,7 @@ function read(): Settings {
   cached = {
     showGreeting: typeof saved.showGreeting === "boolean" ? saved.showGreeting : DEFAULT_SETTINGS.showGreeting,
     reminders: typeof saved.reminders === "boolean" ? saved.reminders : DEFAULT_SETTINGS.reminders,
+    emailReminders: typeof saved.emailReminders === "boolean" ? saved.emailReminders : DEFAULT_SETTINGS.emailReminders,
     reminderLead: (REMINDER_LEADS as readonly number[]).includes(saved.reminderLead as number)
       ? (saved.reminderLead as ReminderLead)
       : DEFAULT_SETTINGS.reminderLead,
@@ -44,7 +47,12 @@ function read(): Settings {
 }
 
 export function setSetting<K extends keyof Settings>(key: K, value: Settings[K]) {
-  cached = { ...read(), [key]: value };
+  setSettings({ [key]: value } as Partial<Settings>);
+}
+
+/** Save several settings at once (e.g. a section's Save button). */
+export function setSettings(patch: Partial<Settings>) {
+  cached = { ...read(), ...patch };
   try {
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(cached));
   } catch {

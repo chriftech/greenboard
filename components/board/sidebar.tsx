@@ -33,11 +33,13 @@ import {
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { Logo } from "@/components/landing/logo";
 import type { TagId } from "@/lib/tasks";
-import { MAX_CUSTOM_TAGS, getCustomTags, isCreatedTag, type CustomTag, type TagView } from "@/lib/tags";
+import { getCustomTags, isCreatedTag, type CustomTag, type TagView } from "@/lib/tags";
 import { TagDot } from "./tag-chip";
 import { UserAvatar } from "@/components/auth/user-avatar";
 import { authActions, useAuth } from "@/lib/auth";
-import { FileDown } from "lucide-react";
+import { ChartColumn, FileDown, FileSpreadsheet } from "lucide-react";
+import { PremiumBadge } from "@/components/pricing/premium-badge";
+import { NEXT_PLAN, PLAN_LIMITS, PLAN_NAMES, usePlan } from "@/lib/plan";
 import { downloadTasksCsv } from "@/lib/export";
 import type { NavTarget } from "@/lib/workspace";
 import { DONE_COLUMN, useBoardColumns } from "@/lib/columns";
@@ -47,10 +49,10 @@ import { DONE_COLUMN, useBoardColumns } from "@/lib/columns";
 export type { NavTarget } from "@/lib/workspace";
 
 export type SidebarProps = {
-  /** Which workspace option is highlighted (none on the Settings and Help pages). */
+  /** Which workspace option is highlighted (none on the Usage, Settings and Help pages). */
   active: Exclude<NavTarget, "trash"> | null;
   /** The page showing, so Settings or Help can be highlighted. */
-  page: "board" | "settings" | "help" | null;
+  page: "board" | "usage" | "settings" | "help" | null;
   onNavigate: (target: NavTarget) => void;
   tag: TagId | null;
   onTag: (tag: TagId | null) => void;
@@ -329,6 +331,7 @@ function SidebarBody({
 }) {
   // "Completed" follows the done column's name, if the user renamed it.
   const doneLabel = useBoardColumns().find((c) => c.id === DONE_COLUMN)?.label;
+  const plan = usePlan();
   return (
     <>
       {/* Brand + collapse/close */}
@@ -446,24 +449,48 @@ function SidebarBody({
         {(() => {
           // Only tags the user created count toward the limit; Default and the starter tags don't.
           const customCount = tags.filter((t) => isCreatedTag(t.id)).length;
-          const full = customCount >= MAX_CUSTOM_TAGS;
+          const limit = PLAN_LIMITS[plan].createdTags;
+          const full = customCount >= limit;
+          const next = NEXT_PLAN[plan];
+          // At the plan's limit, the button leads to the plans with unlimited tags.
+          if (full && next) {
+            return collapsed ? (
+              <Link
+                href="/pricing"
+                title={`More tags come with ${PLAN_NAMES[next]}`}
+                aria-label={`New tag: more tags come with ${PLAN_NAMES[next]}. See plans`}
+                className="relative flex w-full items-center justify-center rounded-xl py-2 text-ink/70 transition-colors hover:bg-mist hover:text-ink"
+              >
+                <Plus className="size-4" />
+                <PremiumBadge plan={next} iconOnly className="absolute right-1 top-0.5 size-4 ring-2 ring-surface" />
+              </Link>
+            ) : (
+              <Link
+                href="/pricing"
+                title={`${PLAN_NAMES[plan]} includes ${limit} tags of your own. Get unlimited tags with ${PLAN_NAMES[next]}.`}
+                className="mt-1 flex w-full items-center gap-3 rounded-xl border border-dashed border-sunny/60 bg-sunny/10 px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:border-sunny hover:text-ink"
+              >
+                <Plus className="size-4 shrink-0" />
+                <span className="min-w-0 flex-1 truncate text-left">More tags</span>
+                <PremiumBadge plan={next} />
+              </Link>
+            );
+          }
           return collapsed ? (
-            !full && (
-              <SidebarItem icon={<Plus className="size-4" />} label="New tag" collapsed onClick={() => onEditTag(null)} />
-            )
+            <SidebarItem icon={<Plus className="size-4" />} label="New tag" collapsed onClick={() => onEditTag(null)} />
           ) : (
             <button
               type="button"
               onClick={() => onEditTag(null)}
-              disabled={full}
-              title={full ? `You can create up to ${MAX_CUSTOM_TAGS} tags of your own` : undefined}
-              className="mt-1 flex w-full items-center gap-3 rounded-xl border border-dashed border-ink/15 px-3 py-2 text-sm font-medium text-ink/55 transition-colors hover:border-iris hover:text-ink disabled:border-ink/10 disabled:text-ink/30 disabled:hover:border-ink/10"
+              className="mt-1 flex w-full items-center gap-3 rounded-xl border border-dashed border-ink/15 px-3 py-2 text-sm font-medium text-ink/55 transition-colors hover:border-iris hover:text-ink"
             >
               <Plus className="size-4 shrink-0" />
-              <span className="flex-1 text-left">{full ? "Tag limit reached" : "New tag"}</span>
-              <span className="text-[11px] font-semibold tabular-nums">
-                {customCount}/{MAX_CUSTOM_TAGS}
-              </span>
+              <span className="flex-1 text-left">New tag</span>
+              {Number.isFinite(limit) && (
+                <span className="text-[11px] font-semibold tabular-nums">
+                  {customCount}/{limit}
+                </span>
+              )}
             </button>
           );
         })()}
@@ -471,6 +498,7 @@ function SidebarBody({
 
       {/* Settings opens /settings; Help opens /help (highlighted while open). */}
       <div className="space-y-0.5 border-t border-ink/10 px-3 py-3">
+        <SidebarItem icon={<ChartColumn className="size-4" />} label="Usage" href="/usage" active={page === "usage"} collapsed={collapsed} />
         <SidebarItem icon={<Settings className="size-4" />} label="Settings" href="/settings" active={page === "settings"} collapsed={collapsed} />
         {/* The tour's last stop points here. */}
         <div data-tour="help" className="space-y-0.5">
@@ -478,6 +506,15 @@ function SidebarBody({
           <SidebarItem icon={<Compass className="size-4" />} label="Take the tour" onClick={onStartTour} collapsed={collapsed} />
         </div>
         <SidebarItem icon={<FileDown className="size-4" />} label="Export as CSV" onClick={() => downloadTasksCsv()} collapsed={collapsed} />
+        {plan !== "premium" && (
+          <SidebarItem
+            icon={<FileSpreadsheet className="size-4" />}
+            label="Export as Excel"
+            href="/pricing"
+            badge={<PremiumBadge plan="premium" iconOnly />}
+            collapsed={collapsed}
+          />
+        )}
         <AccountChip collapsed={collapsed} />
       </div>
     </>
@@ -574,6 +611,7 @@ function SidebarItem({
   onClick,
   href,
   reserveActions = false,
+  badge,
 }: {
   icon: ReactNode;
   label: string;
@@ -588,6 +626,8 @@ function SidebarItem({
   href?: string;
   /** Pad the right side so the count sits clear of the edit/delete buttons on custom tags. */
   reserveActions?: boolean;
+  /** A marker after the label, e.g. the crown on a paid feature (smaller, in the corner, when collapsed). */
+  badge?: ReactNode;
 }) {
   const showCount = typeof count === "number" && count > 0;
   const className = `relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
@@ -601,6 +641,7 @@ function SidebarItem({
     <>
       <span className="grid size-4 shrink-0 place-items-center">{icon}</span>
       {!collapsed && <span className="min-w-0 flex-1 truncate text-left">{label}</span>}
+      {badge && (collapsed ? <span className="absolute right-1 top-0.5 scale-75">{badge}</span> : badge)}
       {showCount &&
         (collapsed ? (
           <span

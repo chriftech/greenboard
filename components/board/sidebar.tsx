@@ -37,7 +37,7 @@ import { getCustomTags, isCreatedTag, type CustomTag, type TagView } from "@/lib
 import { TagDot } from "./tag-chip";
 import { UserAvatar } from "@/components/auth/user-avatar";
 import { authActions, useAuth } from "@/lib/auth";
-import { FileDown, FileSpreadsheet } from "lucide-react";
+import { ChartColumn, FileDown, FileSpreadsheet } from "lucide-react";
 import { PremiumBadge } from "@/components/pricing/premium-badge";
 import { NEXT_PLAN, PLAN_LIMITS, PLAN_NAMES, usePlan } from "@/lib/plan";
 import { downloadTasksCsv } from "@/lib/export";
@@ -49,10 +49,10 @@ import { DONE_COLUMN, useBoardColumns } from "@/lib/columns";
 export type { NavTarget } from "@/lib/workspace";
 
 export type SidebarProps = {
-  /** Which workspace option is highlighted (none on the Settings and Help pages). */
+  /** Which workspace option is highlighted (none on the Usage, Settings and Help pages). */
   active: Exclude<NavTarget, "trash"> | null;
   /** The page showing, so Settings or Help can be highlighted. */
-  page: "board" | "settings" | "help" | null;
+  page: "board" | "usage" | "settings" | "help" | null;
   onNavigate: (target: NavTarget) => void;
   tag: TagId | null;
   onTag: (tag: TagId | null) => void;
@@ -498,6 +498,7 @@ function SidebarBody({
 
       {/* Settings opens /settings; Help opens /help (highlighted while open). */}
       <div className="space-y-0.5 border-t border-ink/10 px-3 py-3">
+        <SidebarItem icon={<ChartColumn className="size-4" />} label="Usage" href="/usage" active={page === "usage"} collapsed={collapsed} />
         <SidebarItem icon={<Settings className="size-4" />} label="Settings" href="/settings" active={page === "settings"} collapsed={collapsed} />
         {/* The tour's last stop points here. */}
         <div data-tour="help" className="space-y-0.5">

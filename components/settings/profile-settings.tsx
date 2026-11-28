@@ -2,17 +2,17 @@
 
 import { useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
-import { BadgeCheck, KeyRound, Loader2, LogOut, Mail, MailWarning, RefreshCw, UserRound } from "lucide-react";
+import { BadgeCheck, Loader2, LogOut, Mail, MailWarning, RefreshCw, UserRound } from "lucide-react";
 import { AuthActionError, authActions, useAuth, type AuthUser } from "@/lib/auth";
 import { UserAvatar } from "@/components/auth/user-avatar";
 import { ProfileSkeleton } from "./settings-skeleton";
 
 const MAX_NAME = 50;
 
-const card =
+export const card =
   "mt-3 divide-y divide-ink/10 overflow-hidden rounded-[24px] border border-ink/10 bg-surface shadow-[0_20px_60px_-30px_rgb(46_51_73/0.4)]";
 
-/** The signed-in account: name, email and its verification, password and sign-in method. */
+/** The signed-in account: name, email and its verification, and sign-in method. Password and 2FA are under Security. */
 export function ProfileSettings() {
   const auth = useAuth();
 
@@ -82,7 +82,6 @@ function SignedInProfile({ user }: { user: AuthUser }) {
 
       <NameRow user={user} />
       {user.email && <EmailRow user={user} />}
-      {hasPassword && user.email && <PasswordRow email={user.email} />}
 
       <div className="flex items-center justify-between gap-4 p-5">
         <p className="text-sm text-ink/60">Your tasks stay in this browser after you log out.</p>
@@ -92,7 +91,7 @@ function SignedInProfile({ user }: { user: AuthUser }) {
   );
 }
 
-function Row({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
+export function Row({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
     <div className="flex items-start gap-4 p-5">
       <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-mist text-iris">{icon}</span>
@@ -104,7 +103,7 @@ function Row({ icon, title, children }: { icon: ReactNode; title: string; childr
   );
 }
 
-const message = (error: unknown) =>
+export const message = (error: unknown) =>
   error instanceof AuthActionError ? error.message : "Something went wrong. Please try again.";
 
 function NameRow({ user }: { user: AuthUser }) {
@@ -238,41 +237,6 @@ function EmailRow({ user }: { user: AuthUser }) {
           </p>
         </>
       )}
-    </Row>
-  );
-}
-
-function PasswordRow({ email }: { email: string }) {
-  const [state, setState] = useState<{ kind: "idle" | "sending" | "sent" } | { kind: "error"; text: string }>({
-    kind: "idle",
-  });
-
-  async function send() {
-    setState({ kind: "sending" });
-    try {
-      await authActions.resetPassword(email);
-      setState({ kind: "sent" });
-    } catch (error) {
-      setState({ kind: "error", text: message(error) });
-    }
-  }
-
-  return (
-    <Row icon={<KeyRound className="size-4" />} title="Password">
-      <p className="mt-0.5 text-sm text-ink/60">We&rsquo;ll email you a link to choose a new password.</p>
-      <button
-        type="button"
-        onClick={send}
-        disabled={state.kind === "sending" || state.kind === "sent"}
-        className="mt-3 inline-flex items-center gap-2 rounded-xl border border-ink/15 px-3.5 py-2 text-sm font-semibold transition-colors hover:border-ink/30 disabled:opacity-60"
-      >
-        {state.kind === "sending" && <Loader2 className="size-4 animate-spin" />}
-        {state.kind === "sent" ? "Link sent" : "Send password reset link"}
-      </button>
-      <p aria-live="polite" className="mt-2 min-h-5 text-sm">
-        {state.kind === "sent" && <span className="text-success">Sent to {email}.</span>}
-        {state.kind === "error" && <span className="text-coral">{state.text}</span>}
-      </p>
     </Row>
   );
 }

@@ -1,14 +1,17 @@
 "use client";
 
-import { useSyncExternalStore, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { Menu } from "@base-ui/react/menu";
-import { Check, ChevronDown, FileDown, FileUp, SlidersHorizontal } from "lucide-react";
-import { PRIORITIES, getServerTasks, getTasks, statusOf, subscribeTasks, type TagId } from "@/lib/tasks";
+import { Popover } from "@base-ui/react/popover";
+import { CalendarRange, Check, ChevronDown, ChevronLeft, FileDown, FileUp, SlidersHorizontal } from "lucide-react";
+import { PRIORITIES, getServerTasks, getTasks, statusOf, subscribeTasks, todayKey, type TagId } from "@/lib/tasks";
 import { useBoardColumns } from "@/lib/columns";
 import type { TagView } from "@/lib/tags";
 import { ME, boardUsesAssignees, type Person } from "@/lib/people";
 import { downloadTasksCsv } from "@/lib/export";
 import { TagDot } from "./tag-chip";
+import { CALENDAR_THEME, Calendar, loadCalendar } from "./schedule";
+import { ANY_DATE, DATE_PRESETS, dateFilterLabel, dateRangeOf, type DateFilter } from "@/lib/date-filter";
 
 import type { AssigneeFilter, PriorityFilter } from "@/lib/workspace";
 
@@ -24,6 +27,8 @@ type Props = {
   onPriorityChange: (priority: PriorityFilter) => void;
   assignee: AssigneeFilter;
   onAssigneeChange: (assignee: AssigneeFilter) => void;
+  date: DateFilter;
+  onDateChange: (date: DateFilter) => void;
   onClear: () => void;
   onImport: () => void;
   /** The "Add column" button, shown with Import and Export. */
@@ -42,6 +47,8 @@ export function BoardToolbar({
   onPriorityChange,
   assignee,
   onAssigneeChange,
+  date,
+  onDateChange,
   onClear,
   onImport,
   addColumn,
@@ -51,7 +58,7 @@ export function BoardToolbar({
   const activePriority = PRIORITIES.find((p) => p.id === priority);
   const everyone = [ME, ...people];
   const activePerson = everyone.find((p) => p.id === assignee);
-  const anyActive = Boolean(activeTag) || priority !== ANY || assignee !== ANY;
+  const anyActive = Boolean(activeTag) || priority !== ANY || assignee !== ANY || date.kind !== "any";
 
   return (
     <div role="toolbar" aria-label="Filter, add columns, import and export tasks" className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-ink/10 bg-surface/70 p-2 shadow-[0_10px_30px_-18px_rgb(46_51_73/0.45)] sm:gap-2 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
@@ -86,6 +93,8 @@ export function BoardToolbar({
               { value: NONE, label: "No priority" },
             ]}
           />
+
+          <DateFilterMenu value={date} onChange={onDateChange} />
 
           {boardUsesAssignees() && (
             <FilterMenu
@@ -196,6 +205,149 @@ function PriorityDot({ color }: { color: string }) {
 
 type Option = { value: string; label: string; icon?: ReactNode };
 
+/** A filter button: outlined when off, tinted when something is picked. */
+const filterTriggerClass = (on: boolean) =>
+  `inline-flex min-w-0 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris sm:justify-start sm:rounded-xl sm:px-3 sm:py-1.5 sm:data-popup-open:border-iris/50 ${
+    on
+      ? "border-transparent bg-surface text-ink shadow-[0_2px_8px_-3px_rgb(46_51_73/0.35)] sm:border-iris/40 sm:bg-iris/10 sm:shadow-none"
+      : "border-transparent text-ink/70 hover:text-ink data-popup-open:bg-surface data-popup-open:text-ink sm:border-ink/15 sm:bg-surface sm:hover:border-ink/30"
+  }`;
+
+const POPUP_CLASS =
+  "origin-(--transform-origin) rounded-2xl border border-ink/10 bg-surface p-1.5 text-ink shadow-[0_20px_50px_-15px_rgb(46_51_73/0.4)] outline-none transition-[opacity,transform] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0";
+
+const ROW_CLASS = "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm font-medium transition-colors";
+
+/** "YYYY-MM-DD" → a local Date at midnight. */
+const dayOf = (key: string) => {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
+/**
+ * The Date filter: presets (Today, This week, …), No date, or a custom range picked on a calendar.
+ * It's a popover rather than a menu so the calendar can take clicks and arrow keys.
+ */
+function DateFilterMenu({ value, onChange }: { value: DateFilter; onChange: (value: DateFilter) => void }) {
+  const [open, setOpen] = useState(false);
+  // The custom range calendar, and the days picked on it so far.
+  const [custom, setCustom] = useState(false);
+  const [draft, setDraft] = useState<{ from?: Date; to?: Date }>({});
+  const label = dateFilterLabel(value);
+
+  function openChange(next: boolean) {
+    setOpen(next);
+    if (next) {
+      // Reopening shows the custom calendar again if a custom range is on, starting from it.
+      setCustom(value.kind === "range");
+      const range = value.kind === "range" ? dateRangeOf(value) : null;
+      setDraft(range ? { from: dayOf(range.from), to: dayOf(range.to) } : {});
+    }
+  }
+
+  function pick(next: DateFilter) {
+    onChange(next);
+    setOpen(false);
+  }
+
+  const row = (selected: boolean, text: string, onClick: () => void, key?: string) => (
+    <button
+      key={key ?? text}
+      type="button"
+      role="menuitemradio"
+      aria-checked={selected}
+      onClick={onClick}
+      className={`${ROW_CLASS} ${selected ? "bg-mist text-ink" : "text-ink/75 hover:bg-mist hover:text-ink"}`}
+    >
+      <span className="min-w-0 flex-1 truncate">{text}</span>
+      <Check className={`size-4 shrink-0 text-iris ${selected ? "" : "invisible"}`} />
+    </button>
+  );
+
+  return (
+    <Popover.Root open={open} onOpenChange={openChange}>
+      <Popover.Trigger
+        aria-label={label ? `Date: ${label}` : "Date"}
+        onPointerEnter={loadCalendar}
+        onFocus={loadCalendar}
+        className={filterTriggerClass(label !== null)}
+      >
+        <span className={label ? "hidden text-ink/55 sm:inline" : ""}>Date</span>
+        {label && <span className="min-w-0 overflow-hidden whitespace-nowrap font-semibold">{label}</span>}
+        <ChevronDown className="size-3.5 shrink-0 text-ink/45" />
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner sideOffset={6} align="start" collisionPadding={12} className="z-40">
+          <Popover.Popup aria-label="Filter by date" style={CALENDAR_THEME} className={`${POPUP_CLASS} ${custom ? "" : "w-52"}`}>
+            {!custom ? (
+              <div role="menu" aria-label="Date">
+                {row(value.kind === "any", "Any date", () => pick(ANY_DATE))}
+                {DATE_PRESETS.map((p) =>
+                  row(value.kind === "preset" && value.preset === p.id, p.label, () => pick({ kind: "preset", preset: p.id }), p.id),
+                )}
+                {row(value.kind === "none", "No date", () => pick({ kind: "none" }))}
+                <div className="mx-2 my-1 h-px bg-ink/10" />
+                <button
+                  type="button"
+                  onClick={() => setCustom(true)}
+                  className={`${ROW_CLASS} ${value.kind === "range" ? "bg-mist text-ink" : "text-ink/75 hover:bg-mist hover:text-ink"}`}
+                >
+                  <CalendarRange className="size-4 shrink-0 text-ink/50" />
+                  <span className="min-w-0 flex-1 truncate">Custom range…</span>
+                  <Check className={`size-4 shrink-0 text-iris ${value.kind === "range" ? "" : "invisible"}`} />
+                </button>
+              </div>
+            ) : (
+              <div className="w-[17.5rem]">
+                <div className="flex items-center gap-1 px-1 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setCustom(false)}
+                    aria-label="Back to date options"
+                    className="grid size-7 place-items-center rounded-lg text-ink/55 transition-colors hover:bg-mist hover:text-ink"
+                  >
+                    <ChevronLeft className="size-4" />
+                  </button>
+                  <p className="text-sm font-semibold">Custom range</p>
+                </div>
+                <Calendar
+                  mode="range"
+                  selected={draft.from ? { from: draft.from, to: draft.to } : undefined}
+                  defaultMonth={draft.from}
+                  onSelect={(r) => setDraft({ from: r?.from, to: r?.to })}
+                  className="mx-auto"
+                />
+                <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-1.5 pb-0.5 pt-2">
+                  <p className="min-w-0 truncate text-xs text-ink/55">
+                    {draft.from
+                      ? dateFilterLabel({
+                          kind: "range",
+                          from: todayKey(draft.from),
+                          to: todayKey(draft.to ?? draft.from),
+                        })
+                      : "Pick the first and last day"}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={!draft.from}
+                    onClick={() =>
+                      draft.from &&
+                      pick({ kind: "range", from: todayKey(draft.from), to: todayKey(draft.to ?? draft.from) })
+                    }
+                    className="shrink-0 rounded-lg bg-deep px-3 py-1.5 text-xs font-semibold text-on-deep transition-opacity disabled:opacity-40"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            )}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
 function FilterMenu({
   label,
   value,
@@ -214,11 +366,7 @@ function FilterMenu({
   return (
     <Menu.Root>
       <Menu.Trigger
-        className={`inline-flex min-w-0 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris sm:justify-start sm:rounded-xl sm:px-3 sm:py-1.5 sm:data-popup-open:border-iris/50 ${
-          on
-            ? "border-transparent bg-surface text-ink shadow-[0_2px_8px_-3px_rgb(46_51_73/0.35)] sm:border-iris/40 sm:bg-iris/10 sm:shadow-none"
-            : "border-transparent text-ink/70 hover:text-ink data-popup-open:bg-surface data-popup-open:text-ink sm:border-ink/15 sm:bg-surface sm:hover:border-ink/30"
-        }`}
+        className={filterTriggerClass(on)}
       >
         {/* On phones a chosen filter shows just its value, so it fits a third of the row. */}
         <span className={on ? "hidden text-ink/55 sm:inline" : ""}>{label}</span>

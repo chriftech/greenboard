@@ -13,6 +13,7 @@
 import { useSyncExternalStore } from "react";
 import type { TagId } from "./tasks";
 import type { CustomTag, TagView } from "./tags";
+import { ANY_DATE, type DateFilter } from "./date-filter";
 
 export type View = "board" | "today" | "upcoming";
 /** The phone tab: a column id (see lib/columns.ts), "todo" by default. */
@@ -31,6 +32,8 @@ export type WorkspaceState = {
   query: string;
   priority: PriorityFilter;
   assignee: AssigneeFilter;
+  /** Tasks whose timeline falls in a range of days (see lib/date-filter.ts). */
+  date: DateFilter;
   /** The phone menu (the sidebar as a slide-out panel). */
   menuOpen: boolean;
 };
@@ -42,6 +45,7 @@ const INITIAL: WorkspaceState = {
   query: "",
   priority: "any",
   assignee: "any",
+  date: ANY_DATE,
   menuOpen: false,
 };
 
@@ -69,6 +73,7 @@ export const workspace = {
   setQuery: (query: string) => set({ query }),
   setPriority: (priority: PriorityFilter) => set({ priority }),
   setAssignee: (assignee: AssigneeFilter) => set({ assignee }),
+  setDate: (date: DateFilter) => set({ date }),
   setMenuOpen: (menuOpen: boolean) => set({ menuOpen }),
 };
 

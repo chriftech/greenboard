@@ -87,6 +87,7 @@ import { BoardToolbar } from "./board-toolbar";
 import { ImportDialog } from "./import-dialog";
 import { AddColumnButton } from "./add-column";
 import { boardUsesAssignees, usePeople } from "@/lib/people";
+import { ANY_DATE, matchesDate } from "@/lib/date-filter";
 import { registerBoard, useWorkspace, workspace, type Filter, type NavTarget, type View } from "@/lib/workspace";
 import { GreetingSkeleton, TaskBoardSkeleton } from "./board-skeleton";
 import {
@@ -256,8 +257,8 @@ export function BoardApp() {
   const tasks = useSyncExternalStore(subscribeTasks, getTasks, getServerTasks);
   // View, tag, search and filters live in the workspace store, shared with the sidebar
   // (which stays on screen across /board, /settings and /help).
-  const { view, tag, query, priority, assignee: assigneeFilter } = useWorkspace();
-  const { setView, setTag, setQuery, setPriority, setAssignee: setAssigneeFilter } = workspace;
+  const { view, tag, query, priority, assignee: assigneeFilter, date: dateFilter } = useWorkspace();
+  const { setView, setTag, setQuery, setPriority, setAssignee: setAssigneeFilter, setDate: setDateFilter } = workspace;
   // The user's columns (Settings), and which moves between them the workflow allows.
   const boardColumns = useBoardColumns();
   const workflow = useWorkflow();
@@ -528,11 +529,12 @@ export function BoardApp() {
     (!activeTag || t.tag === activeTag) &&
     (priority === "any" || (priority === "none" ? !t.priority : t.priority === priority)) &&
     (activeAssignee === "any" || (activeAssignee === "none" ? !t.assignee : t.assignee === activeAssignee)) &&
+    matchesDate(t, dateFilter) &&
     (!q || t.title.toLowerCase().includes(q) || (t.descriptionText ?? "").toLowerCase().includes(q));
   const scoped = all.filter(matches);
   // What the sidebar narrowed (shown as chips), and everything that narrows the board.
   const sidebarNarrowed = view !== "board" || activeTag !== null || q !== "";
-  const narrowed = sidebarNarrowed || priority !== "any" || activeAssignee !== "any";
+  const narrowed = sidebarNarrowed || priority !== "any" || activeAssignee !== "any" || dateFilter.kind !== "any";
   /** Ask to move every task shown in a column or tab to Trash. */
   const askDeleteAll = (list: DeleteAllList, tasks: Task[]) =>
     askDelete({ kind: "all", ids: tasks.map((t) => t.id), list, label: labelOf(list), narrowed });
@@ -615,6 +617,7 @@ export function BoardApp() {
     setTag(null);
     setPriority("any");
     setAssigneeFilter("any");
+    setDateFilter(ANY_DATE);
   }
 
   function clearNarrowing() {
@@ -878,6 +881,8 @@ export function BoardApp() {
                 onPriorityChange={setPriority}
                 assignee={activeAssignee}
                 onAssigneeChange={setAssigneeFilter}
+                date={dateFilter}
+                onDateChange={setDateFilter}
                 onClear={clearFilters}
               />
               </div>

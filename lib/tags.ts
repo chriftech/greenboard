@@ -1,14 +1,40 @@
 /**
- * Custom tags: up to MAX_CUSTOM_TAGS user-made tags with their own colour,
- * stored in localStorage next to the built-in TAGS from lib/tasks.ts.
+ * Editable tags, stored in localStorage next to the built-in Default tag
+ * (TAGS in lib/tasks.ts), which can't be deleted.
+ *
+ * A new board starts with two starter tags, Errands and Work. They can be
+ * renamed, recoloured and deleted like any other, and don't count toward the
+ * MAX_CUSTOM_TAGS tags a user can create (ids "custom-…").
  */
 
 import { useMemo, useSyncExternalStore } from "react";
-import { DEFAULT_TAG, TAGS, taskActions, type TagId } from "./tasks";
+import { DEFAULT_TAG, TAGS, getTasks, taskActions, type TagId } from "./tasks";
 
 export type CustomTag = { id: string; label: string; color: string };
 
+/** How many tags a user can create, besides Default and the starter tags. */
 export const MAX_CUSTOM_TAGS = 5;
+
+/** A tag the user created (as opposed to Default or a starter tag). */
+export const isCreatedTag = (id: TagId) => id.startsWith("custom-");
+
+/** Tags a new board starts with, besides Default. */
+const STARTER_TAGS: CustomTag[] = [
+  { id: "errands", label: "Errands", color: "#f59e0b" },
+  { id: "work", label: "Work", color: "#8b5cf6" },
+];
+
+/**
+ * Tags that used to be built in. Boards saved before the starter tags keep the
+ * ones their tasks use, now editable and deletable, so no task loses its tag.
+ */
+const FORMER_BUILT_INS: CustomTag[] = [
+  { id: "work", label: "Work", color: "#8b5cf6" },
+  { id: "personal", label: "Personal", color: "#f43f5e" },
+  { id: "team", label: "Team", color: "#06b6d4" },
+  { id: "health", label: "Health", color: "#14b8a6" },
+  { id: "home", label: "Home", color: "#eab308" },
+];
 export const MAX_TAG_LABEL = 20;
 
 /** Preset swatches for the tag editor; any other colour can be picked too. */
@@ -37,7 +63,9 @@ export type TagView = {
   color?: string;
 };
 
-const KEY = "greenboard.tags.v1";
+const KEY = "greenboard.tags.v2";
+/** Before the starter tags: only the user's own tags were saved, under this key. */
+const OLD_KEY = "greenboard.tags.v1";
 const HEX_RE = /^#[0-9a-f]{6}$/i;
 const EMPTY: CustomTag[] = [];
 
@@ -49,7 +77,8 @@ function isCustomTag(v: unknown): v is CustomTag {
   const t = v as Record<string, unknown>;
   return (
     typeof t.id === "string" &&
-    t.id.startsWith("custom-") &&
+    t.id.length > 0 &&
+    t.id !== DEFAULT_TAG &&
     typeof t.label === "string" &&
     t.label.trim().length > 0 &&
     typeof t.color === "string" &&
@@ -57,13 +86,51 @@ function isCustomTag(v: unknown): v is CustomTag {
   );
 }
 
-function load(): CustomTag[] {
+const parseTags = (raw: string | null): CustomTag[] => {
   try {
-    const parsed: unknown = JSON.parse(window.localStorage.getItem(KEY) ?? "[]");
-    return Array.isArray(parsed) ? parsed.filter(isCustomTag).slice(0, MAX_CUSTOM_TAGS) : [];
+    const parsed: unknown = JSON.parse(raw ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter(isCustomTag) : [];
   } catch {
     return [];
   }
+};
+
+/** At most MAX_CUSTOM_TAGS created tags; starter and former built-in tags don't count. */
+function capCreated(tags: CustomTag[]): CustomTag[] {
+  let created = 0;
+  const seen = new Set<string>();
+  return tags.filter((t) => !seen.has(t.id) && seen.add(t.id) && (!isCreatedTag(t.id) || ++created <= MAX_CUSTOM_TAGS));
+}
+
+function load(): CustomTag[] {
+  let saved: string | null = null;
+  try {
+    saved = window.localStorage.getItem(KEY);
+  } catch {
+    // Storage blocked: start fresh for this visit.
+  }
+  if (saved !== null) return capCreated(parseTags(saved));
+
+  // First visit since the starter tags: a brand-new board gets Errands and Work;
+  // an existing one keeps its own tags and the old built-in tags its tasks use.
+  let oldSaved: string | null = null;
+  try {
+    oldSaved = window.localStorage.getItem(OLD_KEY);
+  } catch {
+    // Treated as a new board.
+  }
+  const tasks = getTasks();
+  const existing = oldSaved !== null || tasks.length > 0;
+  const used = new Set(tasks.map((t) => t.tag));
+  const first = existing ? FORMER_BUILT_INS.filter((t) => used.has(t.id)) : STARTER_TAGS;
+  const tags = capCreated([...first, ...parseTags(oldSaved).filter((t) => isCreatedTag(t.id))]);
+  // Save straight away, so tags deleted later stay deleted.
+  try {
+    window.localStorage.setItem(KEY, JSON.stringify(tags));
+  } catch {
+    // Storage blocked: the tags still apply for this visit.
+  }
+  return tags;
 }
 
 function save(next: CustomTag[]) {
@@ -113,7 +180,7 @@ export const tagActions = {
   /** Create a tag; returns its id, or null if the limit is reached or the input is invalid. */
   add(label: string, color: string): string | null {
     const tags = getCustomTags();
-    if (tags.length >= MAX_CUSTOM_TAGS || tagLabelError(label) || !HEX_RE.test(color)) return null;
+    if (tags.filter((t) => isCreatedTag(t.id)).length >= MAX_CUSTOM_TAGS || tagLabelError(label) || !HEX_RE.test(color)) return null;
     const id = `custom-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     save([...tags, { id, label: label.trim(), color: color.toLowerCase() }]);
     return id;
@@ -133,7 +200,7 @@ export const tagActions = {
   },
 };
 
-/** Built-in tags followed by the user's custom tags, kept in sync with storage. */
+/** Default followed by the editable tags (starter and created), kept in sync with storage. */
 export function useTags(): TagView[] {
   const custom = useSyncExternalStore(subscribe, getCustomTags, getServerCustomTags);
   return useMemo(

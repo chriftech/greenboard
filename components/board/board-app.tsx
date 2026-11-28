@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -65,6 +66,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Logo } from "@/components/landing/logo";
 import { CheckBox, ConfettiBurst } from "@/components/landing/check-box";
+import { ConfettiRain } from "./confetti-rain";
 import { TaskDetails, preloadTaskEditor } from "./task-details";
 import { CreateTaskDialog, InlineAddTask, NewTaskButton, useStartColumns } from "./add-task";
 import { ConfirmDialog } from "./confirm-dialog";
@@ -78,7 +80,7 @@ import { findTag, tagActions, useTags, type CustomTag, type TagView } from "@/li
 import { TrashPanel } from "./trash-panel";
 import { Tour } from "./tour";
 import { hasSeenTour, tourActions } from "@/lib/tour";
-import { useSettings } from "@/lib/settings";
+import { getSettings, useSettings } from "@/lib/settings";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProfileMenu } from "./profile-menu";
 import { BoardToolbar } from "./board-toolbar";
@@ -109,6 +111,7 @@ import { getLimits } from "@/lib/plan";
 import {
   DONE_COLUMN,
   MAX_COLUMN_LABEL,
+  PENDING_COLUMN,
   TODO_COLUMN,
   canMove,
   columnActions,
@@ -490,6 +493,26 @@ export function BoardApp() {
   const all = (tasks ?? []).filter((t) => t.deletedAt === undefined);
   const trashed = (tasks ?? []).filter((t) => t.deletedAt !== undefined);
 
+  // Confetti from the top when the Pending column is cleared by moving its tasks on (not by deleting them),
+  // unless it's switched off in Settings → Board.
+  const pendingKey = all
+    .filter((t) => statusOf(t) === PENDING_COLUMN)
+    .map((t) => t.id)
+    .join(",");
+  const lastPending = useRef<string[] | null>(null);
+  const [rain, setRain] = useState(0);
+  const endRain = useCallback(() => setRain(0), []);
+  useEffect(() => {
+    if (!loaded) return;
+    const before = lastPending.current;
+    const now = pendingKey ? pendingKey.split(",") : [];
+    lastPending.current = now;
+    if (!before?.length || now.length) return;
+    // Emptied: celebrate if any of those tasks is still on the board, i.e. it moved to another column.
+    const onBoard = new Set((getTasks() ?? []).filter((t) => t.deletedAt === undefined).map((t) => t.id));
+    if (getSettings().pendingConfetti && before.some((id) => onBoard.has(id))) setRain((n) => n + 1);
+  }, [pendingKey, loaded]);
+
   // Narrow the board by the sidebar's view, tag and search.
   const q = query.trim().toLowerCase();
   const inView = (t: Task, v: View) => {
@@ -759,6 +782,9 @@ export function BoardApp() {
             style={{ animationDelay: "-13s" }}
           />
         </div>
+
+        {/* Pending was just cleared: confetti from the top of the screen. */}
+        {rain > 0 && <ConfettiRain key={rain} onDone={endRain} />}
   
         <header className="relative mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 lg:justify-end">
           {/* The sidebar shows the logo from md up. */}
